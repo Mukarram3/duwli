@@ -6,6 +6,7 @@ use Workdo\Account\Models\JournalEntry;
 use Workdo\Account\Models\JournalEntryItem;
 use Workdo\Account\Models\ChartOfAccount;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Workdo\Account\Events\UpdateBudgetSpending;
 use Workdo\Account\Models\BankAccount;
 use Workdo\Retainer\Models\RetainerPaymentAllocation;
@@ -112,8 +113,8 @@ class JournalService
     {
 
         $allocations = RetainerPaymentAllocation::whereHas('payment', function($q) {
-                $q->where('status', 'cleared');
-            })
+            $q->where('status', 'cleared');
+        })
             ->where('retainer_id', $retainer->id)
             ->get();
 
@@ -626,8 +627,8 @@ class JournalService
     public function deleteStockTransferJournal($transferId)
     {
         $journalEntry = JournalEntry::where('reference_type', 'stock_transfer')
-                                  ->where('reference_id', $transferId)
-                                  ->first();
+            ->where('reference_id', $transferId)
+            ->first();
 
         if ($journalEntry) {
             // Reverse account balances before deleting
@@ -641,8 +642,151 @@ class JournalService
         }
     }
 
-    private function updateAccountBalances($journalEntry)
+    /**
+     * MANUAL JOURNAL ENTRIES
+     * ------------------------------------------------------------------
+     * Everything above this point is automatic — journals raised as a
+     * side effect of an invoice, payment or transfer. The methods below
+     * are the manual path: an accountant writing a general journal by
+     * hand (opening balances, accruals, corrections, depreciation).
+     *
+     * A manual journal is created as a DRAFT and does not touch account
+     * balances until it is posted, so a half-finished entry can never
+     * distort the trial balance.
+     */
+
+    /**
+     * Create a manual journal entry from raw line data.
+     *
+     * @param array $data  ['journal_date', 'description', 'lines' => [['account_id','description','debit_amount','credit_amount'], ...]]
+     * @param bool  $post  Post immediately instead of saving as draft.
+     */
+    public function createManualJournal(array $data, bool $post = false)
     {
+        $lines = collect($data['lines'] ?? [])
+            ->map(function ($line) {
+                return [
+                    'account_id'    => $line['account_id'] ?? null,
+                    'description'   => $line['description'] ?? null,
+                    'debit_amount'  => round((float) ($line['debit_amount'] ?? 0), 2),
+                    'credit_amount' => round((float) ($line['credit_amount'] ?? 0), 2),
+                ];
+            })
+            // Drop rows the user left completely blank.
+            ->filter(fn($line) => $line['account_id'] && ($line['debit_amount'] > 0 || $line['credit_amount'] > 0))
+            ->values();
+
+        if ($lines->count() < 2) {
+            throw new \Exception(__('A journal entry needs at least two lines — one debit and one credit.'));
+        }
+
+        foreach ($lines as $line) {
+            if ($line['debit_amount'] > 0 && $line['credit_amount'] > 0) {
+                throw new \Exception(__('A single line cannot hold both a debit and a credit amount.'));
+            }
+        }
+
+        $totalDebit  = round($lines->sum('debit_amount'), 2);
+        $totalCredit = round($lines->sum('credit_amount'), 2);
+
+        if ($totalDebit <= 0) {
+            throw new \Exception(__('Journal entry total cannot be zero.'));
+        }
+
+        $this->validateBalance($totalDebit, $totalCredit);
+
+        // Every account must belong to this company.
+        $accountIds = $lines->pluck('account_id')->unique();
+        $validCount = ChartOfAccount::whereIn('id', $accountIds)
+            ->where('created_by', creatorId())
+            ->count();
+        if ($validCount !== $accountIds->count()) {
+            throw new \Exception(__('One or more selected accounts are not available.'));
+        }
+
+        return DB::transaction(function () use ($data, $lines, $totalDebit, $totalCredit, $post) {
+            $journalEntry = JournalEntry::create([
+                'journal_date'   => $data['journal_date'] ?? now(),
+                'entry_type'     => 'manual',
+                'reference_type' => $data['reference_type'] ?? 'manual_journal',
+                'reference_id'   => $data['reference_id'] ?? null,
+                'description'    => $data['description'],
+                'total_debit'    => $totalDebit,
+                'total_credit'   => $totalCredit,
+                'status'         => $post ? 'posted' : 'draft',
+                'creator_id'     => Auth::id(),
+                'created_by'     => creatorId(),
+            ]);
+
+            foreach ($lines as $line) {
+                JournalEntryItem::create(array_merge($line, [
+                    'journal_entry_id' => $journalEntry->id,
+                    'creator_id'       => Auth::id(),
+                    'created_by'       => creatorId(),
+                ]));
+            }
+
+            if ($post) {
+                $this->updateAccountBalances($journalEntry);
+            }
+
+            return $journalEntry;
+        });
+    }
+
+    /**
+     * Replace the lines on a DRAFT manual journal. Posted entries are
+     * immutable — reverse them instead.
+     */
+    public function updateManualJournal(JournalEntry $journalEntry, array $data)
+    {
+        if (!$journalEntry->isDraft()) {
+            throw new \Exception(__('Only draft journal entries can be edited. Reverse this entry instead.'));
+        }
+
+        return DB::transaction(function () use ($journalEntry, $data) {
+            $journalEntry->items()->delete();
+            $journalEntry->delete();
+
+            return $this->createManualJournal($data, false);
+        });
+    }
+
+    /** Post a draft journal — this is the point at which balances move. */
+    public function postManualJournal(JournalEntry $journalEntry)
+    {
+        if (!$journalEntry->isDraft()) {
+            throw new \Exception(__('Only draft journal entries can be posted.'));
+        }
+        if (!$journalEntry->isBalanced()) {
+            throw new \Exception(__('Journal entry is not balanced and cannot be posted.'));
+        }
+
+        return DB::transaction(function () use ($journalEntry) {
+            $journalEntry->update(['status' => 'posted']);
+            $this->updateAccountBalances($journalEntry);
+            return $journalEntry;
+        });
+    }
+
+    /**
+     * Reverse a posted journal. The original is kept for audit and marked
+     * reversed; balances are rolled back.
+     */
+    public function reverseManualJournal(JournalEntry $journalEntry)
+    {
+        if (!$journalEntry->isPosted()) {
+            throw new \Exception(__('Only posted journal entries can be reversed.'));
+        }
+
+        return DB::transaction(function () use ($journalEntry) {
+            $this->reverseAccountBalances($journalEntry);
+            $journalEntry->update(['status' => 'reversed']);
+            return $journalEntry;
+        });
+    }
+
+    private function updateAccountBalances($journalEntry)    {
         $journalEntry->load('items.account');
 
         foreach($journalEntry->items as $item) {

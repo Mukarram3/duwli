@@ -1,4 +1,3 @@
-
 import { Calculator } from 'lucide-react';
 
 declare global {
@@ -90,6 +89,11 @@ export const accountCompanyMenu = (t: (key: string) => string) => [
                 title: t('Chart Of Accounts'),
                 href: route('account.chart-of-accounts.index'),
                 permission: 'manage-chart-of-accounts',
+            },
+            {
+                title: t('Journal Entries'),
+                href: route('account.journal-entries.index'),
+                permission: 'manage-journal-entries',
             },
             {
                 title: t('System Setup'),

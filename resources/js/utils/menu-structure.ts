@@ -133,7 +133,7 @@ const SECTIONS: Section[] = [
         icon: Calculator,
         groups: [
             {
-                routes: ['account.chart-of-accounts.index'],
+                routes: ['account.chart-of-accounts.index', 'account.journal-entries.index'],
             },
             {
                 title: 'Bank Management',
@@ -379,6 +379,18 @@ const SOURCE_GROUP_FALLBACK: Record<string, string> = {
     System: 'settings',
 };
 
+/**
+ * Path-prefix routing. Any leaf whose URL starts with one of these prefixes is
+ * filed into the named section regardless of which module emitted it or what
+ * its route is called. This is how Fixed Assets works: WorkDo ships the module
+ * as "FixEquipment", and installing it makes the section appear with no code
+ * change here.
+ */
+const SECTION_PATH_PREFIXES: Array<{ prefix: RegExp; section: string }> = [
+    { prefix: /^\/(fix-?equipment|fixed-?assets?|asset-?management)/i, section: 'fixed-assets' },
+    { prefix: /^\/(inventory|stock|production|warehouse)/i, section: 'inventory' },
+];
+
 /** Anything whose path looks like a report is pulled into the Reports section. */
 const REPORT_PATH_PATTERNS = [/\/reports?(\/|$)/i, /\/report-/i, /\/trial-balance/i, /\/balance-sheet/i, /\/profit-loss/i, /\/ledger-summary/i];
 
@@ -509,7 +521,16 @@ export const applyQoyodStructure = (items: NavItem[]): NavItem[] => {
         built.set('reports', reportChildren);
     }
 
-    // 6. Unmatched items go to the END of their module's fallback section.
+    // 6. Route by path prefix — catches modules installed later (Fixed Assets).
+    leaves.forEach((leaf) => {
+        if (consumed.has(leaf) || !leaf.path) return;
+        const rule = SECTION_PATH_PREFIXES.find((r) => r.prefix.test(leaf.path!));
+        if (!rule || !built.has(rule.section)) return;
+        consumed.add(leaf);
+        built.get(rule.section)!.push(leaf.item);
+    });
+
+    // 7. Unmatched items go to the END of their module's fallback section.
     const orphans: NavItem[] = [];
     leaves.forEach((leaf) => {
         if (consumed.has(leaf)) return;
@@ -522,7 +543,7 @@ export const applyQoyodStructure = (items: NavItem[]): NavItem[] => {
         }
     });
 
-    // 7. Emit. Empty sections are dropped.
+    // 8. Emit. Empty sections are dropped.
     const output: NavItem[] = [];
 
     if (dashboard) {
