@@ -1,9 +1,18 @@
+// resources/js/utils/menu.ts
 import { NavItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { getSuperAdminMenu } from './menus/superadmin-menu';
 import { getCompanyMenu } from './menus/company-menu';
+import { applyQoyodStructure, translateStructure } from './menu-structure';
 import * as LucideIcons from 'lucide-react';
+
+/**
+ * Set to false to fall back to the original per-module sidebar grouping.
+ * Superadmin always uses the original layout — the Qoyod taxonomy is a
+ * company-side (tenant) structure.
+ */
+const USE_QOYOD_STRUCTURE = true;
 
 // Get role-based core menu items
 const getCoreMenuItems = (userRoles: string[], t: (key: string) => string): NavItem[] => {
@@ -45,7 +54,7 @@ const getPackageMenuItems = (userRoles: string[], activatedPackages: string[], t
 const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): NavItem[] => {
     const { auth } = usePage().props as any;
     const customMenus = auth?.customMenus || [];
-    
+
     return customMenus.map((menu: any) => {
         // Convert string icon to Lucide icon component
         let iconComponent = null;
@@ -55,7 +64,7 @@ const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): Na
                 iconComponent = IconComponent;
             }
         }
-        
+
         return {
             ...menu,
             icon: iconComponent,
@@ -132,16 +141,16 @@ export const allMenuItems = (): NavItem[] => {
     const coreMenuItems = getCoreMenuItems(userRoles, t);
 
     const packageMenuItems = getPackageMenuItems(userRoles, activatedPackages, t);
-    
+
     const customMenuItems = getCustomMenuItems(userRoles, t);
-    
+
     // Separate custom menus into parents and children
     const customParentMenus = customMenuItems.filter(menu => !menu.parent);
     const customChildMenus = customMenuItems.filter(menu => menu.parent);
-    
+
     // First add custom parent menus to core menus
     const coreWithCustomParents = [...coreMenuItems, ...customParentMenus];
-    
+
     // Then group all children (package + custom children) with their parents
     const allChildMenus = [...packageMenuItems, ...customChildMenus];
     const finalGroupedMenuItems = groupMenusByParent(coreWithCustomParents, allChildMenus);
@@ -149,6 +158,13 @@ export const allMenuItems = (): NavItem[] => {
     const sortedMenuItems = finalGroupedMenuItems.sort((a, b) => (a.order || 999) - (b.order || 999));
 
     const finalMenuItems = filterByPermission(sortedMenuItems, userPermissions);
+
+    // Re-file the permission-filtered menu into the fixed Qoyod section
+    // structure. Runs last so that sections left empty by a user's permissions
+    // are dropped rather than rendered as empty dropdowns.
+    if (USE_QOYOD_STRUCTURE && !userRoles.includes('superadmin')) {
+        return translateStructure(applyQoyodStructure(finalMenuItems), t);
+    }
 
     return finalMenuItems;
 };

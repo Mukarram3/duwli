@@ -12,7 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, User as UserIcon } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Replace, User as UserIcon } from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
@@ -22,6 +22,7 @@ import { ListGridToggle } from '@/components/ui/list-grid-toggle';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { getStatusBadgeClasses } from './utils';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { PageActionBar, actionRoute, type PageAction } from '@/components/page-action-bar';
 import NoRecordsFound from '@/components/no-records-found';
 import BadgeUI from '@/components/badge-ui';
 import { SalesInvoice, SalesFilters } from './types';
@@ -85,6 +86,40 @@ export default function Index() {
     const spreadsheetButtons = usePageButtons('spreadsheetBtn', { module: 'Sales', sub_module: 'Salesaccount' });
     const googleDriveButtons = usePageButtons('googleDriveBtn', { module: 'Sales Invoice', settingKey: 'GoogleDrive Sales Invoice' });
     const oneDriveButtons = usePageButtons('oneDriveBtn', { module: 'Sales Invoice', settingKey: 'OneDrive Sales Invoice' });
+
+    // Qoyod-style action bar. Related destinations sit on the page they belong
+    // to rather than taking their own sidebar rows. Entries whose route does
+    // not resolve (package not installed) are dropped automatically.
+    const invoiceActions: PageAction[] = [
+        {
+            label: t('Manage Receipts'),
+            href: actionRoute('account.customer-payments.index'),
+            icon: Receipt,
+            variant: 'primary',
+            permission: 'manage-customer-payments',
+        },
+        {
+            label: t('Manage Credit Notes'),
+            href: actionRoute('account.credit-notes.index'),
+            icon: FileText,
+            variant: 'primary',
+            permission: 'manage-credit-notes',
+        },
+        {
+            label: t('New Invoice'),
+            href: actionRoute('sales-invoices.create'),
+            icon: Plus,
+            variant: 'primary',
+            permission: 'create-sales-invoices',
+        },
+        {
+            label: t('Invoice Returns'),
+            href: actionRoute('sales-returns.index'),
+            icon: Replace,
+            variant: 'outline',
+            permission: 'manage-sales-return-invoices',
+        },
+    ];
 
     const { deleteState, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteHandler({
         routeName: 'sales-invoices.destroy',
@@ -287,7 +322,11 @@ export default function Index() {
             pageTitle={t('Manage Sales Invoices')}
             pageDescription={t('Manage and track your sales invoices, payments, and balances.')}
             pageActions={
-                <div className="flex gap-2">
+                <PageActionBar
+                    actions={invoiceActions}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                >
                     <TooltipProvider>
                         {pageButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
@@ -301,18 +340,8 @@ export default function Index() {
                         {oneDriveButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                        {auth.user?.permissions?.includes('create-sales-invoices') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => router.visit(route('sales-invoices.create'))}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>{t('Create')}</p></TooltipContent>
-                            </Tooltip>
-                        )}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title={t('Sales Invoices')} />
