@@ -1,0 +1,25 @@
+{
+    "name": "workdo/pay-here",
+    "description": "Description for pay-here package",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Workdo\\PayHere\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "WorkDo",
+            "email": "support@workdo.io"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Workdo\\PayHere\\Providers\\PayHereServiceProvider"
+            ]
+        }
+    }
+}

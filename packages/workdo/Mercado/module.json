@@ -1,0 +1,10 @@
+{
+    "name": "Mercado",
+    "alias": "Mercado",
+    "description": "",
+    "priority": 1700,
+    "version": 5.1,
+    "monthly_price": 0,
+    "yearly_price": 0,
+    "package_name": "mercado"
+}

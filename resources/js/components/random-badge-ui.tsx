@@ -1,0 +1,50 @@
+import React from 'react';
+import { cn } from "@/lib/utils";
+
+interface RandomBadgeUIProps {
+    name: string;
+    className?: string;
+}
+
+const badgePalettes = [
+    { bg: 'bg-orange-50 text-orange-700 ring-orange-600/10 dark:bg-orange-950/30 dark:text-orange-400 dark:ring-orange-800/20' },
+    { bg: 'bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-950/30 dark:text-amber-400 dark:ring-amber-800/20' },
+    { bg: 'bg-yellow-50 text-yellow-800 ring-yellow-600/10 dark:bg-yellow-950/30 dark:text-yellow-400 dark:ring-yellow-800/20' },
+    { bg: 'bg-lime-50 text-lime-700 ring-lime-600/10 dark:bg-lime-950/30 dark:text-lime-400 dark:ring-lime-800/20' },
+    { bg: 'bg-green-50 text-green-700 ring-green-600/10 dark:bg-green-950/30 dark:text-green-400 dark:ring-green-800/20' },
+    { bg: 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-950/30 dark:text-emerald-400 dark:ring-emerald-800/20' },
+    { bg: 'bg-teal-50 text-teal-700 ring-teal-600/10 dark:bg-teal-950/30 dark:text-teal-400 dark:ring-teal-800/20' },
+    { bg: 'bg-cyan-50 text-cyan-700 ring-cyan-600/10 dark:bg-cyan-950/30 dark:text-cyan-400 dark:ring-cyan-800/20' },
+    { bg: 'bg-sky-50 text-sky-700 ring-sky-600/10 dark:bg-sky-950/30 dark:text-sky-400 dark:ring-sky-800/20' },
+    { bg: 'bg-blue-50 text-blue-700 ring-blue-600/10 dark:bg-blue-950/30 dark:text-blue-400 dark:ring-blue-800/20' },
+    { bg: 'bg-indigo-50 text-indigo-700 ring-indigo-600/10 dark:bg-indigo-950/30 dark:text-indigo-400 dark:ring-indigo-800/20' },
+    { bg: 'bg-violet-50 text-violet-700 ring-violet-600/10 dark:bg-violet-950/30 dark:text-violet-400 dark:ring-violet-800/20' },
+    { bg: 'bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-950/30 dark:text-purple-400 dark:ring-purple-800/20' },
+    { bg: 'bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-600/10 dark:bg-fuchsia-950/30 dark:text-fuchsia-400 dark:ring-fuchsia-800/20' },
+    { bg: 'bg-pink-50 text-pink-700 ring-pink-600/10 dark:bg-pink-950/30 dark:text-pink-400 dark:ring-pink-800/20' },
+    { bg: 'bg-rose-50 text-rose-700 ring-rose-600/10 dark:bg-rose-950/30 dark:text-rose-400 dark:ring-rose-800/20' }
+];
+
+export default function RandomBadgeUI({ name, className }: RandomBadgeUIProps) {
+    const trimmedName = (name || '').trim();
+
+    // Hash name to get a stable color selection
+    let hash = 0;
+    for (let i = 0; i < trimmedName.length; i++) {
+        hash = trimmedName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colorIndex = Math.abs(hash) % badgePalettes.length;
+    const palette = badgePalettes[colorIndex];
+
+    return (
+        <span
+            className={cn(
+                "inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset",
+                palette.bg,
+                className
+            )}
+        >
+            {trimmedName || '-'}
+        </span>
+    );
+}

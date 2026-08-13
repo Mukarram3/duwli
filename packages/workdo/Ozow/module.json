@@ -1,0 +1,10 @@
+{
+    "name": "Ozow",
+    "alias": "Ozow",
+    "description": "",
+    "priority": 1860,
+    "version": 5.0,
+    "monthly_price": 0,
+    "yearly_price": 0,
+    "package_name": "ozow"
+}

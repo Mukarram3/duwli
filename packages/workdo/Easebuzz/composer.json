@@ -1,0 +1,25 @@
+{
+    "name": "workdo/easebuzz",
+    "description": "Description for easebuzz package",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Workdo\\Easebuzz\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "WorkDo",
+            "email": "support@workdo.io"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Workdo\\Easebuzz\\Providers\\EasebuzzServiceProvider"
+            ]
+        }
+    }
+}

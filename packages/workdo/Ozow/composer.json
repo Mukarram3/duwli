@@ -1,0 +1,25 @@
+{
+    "name": "workdo/ozow",
+    "description": "Description for ozow package",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Workdo\\Ozow\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "WorkDo",
+            "email": "support@workdo.io"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Workdo\\Ozow\\Providers\\OzowServiceProvider"
+            ]
+        }
+    }
+}

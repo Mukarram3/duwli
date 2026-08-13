@@ -1,0 +1,25 @@
+{
+    "name": "workdo/mercado",
+    "description": "Description for mercado package",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Workdo\\Mercado\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "WorkDo",
+            "email": "support@workdo.io"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Workdo\\Mercado\\Providers\\MercadoServiceProvider"
+            ]
+        }
+    }
+}
