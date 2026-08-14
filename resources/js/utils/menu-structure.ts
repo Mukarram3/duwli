@@ -169,9 +169,7 @@ const SECTIONS: Section[] = [
     },
 
     // ── FIXED ASSETS | الأصول الثابتة ───────────────────────────────────────
-    // No fixed-asset module ships with this build. The section is declared so
-    // that installing one later files itself here automatically; it is dropped
-    // from the sidebar while empty.
+    // Provided by the WorkDo "Assets" package.
     {
         name: 'fixed-assets',
         title: 'Fixed Assets',
@@ -179,10 +177,12 @@ const SECTIONS: Section[] = [
         groups: [
             {
                 routes: [
-                    'fixed-assets.index',
-                    'fixed-assets.depreciation.index',
-                    'fixed-assets.disposals.index',
-                    'fixed-assets.maintenance.index',
+                    'assets.assets.index',
+                    'assets.asset-assignments.index',
+                    'assets.asset-locations.index',
+                    'assets.asset-maintenance.index',
+                    'assets.asset-depreciation.index',
+                    'assets.categories.index',
                 ],
             },
         ],
@@ -360,6 +360,15 @@ const SECTIONS: Section[] = [
             {
                 title: 'Subscription',
                 routes: ['plans.index', 'bank-transfer.index', 'orders.index'],
+            },
+            {
+                title: 'CMS',
+                routes: [
+                    'landing-page.index',
+                    'custom-pages.index',
+                    'newsletter-subscribers.index',
+                    'marketplace.settings',
+                ],
             },
             {
                 routes: ['media-library'],

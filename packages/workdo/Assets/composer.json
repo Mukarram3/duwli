@@ -1,0 +1,25 @@
+{
+    "name": "workdo/assets",
+    "description": "Description for assets package",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Workdo\\Assets\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "WorkDo",
+            "email": "support@workdo.io"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Workdo\\Assets\\Providers\\AssetsServiceProvider"
+            ]
+        }
+    }
+}

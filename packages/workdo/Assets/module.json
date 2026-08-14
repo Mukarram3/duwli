@@ -1,0 +1,13 @@
+{
+    "name": "Assets",
+    "alias": "Assets",
+    "description": "",
+    "priority": 510,
+    "version": 5.0,
+    "monthly_price": 0,
+    "yearly_price": 0,
+    "child_module": [
+        "AssetBorrowAndRent"
+    ],
+    "package_name": "assets"
+}

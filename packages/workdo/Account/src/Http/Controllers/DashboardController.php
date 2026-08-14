@@ -53,7 +53,7 @@ class DashboardController extends Controller
         $totalVendorPayments = VendorPayment::whereHas('vendor', function($q) use ($creatorId) {
             $q->where('created_by', $creatorId);
         })->sum('payment_amount');
-        
+
         $netProfit = $totalRevenue - $totalExpense;
 
         $recentRevenues = Revenue::where('created_by', $creatorId)
@@ -90,7 +90,7 @@ class DashboardController extends Controller
         for ($i = 5; $i >= 0; $i--) {
             $date = Carbon::now()->subMonths($i);
             $monthName = $date->format('M');
-            
+
             if ($isDemo) {
                 $customerPayments = rand(15000, 45000) + rand(0, 99) / 100;
                 $vendorPayments = rand(5000, 25000) + rand(0, 99) / 100;
@@ -101,7 +101,7 @@ class DashboardController extends Controller
                 ->whereMonth('created_at', $date->month)
                 ->whereYear('created_at', $date->year)
                 ->sum('payment_amount');
-                
+
                 $vendorPayments = VendorPayment::whereHas('vendor', function($q) use ($creatorId) {
                     $q->where('created_by', $creatorId);
                 })
@@ -109,12 +109,12 @@ class DashboardController extends Controller
                 ->whereYear('created_at', $date->year)
                 ->sum('payment_amount');
             }
-            
+
             $monthlyCustomerPayments[] = [
                 'month' => $monthName,
                 'customer_payments' => $customerPayments
             ];
-            
+
             $monthlyVendorPayments[] = [
                 'month' => $monthName,
                 'vendor_payments' => $vendorPayments
