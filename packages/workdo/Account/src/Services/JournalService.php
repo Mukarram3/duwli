@@ -663,11 +663,18 @@ class JournalService
      */
     public function createManualJournal(array $data, bool $post = false)
     {
+        $entryDescription = trim((string) ($data['description'] ?? ''));
+
         $lines = collect($data['lines'] ?? [])
-            ->map(function ($line) {
+            ->map(function ($line) use ($entryDescription) {
+                // journal_entry_items.description is NOT NULL. A blank line
+                // description falls back to the entry description so the row
+                // is still readable in the ledger.
+                $lineDescription = trim((string) ($line['description'] ?? ''));
+
                 return [
                     'account_id'    => $line['account_id'] ?? null,
-                    'description'   => $line['description'] ?? null,
+                    'description'   => $lineDescription !== '' ? $lineDescription : $entryDescription,
                     'debit_amount'  => round((float) ($line['debit_amount'] ?? 0), 2),
                     'credit_amount' => round((float) ($line['credit_amount'] ?? 0), 2),
                 ];

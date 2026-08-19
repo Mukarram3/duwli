@@ -253,7 +253,7 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                                             className="h-9"
                                             value={line.description}
                                             onChange={(e) => updateLine(index, 'description', e.target.value)}
-                                            placeholder={t('Optional')}
+                                            placeholder={t('Uses entry description')}
                                         />
                                     </td>
                                     <td className="px-3 py-2">
