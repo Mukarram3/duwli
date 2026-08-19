@@ -1,8 +1,10 @@
 <?php
+// packages/workdo/Account/src/Providers/AccountServiceProvider.php
 
 namespace Workdo\Account\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Workdo\Account\Console\CheckJournalSetup;
 
 class AccountServiceProvider extends ServiceProvider
 {
@@ -12,10 +14,16 @@ class AccountServiceProvider extends ServiceProvider
         if (file_exists($routesPath)) {
             $this->loadRoutesFrom($routesPath);
         }
-        
+
         $migrationsPath = __DIR__.'/../Database/Migrations';
         if (is_dir($migrationsPath)) {
             $this->loadMigrationsFrom($migrationsPath);
+        }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                CheckJournalSetup::class,
+            ]);
         }
     }
 

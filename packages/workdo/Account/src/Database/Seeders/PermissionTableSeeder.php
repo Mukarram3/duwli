@@ -64,6 +64,14 @@ class PermissionTableSeeder extends Seeder
             ['name' => 'edit-chart-of-accounts', 'module' => 'chart-of-accounts', 'label' => 'Edit ChartOfAccounts'],
             ['name' => 'delete-chart-of-accounts', 'module' => 'chart-of-accounts', 'label' => 'Delete ChartOfAccounts'],
 
+            // Journal entries (manual / general journal)
+            ['name' => 'manage-journal-entries', 'module' => 'journal-entries', 'label' => 'Manage Journal Entries'],
+            ['name' => 'view-journal-entries', 'module' => 'journal-entries', 'label' => 'View Journal Entries'],
+            ['name' => 'create-journal-entries', 'module' => 'journal-entries', 'label' => 'Create Journal Entries'],
+            ['name' => 'edit-journal-entries', 'module' => 'journal-entries', 'label' => 'Edit Journal Entries'],
+            ['name' => 'delete-journal-entries', 'module' => 'journal-entries', 'label' => 'Delete Journal Entries'],
+            ['name' => 'post-journal-entries', 'module' => 'journal-entries', 'label' => 'Post & Reverse Journal Entries'],
+
             // VendorPayment management
             ['name' => 'manage-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Manage Vendor Payments'],
             ['name' => 'manage-any-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Manage All Vendor Payments'],

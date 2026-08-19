@@ -1,5 +1,6 @@
 // resources/js/utils/menu-structure.ts
 import { NavItem } from '@/types';
+import { DEMOTED_ROUTES } from '@/utils/page-actions';
 import {
     LayoutGrid,
     Receipt,
@@ -206,6 +207,11 @@ const SECTIONS: Section[] = [
     },
 
     // ── HR | الموارد البشرية ────────────────────────────────────────────────
+    // HRM ships 38 routes in a single flat module and Recruitment another 23.
+    // They are grouped here by what an HR user actually does, and the employee
+    // lifecycle (promotions, transfers, warnings, resignations, terminations,
+    // awards, documents) is demoted to the Employees page action bar — see
+    // page-actions.ts.
     {
         name: 'hr',
         title: 'HR',
@@ -220,10 +226,16 @@ const SECTIONS: Section[] = [
                     'hrm.attendances.index',
                     'hrm.shifts.index',
                     'timesheet.index',
+                    'hrm.working-days.index',
+                    'hrm.holidays.index',
+                ],
+            },
+            {
+                title: 'Leave Management',
+                routes: [
                     'hrm.leave-applications.index',
                     'hrm.leave-balance.index',
                     'hrm.leave-types.index',
-                    'hrm.holidays.index',
                 ],
             },
             {
@@ -231,16 +243,13 @@ const SECTIONS: Section[] = [
                 routes: ['hrm.payrolls.index', 'hrm.set-salary.index'],
             },
             {
+                routes: ['hrm.announcements.index'],
+            },
+            {
                 title: 'Recruitment',
                 routes: [
                     'recruitment.job-postings.index',
                     'recruitment.candidates.index',
-                    'recruitment.interviews.index',
-                    'recruitment.interview-feedbacks.index',
-                    'recruitment.candidate-assessments.index',
-                    'recruitment.offers.index',
-                    'recruitment.candidate-onboardings.index',
-                    'recruitment.job-types.index',
                 ],
             },
             {
@@ -258,7 +267,38 @@ const SECTIONS: Section[] = [
                     'performance.employee-goals.index',
                     'performance.review-cycles.index',
                     'performance.indicators.index',
+                ],
+            },
+            {
+                title: 'System Setup',
+                routes: [
+                    'hrm.branches.index',
+                    'hrm.departments.index',
+                    'hrm.designations.index',
+                    'hrm.allowance-types.index',
+                    'hrm.deduction-types.index',
+                    'hrm.loan-types.index',
+                    'hrm.employee-document-types.index',
+                    'hrm.award-types.index',
+                    'hrm.termination-types.index',
+                    'hrm.warning-types.index',
+                    'hrm.complaint-types.index',
+                    'hrm.holiday-types.index',
+                    'hrm.document-categories.index',
+                    'hrm.announcement-categories.index',
+                    'hrm.event-types.index',
+                    'hrm.ip-restricts.index',
                     'performance.indicator-categories.index',
+                    'performance.goal-types.index',
+                    'recruitment.job-types.index',
+                    'recruitment.candidate-sources.index',
+                    'recruitment.interview-types.index',
+                    'recruitment.interview-rounds.index',
+                    'recruitment.checklist-items.index',
+                    'recruitment.onboarding-checklists.index',
+                    'recruitment.job-locations.index',
+                    'recruitment.custom-questions.index',
+                    'recruitment.settings.index',
                 ],
             },
         ],
@@ -485,6 +525,16 @@ export const applyQoyodStructure = (items: NavItem[]): NavItem[] => {
     });
 
     const consumed = new Set<Leaf>();
+
+    // Routes that live on a page action bar are removed from the sidebar. This
+    // is what keeps the nav short — see page-actions.ts for where each one went.
+    const demotedPaths = new Set(
+        DEMOTED_ROUTES.map((name) => path(name)).filter((p): p is string => !!p),
+    );
+    leaves.forEach((leaf) => {
+        if (leaf.path && demotedPaths.has(leaf.path)) consumed.add(leaf);
+    });
+
     const take = (routeName: string): NavItem | null => {
         const p = path(routeName);
         if (!p) return null;

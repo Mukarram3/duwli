@@ -217,107 +217,107 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                     <div className="overflow-x-auto rounded-md border">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
-                                <tr className="text-left">
-                                    <th className="px-3 py-2 font-medium">{t('Account')}</th>
-                                    <th className="px-3 py-2 font-medium">{t('Line Description')}</th>
-                                    <th className="w-40 px-3 py-2 text-right font-medium">{t('Debit')}</th>
-                                    <th className="w-40 px-3 py-2 text-right font-medium">{t('Credit')}</th>
-                                    <th className="w-12 px-3 py-2" />
-                                </tr>
+                            <tr className="text-left">
+                                <th className="px-3 py-2 font-medium">{t('Account')}</th>
+                                <th className="px-3 py-2 font-medium">{t('Line Description')}</th>
+                                <th className="w-40 px-3 py-2 text-right font-medium">{t('Debit')}</th>
+                                <th className="w-40 px-3 py-2 text-right font-medium">{t('Credit')}</th>
+                                <th className="w-12 px-3 py-2" />
+                            </tr>
                             </thead>
                             <tbody>
-                                {lines.map((line, index) => (
-                                    <tr key={index} className="border-t">
-                                        <td className="px-3 py-2">
-                                            <Select
-                                                value={line.account_id}
-                                                onValueChange={(value) => updateLine(index, 'account_id', value)}
-                                            >
-                                                <SelectTrigger className="h-9">
-                                                    <SelectValue placeholder={t('Select account')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {accounts.map((account) => (
-                                                        <SelectItem key={account.id} value={String(account.id)}>
+                            {lines.map((line, index) => (
+                                <tr key={index} className="border-t">
+                                    <td className="px-3 py-2">
+                                        <Select
+                                            value={line.account_id}
+                                            onValueChange={(value) => updateLine(index, 'account_id', value)}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder={t('Select account')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {accounts.map((account) => (
+                                                    <SelectItem key={account.id} value={String(account.id)}>
                                                             <span className="font-mono text-xs text-muted-foreground">
                                                                 {account.account_code}
                                                             </span>{' '}
-                                                            {account.account_name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <Input
-                                                className="h-9"
-                                                value={line.description}
-                                                onChange={(e) => updateLine(index, 'description', e.target.value)}
-                                                placeholder={t('Optional')}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <Input
-                                                className="h-9 text-right"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                value={line.debit_amount}
-                                                onChange={(e) => updateLine(index, 'debit_amount', e.target.value)}
-                                                onDoubleClick={() => balanceRemainder(index)}
-                                                placeholder="0.00"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <Input
-                                                className="h-9 text-right"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                value={line.credit_amount}
-                                                onChange={(e) => updateLine(index, 'credit_amount', e.target.value)}
-                                                onDoubleClick={() => balanceRemainder(index)}
-                                                placeholder="0.00"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                disabled={lines.length <= 2}
-                                                onClick={() => removeLine(index)}
-                                                className="h-8 w-8 p-0 text-destructive"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                        {account.account_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <Input
+                                            className="h-9"
+                                            value={line.description}
+                                            onChange={(e) => updateLine(index, 'description', e.target.value)}
+                                            placeholder={t('Optional')}
+                                        />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <Input
+                                            className="h-9 text-right"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={line.debit_amount}
+                                            onChange={(e) => updateLine(index, 'debit_amount', e.target.value)}
+                                            onDoubleClick={() => balanceRemainder(index)}
+                                            placeholder="0.00"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <Input
+                                            className="h-9 text-right"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={line.credit_amount}
+                                            onChange={(e) => updateLine(index, 'credit_amount', e.target.value)}
+                                            onDoubleClick={() => balanceRemainder(index)}
+                                            placeholder="0.00"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={lines.length <= 2}
+                                            onClick={() => removeLine(index)}
+                                            className="h-8 w-8 p-0 text-destructive"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
                             </tbody>
                             <tfoot className="border-t bg-muted/30 font-semibold">
-                                <tr>
-                                    <td className="px-3 py-2" colSpan={2}>
-                                        {t('Totals')}
+                            <tr>
+                                <td className="px-3 py-2" colSpan={2}>
+                                    {t('Totals')}
+                                </td>
+                                <td className="px-3 py-2 text-right">{formatCurrency(totals.debit)}</td>
+                                <td className="px-3 py-2 text-right">{formatCurrency(totals.credit)}</td>
+                                <td />
+                            </tr>
+                            {!totals.balanced && (
+                                <tr className="text-amber-700">
+                                    <td className="px-3 pb-2" colSpan={2}>
+                                        {t('Difference')}
                                     </td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.debit)}</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.credit)}</td>
-                                    <td />
-                                </tr>
-                                {!totals.balanced && (
-                                    <tr className="text-amber-700">
-                                        <td className="px-3 pb-2" colSpan={2}>
-                                            {t('Difference')}
-                                        </td>
-                                        <td className="px-3 pb-2 text-right" colSpan={2}>
-                                            {formatCurrency(Math.abs(totals.difference))}{' '}
-                                            <span className="font-normal">
+                                    <td className="px-3 pb-2 text-right" colSpan={2}>
+                                        {formatCurrency(Math.abs(totals.difference))}{' '}
+                                        <span className="font-normal">
                                                 ({totals.difference > 0 ? t('needs credit') : t('needs debit')})
                                             </span>
-                                        </td>
-                                        <td />
-                                    </tr>
-                                )}
+                                    </td>
+                                    <td />
+                                </tr>
+                            )}
                             </tfoot>
                         </table>
                     </div>
@@ -350,8 +350,8 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                             {totals.usableLines < 2
                                 ? t('Add at least two lines with an account and an amount.')
                                 : !data.description.trim()
-                                  ? t('Add a description for this entry.')
-                                  : t('Debits and credits must match before this entry can be saved.')}
+                                    ? t('Add a description for this entry.')
+                                    : t('Debits and credits must match before this entry can be saved.')}
                         </p>
                     )}
                 </CardContent>

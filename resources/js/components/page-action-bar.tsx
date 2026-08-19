@@ -67,12 +67,12 @@ const variantClasses: Record<NonNullable<PageAction['variant']>, string> = {
 };
 
 export function PageActionBar({
-    actions,
-    permissions,
-    maxVisible = 4,
-    className,
-    children,
-}: Props) {
+                                  actions,
+                                  permissions,
+                                  maxVisible = 4,
+                                  className,
+                                  children,
+                              }: Props) {
     const { t } = useTranslation();
     const { settings } = useBrand();
     const isRtl = settings.layoutDirection === 'rtl';
