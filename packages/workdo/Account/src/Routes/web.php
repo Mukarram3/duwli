@@ -28,6 +28,11 @@ use Workdo\Account\Models\AccountType;
 Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group(function () {
     Route::get('/dashboard/account', [DashboardController::class, 'index'])->name('account.index');
     Route::resource('account/vendors', VendorController::class, ['as' => 'account']);
+    // Customer Excel import/export — declared BEFORE the resource route so
+    // 'export' is not swallowed by the {customer} wildcard.
+    Route::get('account/customers/export', [CustomerController::class, 'export'])->name('account.customers.export');
+    Route::get('account/customers/import/template', [CustomerController::class, 'importTemplate'])->name('account.customers.import.template');
+    Route::post('account/customers/import', [CustomerController::class, 'import'])->name('account.customers.import');
     Route::resource('account/customers', CustomerController::class, ['as' => 'account']);
 
     Route::prefix('account/bank-accounts')->name('account.bank-accounts.')->group(function () {

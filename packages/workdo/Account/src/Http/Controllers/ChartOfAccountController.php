@@ -32,8 +32,8 @@ class ChartOfAccountController extends Controller
                 })
                 ->when(request('account_code'), function($q) {
                     $q->where(function($query) {
-                    $query->where('account_code', 'like', '%' . request('account_code') . '%');
-                    $query->orWhere('account_name', 'like', '%' . request('account_code') . '%');
+                        $query->where('account_code', 'like', '%' . request('account_code') . '%');
+                        $query->orWhere('account_name', 'like', '%' . request('account_code') . '%');
                     });
                 })
                 ->when(request('account_type_id') && request('account_type_id') !== 'all', fn($q) => $q->where('account_type_id', request('account_type_id')))
@@ -45,6 +45,7 @@ class ChartOfAccountController extends Controller
 
             return Inertia::render('Account/ChartOfAccounts/Index', [
                 'chartofaccounts' => $chartofaccounts,
+                'accountTree' => $this->buildAccountTree(),
                 'accounttypes' => AccountType::where('created_by', creatorId())->select('id', 'name')->get(),
                 'parentaccounts' => ChartOfAccount::where('created_by', creatorId())->select('id', 'account_name')->get(),
             ]);
@@ -52,6 +53,88 @@ class ChartOfAccountController extends Controller
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Build the full chart of accounts as a nested tree.
+     *
+     * The tree view is not paginated — a chart of accounts is a single
+     * hierarchical document and splitting it across pages breaks the
+     * parent/child relationship the accountant is reading. Depth is derived
+     * from the actual parent chain rather than the stored `level` column, so
+     * the tree stays correct even if that column drifts.
+     */
+    private function buildAccountTree()
+    {
+        $accounts = ChartOfAccount::query()
+            ->with('account_type:id,name')
+            ->where(function ($q) {
+                if (Auth::user()->can('manage-any-chart-of-accounts')) {
+                    $q->where('created_by', creatorId());
+                } elseif (Auth::user()->can('manage-own-chart-of-accounts')) {
+                    $q->where('creator_id', Auth::id());
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+            })
+            ->orderBy('account_code')
+            ->get([
+                'id', 'account_code', 'account_name', 'normal_balance',
+                'opening_balance', 'current_balance', 'is_active',
+                'is_system_account', 'description', 'account_type_id',
+                'parent_account_id',
+            ]);
+
+        $byParent = $accounts->groupBy('parent_account_id');
+
+        $build = function ($parentId, $depth) use (&$build, $byParent) {
+            return $byParent->get($parentId, collect())
+                ->map(function ($account) use ($build, $depth) {
+                    $children = $build($account->id, $depth + 1);
+
+                    return [
+                        'id'                => $account->id,
+                        'account_code'      => $account->account_code,
+                        'account_name'      => $account->account_name,
+                        'account_type'      => $account->account_type ? ['name' => $account->account_type->name] : null,
+                        'normal_balance'    => $account->normal_balance,
+                        'opening_balance'   => $account->opening_balance,
+                        'current_balance'   => $account->current_balance,
+                        'is_active'         => (bool) $account->is_active,
+                        'is_system_account' => $account->is_system_account,
+                        'description'       => $account->description,
+                        'parent_account_id' => $account->parent_account_id,
+                        'depth'             => $depth,
+                        'children'          => $children,
+                    ];
+                })
+                ->values();
+        };
+
+        // Roots are accounts with no parent, plus any orphan whose parent is
+        // missing or outside this company — otherwise those rows vanish.
+        $ids = $accounts->pluck('id');
+        $roots = $accounts->filter(
+            fn($a) => is_null($a->parent_account_id) || !$ids->contains($a->parent_account_id)
+        );
+
+        return $roots->map(function ($account) use ($build) {
+            return [
+                'id'                => $account->id,
+                'account_code'      => $account->account_code,
+                'account_name'      => $account->account_name,
+                'account_type'      => $account->account_type ? ['name' => $account->account_type->name] : null,
+                'normal_balance'    => $account->normal_balance,
+                'opening_balance'   => $account->opening_balance,
+                'current_balance'   => $account->current_balance,
+                'is_active'         => (bool) $account->is_active,
+                'is_system_account' => $account->is_system_account,
+                'description'       => $account->description,
+                'parent_account_id' => $account->parent_account_id,
+                'depth'             => 0,
+                'children'          => $build($account->id, 1),
+            ];
+        })->values();
     }
 
     public function store(StoreChartOfAccountRequest $request)
@@ -147,8 +230,8 @@ class ChartOfAccountController extends Controller
             // Calculate actual balance from journal entries
             $totalDebits = JournalEntryItem::where('account_id', $chartofaccount->id)->sum('debit_amount');
             $totalCredits = JournalEntryItem::where('account_id', $chartofaccount->id)->sum('credit_amount');
-            
-            $calculatedBalance = $chartofaccount->normal_balance === 'debit' 
+
+            $calculatedBalance = $chartofaccount->normal_balance === 'debit'
                 ? ($chartofaccount->opening_balance + $totalDebits - $totalCredits)
                 : ($chartofaccount->opening_balance + $totalCredits - $totalDebits);
 

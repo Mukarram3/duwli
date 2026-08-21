@@ -12,6 +12,8 @@ use Workdo\Account\Http\Requests\UpdateCustomerRequest;
 use Workdo\Account\Events\CreateCustomer;
 use Workdo\Account\Events\UpdateCustomer;
 use Workdo\Account\Events\DestroyCustomer;
+use Workdo\Account\Services\CustomerImportExportService;
+use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
@@ -110,5 +112,74 @@ class CustomerController extends Controller
             return back()->with('success', __('The customer has been deleted.'));
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    // -----------------------------------------------------------------
+    // Excel import / export
+    // -----------------------------------------------------------------
+
+    /** Download every visible customer as .xlsx. */
+    public function export(CustomerImportExportService $service)
+    {
+        if (!Auth::user()->can('manage-customers')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export();
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'customers-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    /** Download a blank sheet with the expected headers. */
+    public function importTemplate(CustomerImportExportService $service)
+    {
+        if (!Auth::user()->can('create-customers')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $path = $service->template();
+
+        return response()->download($path, 'customers-template.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    /** Import customers from an uploaded sheet. */
+    public function import(Request $request, CustomerImportExportService $service)
+    {
+        if (!Auth::user()->can('create-customers')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ], [
+            'file.mimes' => __('Please upload an .xlsx, .xls or .csv file.'),
+            'file.max'   => __('The file may not be larger than 5 MB.'),
+        ]);
+
+        try {
+            $result = $service->import($request->file('file')->getRealPath());
+        } catch (\Exception $e) {
+            return back()->with('error', __('Import failed: ') . $e->getMessage());
+        }
+
+        if (!empty($result['errors'])) {
+            // Nothing was written — show the first errors so the user can fix
+            // the file, but cap the list so the banner stays readable.
+            return back()
+                ->with('error', __('Import cancelled — :count problem(s) found. No customers were added.', [
+                    'count' => count($result['errors']),
+                ]))
+                ->with('importErrors', array_slice($result['errors'], 0, 20));
+        }
+
+        return back()->with('success', __(':count customer(s) imported.', [
+            'count' => $result['imported'],
+        ]));
     }
 }

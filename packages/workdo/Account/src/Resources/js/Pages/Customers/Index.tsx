@@ -1,3 +1,4 @@
+// packages/workdo/Account/src/Resources/js/Pages/Customers/Index.tsx
 import { useState } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit as EditIcon, Trash2, Building2, User as UserIcon, Lock, FileText, Eye } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Building2, User as UserIcon, Lock, FileText, Eye, Upload, Download } from "lucide-react";
+import ImportDialog from './ImportDialog';
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable } from "@/components/ui/data-table";
@@ -115,6 +117,8 @@ export default function Index() {
         setFilters({ company_name: '', customer_code: '', tax_number: '' });
         router.get(route('account.customers.index'), {per_page: perPage, view: viewMode});
     };
+
+    const [importOpen, setImportOpen] = useState(false);
 
     const openModal = (mode: 'add' | 'edit', data: Customer | null = null) => {
         setModalState({ isOpen: true, mode, data });
@@ -264,20 +268,39 @@ export default function Index() {
                         {dropboxBtn.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                    <TooltipProvider>
-                        {auth.user?.permissions?.includes('create-customers') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => openModal('add')}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                    </TooltipProvider>
+                    {auth.user?.permissions?.includes('create-customers') && (
+                        <Button
+                            size="sm"
+                            onClick={() => openModal('add')}
+                            className="h-9 px-3.5 text-[13px] font-semibold"
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            {t('New Customer')}
+                        </Button>
+                    )}
+                    {auth.user?.permissions?.includes('manage-customers') && (
+                        <a href={route('account.customers.export')} download>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-3.5 text-[13px] font-semibold"
+                            >
+                                <Download className="mr-1.5 h-4 w-4" />
+                                {t('Export Customers')}
+                            </Button>
+                        </a>
+                    )}
+                    {auth.user?.permissions?.includes('create-customers') && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setImportOpen(true)}
+                            className="h-9 px-3.5 text-[13px] font-semibold"
+                        >
+                            <Upload className="mr-1.5 h-4 w-4" />
+                            {t('Import Customers')}
+                        </Button>
+                    )}
                 </div>
             }
         >
@@ -585,6 +608,7 @@ export default function Index() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
+            <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
         </AuthenticatedLayout>
     );
 }

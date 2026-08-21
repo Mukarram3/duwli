@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// packages/workdo/Account/src/Resources/js/Pages/ChartOfAccounts/Index.tsx
+import { useState, useMemo, useEffect } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -24,10 +25,12 @@ import View from './View';
 import NoRecordsFound from '@/components/no-records-found';
 import { ChartOfAccount, ChartOfAccountsIndexProps, ChartOfAccountFilters, ChartOfAccountModalState } from './types';
 import { formatDate, formatTime, formatDateTime, formatCurrency, getImagePath } from '@/utils/helpers';
+import AccountTree, { collectParentIds, filterTree, type TreeAccount } from './AccountTree';
+import { ChevronsDownUp, ChevronsUpDown, List, Network } from 'lucide-react';
 
 export default function Index() {
     const { t } = useTranslation();
-    const { chartofaccounts, auth, accounttypes } = usePage<ChartOfAccountsIndexProps>().props;
+    const { chartofaccounts, auth, accounttypes, accountTree } = usePage<any>().props;
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<ChartOfAccountFilters>({
@@ -37,6 +40,43 @@ export default function Index() {
         normal_balance: urlParams.get('normal_balance') || 'all',
         is_active: urlParams.get('is_active') || 'all',
     });
+
+    // ---- Tree view state -------------------------------------------------
+    // 'tree' mirrors Qoyod: the chart read as one hierarchical document.
+    // 'list' keeps the original paginated + sortable table.
+    const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
+    const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+    const [treeSearch, setTreeSearch] = useState('');
+
+    const tree: TreeAccount[] = accountTree || [];
+
+    // Every node that has children, at any depth — the target of Expand All.
+    const allParentIds = useMemo(() => collectParentIds(tree), [tree]);
+
+    const { tree: visibleTree, openIds } = useMemo(
+        () => filterTree(tree, treeSearch),
+        [tree, treeSearch],
+    );
+
+    // While searching, force every branch containing a match open so the
+    // matched rows are actually reachable.
+    useEffect(() => {
+        if (treeSearch.trim()) {
+            setExpandedIds((current) => new Set([...current, ...openIds]));
+        }
+    }, [treeSearch, openIds.join(',')]);
+
+    const expandAll = () => setExpandedIds(new Set(allParentIds));
+    const collapseAll = () => setExpandedIds(new Set());
+
+    const toggleNode = (id: number) =>
+        setExpandedIds((current) => {
+            const next = new Set(current);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+
+    const allExpanded = allParentIds.length > 0 && allParentIds.every((id) => expandedIds.has(id));
 
     const [perPage] = useState(urlParams.get('per_page') || '10');
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
@@ -219,7 +259,45 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Chart Of Accounts')}
             pageActions={
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    {viewMode === 'tree' && (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={expandAll}
+                                disabled={allParentIds.length === 0 || allExpanded}
+                                className="h-9 px-3.5 text-[13px] font-semibold"
+                            >
+                                <ChevronsUpDown className="mr-1.5 h-4 w-4" />
+                                {t('Expand All')}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={collapseAll}
+                                disabled={expandedIds.size === 0}
+                                className="h-9 px-3.5 text-[13px] font-semibold"
+                            >
+                                <ChevronsDownUp className="mr-1.5 h-4 w-4" />
+                                {t('Collapse All')}
+                            </Button>
+                        </>
+                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setViewMode(viewMode === 'tree' ? 'list' : 'tree')}
+                        className="h-9 px-3.5 text-[13px] font-semibold"
+                        title={viewMode === 'tree' ? t('Switch to list view') : t('Switch to tree view')}
+                    >
+                        {viewMode === 'tree' ? (
+                            <List className="mr-1.5 h-4 w-4" />
+                        ) : (
+                            <Network className="mr-1.5 h-4 w-4" />
+                        )}
+                        {viewMode === 'tree' ? t('List View') : t('Tree View')}
+                    </Button>
                     <TooltipProvider>
                         {xeroAccountBtn.map((button) => (
                             <div key={button.id}>{button.component}</div>
@@ -251,19 +329,30 @@ export default function Index() {
                 <CardContent className="p-6 border-b bg-gray-50/50">
                     <div className="flex items-center justify-between gap-4">
                         <div className="flex-1 max-w-md">
-                            <SearchInput
-                                value={filters.account_code}
-                                onChange={(value) => setFilters({...filters, account_code: value})}
-                                onSearch={handleFilter}
-                                placeholder={t('Search Chart Of Accounts...')}
-                            />
+                            {viewMode === 'tree' ? (
+                                <SearchInput
+                                    value={treeSearch}
+                                    onChange={(value: string) => setTreeSearch(value)}
+                                    onSearch={() => {}}
+                                    placeholder={t('Search Chart Of Accounts...')}
+                                />
+                            ) : (
+                                <SearchInput
+                                    value={filters.account_code}
+                                    onChange={(value) => setFilters({...filters, account_code: value})}
+                                    onSearch={handleFilter}
+                                    placeholder={t('Search Chart Of Accounts...')}
+                                />
+                            )}
                         </div>
                         <div className="flex items-center gap-3">
 
-                            <PerPageSelector
-                                routeName="account.chart-of-accounts.index"
-                                filters={{...filters}}
-                            />
+                            {viewMode === 'list' && (
+                                <PerPageSelector
+                                    routeName="account.chart-of-accounts.index"
+                                    filters={{...filters}}
+                                />
+                            )}
                             <div className="relative">
                                 <FilterButton
                                     showFilters={showFilters}
@@ -344,6 +433,30 @@ export default function Index() {
                 <CardContent className="p-0">
                     <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
                         <div className="min-w-[800px]">
+                        {viewMode === 'tree' ? (
+                            visibleTree.length === 0 ? (
+                                <NoRecordsFound
+                                    icon={CalculatorIcon}
+                                    title={t('No Chart Of Accounts found')}
+                                    description={t('Get started by creating your first Chart Of Account.')}
+                                    hasFilters={!!treeSearch}
+                                    onClearFilters={() => setTreeSearch('')}
+                                    createPermission="create-chart-of-accounts"
+                                    onCreateClick={() => openModal('add')}
+                                    createButtonText={t('Create ChartOfAccount')}
+                                    className="h-auto py-12"
+                                />
+                            ) : (
+                                <AccountTree
+                                    nodes={visibleTree}
+                                    expandedIds={expandedIds}
+                                    onToggle={toggleNode}
+                                    permissions={auth.user?.permissions || []}
+                                    onEdit={(account) => openModal('edit', account as any)}
+                                    onDelete={(id) => openDeleteDialog(id)}
+                                />
+                            )
+                        ) : (
                         <DataTable
                             data={chartofaccounts?.data || []}
                             columns={tableColumns}
@@ -365,18 +478,21 @@ export default function Index() {
                                 />
                             }
                         />
+                        )}
                         </div>
                     </div>
                 </CardContent>
 
-                {/* Pagination Footer */}
-                <CardContent className="px-4 py-2 border-t bg-gray-50/30">
-                    <Pagination
-                        data={chartofaccounts || { data: [], links: [], meta: {} }}
-                        routeName="account.chart-of-accounts.index"
-                        filters={{...filters, per_page: perPage}}
-                    />
-                </CardContent>
+                {/* Pagination Footer — list view only; the tree is one document */}
+                {viewMode === 'list' && (
+                    <CardContent className="px-4 py-2 border-t bg-gray-50/30">
+                        <Pagination
+                            data={chartofaccounts || { data: [], links: [], meta: {} }}
+                            routeName="account.chart-of-accounts.index"
+                            filters={{...filters, per_page: perPage}}
+                        />
+                    </CardContent>
+                )}
             </Card>
 
             <Dialog open={modalState.isOpen} onOpenChange={closeModal}>

@@ -71,6 +71,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
+            // Row-level errors from bulk Excel imports, surfaced in the import
+            // dialog so the user can correct the file and retry.
+            'importErrors' => $request->session()->get('importErrors', []),
             'packages' => (new Module())->allModules(),
             'adminAllSetting' =>   $request->user() ?  getAdminAllSetting() : getAdminAllSetting(true),
             'companyAllSetting' => $request->user() ? getCompanyAllSetting($request->user()->id) : [],
