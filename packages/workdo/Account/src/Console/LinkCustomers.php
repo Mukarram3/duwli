@@ -53,7 +53,7 @@ class LinkCustomers extends Command
             auth()->setUser($company);
 
             foreach (['customers' => fn() => $linker->backfill(),
-                         'vendors'   => fn() => $linker->backfillVendors()] as $label => $run) {
+                      'vendors'   => fn() => $linker->backfillVendors()] as $label => $run) {
                 $result = $run();
                 $totalLinked += $result['linked'];
                 $totalSkipped += $result['skipped'];

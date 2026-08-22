@@ -443,52 +443,52 @@ export default function Index() {
                 <CardContent className="p-0">
                     <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
                         <div className="min-w-[800px]">
-                            {viewMode === 'tree' ? (
-                                visibleTree.length === 0 ? (
-                                    <NoRecordsFound
-                                        icon={CalculatorIcon}
-                                        title={t('No Chart Of Accounts found')}
-                                        description={t('Get started by creating your first Chart Of Account.')}
-                                        hasFilters={!!treeSearch}
-                                        onClearFilters={() => setTreeSearch('')}
-                                        createPermission="create-chart-of-accounts"
-                                        onCreateClick={() => openModal('add')}
-                                        createButtonText={t('Create ChartOfAccount')}
-                                        className="h-auto py-12"
-                                    />
-                                ) : (
-                                    <AccountTree
-                                        nodes={visibleTree}
-                                        expandedIds={expandedIds}
-                                        onToggle={toggleNode}
-                                        permissions={auth.user?.permissions || []}
-                                        onEdit={(account) => openModal('edit', account as any)}
-                                        onDelete={(id) => openDeleteDialog(id)}
-                                    />
-                                )
-                            ) : (
-                                <DataTable
-                                    data={chartofaccounts?.data || []}
-                                    columns={tableColumns}
-                                    onSort={handleSort}
-                                    sortKey={sortField}
-                                    sortDirection={sortDirection as 'asc' | 'desc'}
-                                    className="rounded-none"
-                                    emptyState={
-                                        <NoRecordsFound
-                                            icon={CalculatorIcon}
-                                            title={t('No Chart Of Accounts found')}
-                                            description={t('Get started by creating your first Chart Of Account.')}
-                                            hasFilters={!!(filters.account_code || filters.account_name || (filters.account_type_id !== 'all' && filters.account_type_id) || filters.normal_balance || filters.is_active)}
-                                            onClearFilters={clearFilters}
-                                            createPermission="create-chart-of-accounts"
-                                            onCreateClick={() => openModal('add')}
-                                            createButtonText={t('Create ChartOfAccount')}
-                                            className="h-auto"
-                                        />
-                                    }
+                        {viewMode === 'tree' ? (
+                            visibleTree.length === 0 ? (
+                                <NoRecordsFound
+                                    icon={CalculatorIcon}
+                                    title={t('No Chart Of Accounts found')}
+                                    description={t('Get started by creating your first Chart Of Account.')}
+                                    hasFilters={!!treeSearch}
+                                    onClearFilters={() => setTreeSearch('')}
+                                    createPermission="create-chart-of-accounts"
+                                    onCreateClick={() => openModal('add')}
+                                    createButtonText={t('Create ChartOfAccount')}
+                                    className="h-auto py-12"
                                 />
-                            )}
+                            ) : (
+                                <AccountTree
+                                    nodes={visibleTree}
+                                    expandedIds={expandedIds}
+                                    onToggle={toggleNode}
+                                    permissions={auth.user?.permissions || []}
+                                    onEdit={(account) => openModal('edit', account as any)}
+                                    onDelete={(id) => openDeleteDialog(id)}
+                                />
+                            )
+                        ) : (
+                        <DataTable
+                            data={chartofaccounts?.data || []}
+                            columns={tableColumns}
+                            onSort={handleSort}
+                            sortKey={sortField}
+                            sortDirection={sortDirection as 'asc' | 'desc'}
+                            className="rounded-none"
+                            emptyState={
+                                <NoRecordsFound
+                                    icon={CalculatorIcon}
+                                    title={t('No Chart Of Accounts found')}
+                                    description={t('Get started by creating your first Chart Of Account.')}
+                                    hasFilters={!!(filters.account_code || filters.account_name || (filters.account_type_id !== 'all' && filters.account_type_id) || filters.normal_balance || filters.is_active)}
+                                    onClearFilters={clearFilters}
+                                    createPermission="create-chart-of-accounts"
+                                    onCreateClick={() => openModal('add')}
+                                    createButtonText={t('Create ChartOfAccount')}
+                                    className="h-auto"
+                                />
+                            }
+                        />
+                        )}
                         </div>
                     </div>
                 </CardContent>
