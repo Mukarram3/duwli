@@ -12,6 +12,7 @@ use Workdo\Account\Http\Requests\UpdateVendorRequest;
 use Workdo\Account\Events\CreateVendor;
 use Workdo\Account\Events\UpdateVendor;
 use Workdo\Account\Events\DestroyVendor;
+use Workdo\Account\Services\CustomerUserLinkService;
 
 class VendorController extends Controller
 {
@@ -73,6 +74,10 @@ class VendorController extends Controller
             $vendor->created_by = creatorId();
             $vendor->save();
 
+            // Create the matching vendor user so this supplier appears in the
+            // Purchase Invoice / Vendor Payment pickers, which read `users`.
+            app(CustomerUserLinkService::class)->linkVendor($vendor);
+
             CreateVendor::dispatch($request, $vendor);
 
             return redirect()->route('account.vendors.index')->with('success', __('The vendor has been created successfully.'));
@@ -96,6 +101,8 @@ class VendorController extends Controller
             $vendor->same_as_billing = $validated['same_as_billing'] ?? false;
             $vendor->notes = $validated['notes'] ?? null;
             $vendor->save();
+
+            app(CustomerUserLinkService::class)->syncVendor($vendor);
 
             UpdateVendor::dispatch($request, $vendor);
 

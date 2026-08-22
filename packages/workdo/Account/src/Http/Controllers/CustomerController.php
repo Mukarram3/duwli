@@ -13,6 +13,7 @@ use Workdo\Account\Events\CreateCustomer;
 use Workdo\Account\Events\UpdateCustomer;
 use Workdo\Account\Events\DestroyCustomer;
 use Workdo\Account\Services\CustomerImportExportService;
+use Workdo\Account\Services\CustomerUserLinkService;
 use Illuminate\Http\Request;
 
 class CustomerController extends Controller
@@ -73,6 +74,10 @@ class CustomerController extends Controller
             $customer->created_by = creatorId();
             $customer->save();
 
+            // Create the matching client user so this customer appears in the
+            // Sales Invoice / Proposal / Return pickers, which read `users`.
+            app(CustomerUserLinkService::class)->link($customer);
+
             CreateCustomer::dispatch($request, $customer);
 
             return redirect()->route('account.customers.index')->with('success', __('The customer has been created successfully.'));
@@ -96,6 +101,10 @@ class CustomerController extends Controller
             $customer->same_as_billing = $validated['same_as_billing'] ?? false;
             $customer->notes = $validated['notes'] ?? null;
             $customer->save();
+
+            // Keep the linked client user in step (and create it if this
+            // customer predates the link, or previously had no email).
+            app(CustomerUserLinkService::class)->sync($customer);
 
             UpdateCustomer::dispatch($request, $customer);
 
