@@ -38,6 +38,13 @@ type RelatedAction = {
     icon?: any;
     /** Push straight into the "More" dropdown rather than showing inline. */
     overflow?: boolean;
+    /**
+     * A cross-link, not a demotion: the target keeps its own sidebar row and
+     * merely also appears as a button here. Mutual links between Invoices,
+     * Receipts and Credit Notes are all of this kind — without the flag each
+     * would delete the others from the nav.
+     */
+    keepInNav?: boolean;
     permission?: string;
 };
 
@@ -94,16 +101,35 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * under Accounting.
      */
 
-    /** Sales — receipts and credit notes belong on the invoice screen. */
+    /**
+     * Sales — receipts and credit notes belong on the invoice screen.
+     * The three screens cross-link to each other so an accountant can move
+     * between an invoice, its receipt and its credit note without returning
+     * to the sidebar, which is how Qoyod arranges the same three pages.
+     */
     'sales-invoices.index': [
-        { label: 'Manage Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments' },
-        { label: 'Manage Credit Notes', route: 'account.credit-notes.index', permission: 'manage-credit-notes' },
+        { label: 'Manage Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Manage Credit Notes', route: 'account.credit-notes.index', permission: 'manage-credit-notes', keepInNav: true },
         { label: 'Invoice Returns', route: 'sales-returns.index', permission: 'manage-sales-return-invoices' },
+    ],
+
+    /** Receipts — back to invoices, across to vendor payments. */
+    'account.customer-payments.index': [
+        { label: 'Invoices', route: 'sales-invoices.index', permission: 'manage-sales-invoices', keepInNav: true },
+        { label: 'Vendor Receipts', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Credit Notes', route: 'account.credit-notes.index', overflow: true, permission: 'manage-credit-notes', keepInNav: true },
+    ],
+
+    /** Credit notes — back to the invoice they credit, and to receipts. */
+    'account.credit-notes.index': [
+        { label: 'Invoices', route: 'sales-invoices.index', permission: 'manage-sales-invoices', keepInNav: true },
+        { label: 'Manage Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Debit Notes', route: 'account.debit-notes.index', overflow: true, permission: 'manage-debit-notes', keepInNav: true },
     ],
 
     /** Purchasing — mirror of the sales screen. */
     'purchase-invoices.index': [
-        { label: 'Supplier Payments', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments' },
+        { label: 'Supplier Payments', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
         { label: 'Debit Notes', route: 'account.debit-notes.index', permission: 'manage-debit-notes' },
         { label: 'Purchase Returns', route: 'purchase-returns.index', permission: 'manage-purchase-return-invoices' },
     ],
@@ -129,6 +155,8 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
 export const WIRED_PAGES: string[] = [
     'sales-invoices.index',
     'hrm.employees.index',
+    'account.credit-notes.index',
+    'account.customer-payments.index',
 ];
 
 /**
@@ -139,6 +167,7 @@ export const WIRED_PAGES: string[] = [
 export const DEMOTED_ROUTES: string[] = Object.entries(RELATED_ACTIONS)
     .filter(([pageRoute]) => WIRED_PAGES.includes(pageRoute))
     .flatMap(([, actions]) => actions)
+    .filter((action) => !action.keepInNav)
     .map((action) => action.route);
 
 /** Safe route resolver — returns undefined when the package is not installed. */
@@ -167,7 +196,8 @@ export const getRelatedActions = (pageRoute: string, t: (key: string) => string)
             label: t(action.label),
             href: resolve(action.route),
             icon: action.icon,
-            variant: 'outline' as const,
+            // Qoyod renders these as a row of solid blue buttons.
+            variant: 'primary' as const,
             overflow: action.overflow,
             permission: action.permission,
         }))

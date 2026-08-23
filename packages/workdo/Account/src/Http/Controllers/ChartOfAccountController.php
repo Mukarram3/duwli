@@ -82,7 +82,7 @@ class ChartOfAccountController extends Controller
                 'id', 'account_code', 'account_name', 'normal_balance',
                 'opening_balance', 'current_balance', 'is_active',
                 'is_system_account', 'description', 'account_type_id',
-                'parent_account_id',
+                'parent_account_id', 'is_group', 'level',
             ]);
 
         $byParent = $accounts->groupBy('parent_account_id');
@@ -104,6 +104,7 @@ class ChartOfAccountController extends Controller
                         'is_system_account' => $account->is_system_account,
                         'description'       => $account->description,
                         'parent_account_id' => $account->parent_account_id,
+                        'is_group'          => (bool) $account->is_group,
                         'depth'             => $depth,
                         'children'          => $children,
                     ];
@@ -131,6 +132,7 @@ class ChartOfAccountController extends Controller
                 'is_system_account' => $account->is_system_account,
                 'description'       => $account->description,
                 'parent_account_id' => $account->parent_account_id,
+                'is_group'          => (bool) $account->is_group,
                 'depth'             => 0,
                 'children'          => $build($account->id, 1),
             ];
@@ -148,10 +150,23 @@ class ChartOfAccountController extends Controller
             $chartofaccount->account_code = $validated['account_code'];
             $chartofaccount->account_name = $validated['account_name'];
 
-            // Set level based on parent account selection
-            if ($validated['parent_account_id'] && $validated['parent_account_id'] !== '0') {
-                $chartofaccount->level = 2;
+            // A group account is a heading that holds other accounts; a detail
+            // account is posted to and must sit under a parent.
+            $chartofaccount->is_group = $request->boolean('is_group', false);
+
+            // Level is derived from the parent chain rather than fixed at 1 or 2,
+            // so the chart can nest to any depth.
+            if (!empty($validated['parent_account_id']) && $validated['parent_account_id'] !== '0') {
+                $parent = ChartOfAccount::find($validated['parent_account_id']);
                 $chartofaccount->parent_account_id = $validated['parent_account_id'];
+                $chartofaccount->level = $parent ? ((int) $parent->level + 1) : 2;
+
+                // Selecting an account as a parent makes it a group by
+                // definition — otherwise a posting account would gain children.
+                if ($parent && !$parent->is_group) {
+                    $parent->is_group = true;
+                    $parent->save();
+                }
             } else {
                 $chartofaccount->level = 1;
                 $chartofaccount->parent_account_id = null;
@@ -192,10 +207,23 @@ class ChartOfAccountController extends Controller
             if ($chartofaccount->is_system_account != 1) {
                 $chartofaccount->account_name = $validated['account_name'];
             }
-            // Set level based on parent account selection
-            if ($validated['parent_account_id'] && $validated['parent_account_id'] !== '0') {
-                $chartofaccount->level = 2;
+            // A group account is a heading that holds other accounts; a detail
+            // account is posted to and must sit under a parent.
+            $chartofaccount->is_group = $request->boolean('is_group', false);
+
+            // Level is derived from the parent chain rather than fixed at 1 or 2,
+            // so the chart can nest to any depth.
+            if (!empty($validated['parent_account_id']) && $validated['parent_account_id'] !== '0') {
+                $parent = ChartOfAccount::find($validated['parent_account_id']);
                 $chartofaccount->parent_account_id = $validated['parent_account_id'];
+                $chartofaccount->level = $parent ? ((int) $parent->level + 1) : 2;
+
+                // Selecting an account as a parent makes it a group by
+                // definition — otherwise a posting account would gain children.
+                if ($parent && !$parent->is_group) {
+                    $parent->is_group = true;
+                    $parent->save();
+                }
             } else {
                 $chartofaccount->level = 1;
                 $chartofaccount->parent_account_id = null;
@@ -206,7 +234,10 @@ class ChartOfAccountController extends Controller
             $chartofaccount->current_balance = $validated['current_balance'];
             $chartofaccount->is_active = $validated['is_active'];
             $chartofaccount->description = $validated['description'];
-            $chartofaccount->account_type_id = $validated['account_type_id'];
+            // account_type_id is NOT NULL — keep the current value if the form
+            // did not send one, rather than writing null and failing.
+            $chartofaccount->account_type_id = $validated['account_type_id']
+                ?? $chartofaccount->account_type_id;
             $chartofaccount->save();
 
             // Dispatch event for packages to handle their fields

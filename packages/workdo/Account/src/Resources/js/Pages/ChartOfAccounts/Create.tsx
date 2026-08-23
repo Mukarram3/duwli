@@ -32,6 +32,7 @@ export default function Create({ onSuccess }: CreateChartOfAccountProps) {
         description: '',
         account_type_id: '',
         parent_account_id: '',
+        is_group: false,
     });
 
     const [isSubAccount, setIsSubAccount] = useState(false);
@@ -164,23 +165,39 @@ export default function Create({ onSuccess }: CreateChartOfAccountProps) {
                     </div>
                     <div className="flex items-center space-x-2">
                         <Checkbox
-                            id="is_sub_account"
-                            checked={isSubAccount}
-                            onCheckedChange={handleSubAccountChange}
+                            id="is_group"
+                            checked={!!data.is_group}
+                            onCheckedChange={(checked) => {
+                                const isGroup = !!checked;
+                                setData('is_group', isGroup);
+                                // A group account is a heading and may sit at the
+                                // top level; a detail account must have a parent.
+                                setIsSubAccount(!isGroup);
+                                if (isGroup) {
+                                    setData('parent_account_id', '');
+                                    setData('level', '1');
+                                }
+                            }}
                         />
-                        <Label htmlFor="is_sub_account" className="cursor-pointer">{t('Create as sub account')}</Label>
+                        <Label htmlFor="is_group" className="cursor-pointer">
+                            {t('Group account (heading — holds other accounts, not posted to)')}
+                        </Label>
                     </div>
                 </div>
 
-                {isSubAccount && (
+                {!data.is_group && (
                     <div>
-                        <Label htmlFor="parent_account_id">{t('Parent Account')}</Label>
+                        <Label htmlFor="parent_account_id">
+                            {t('Parent Account')} <span className="text-destructive">*</span>
+                        </Label>
+                        <p className="mb-1 text-xs text-muted-foreground">
+                            {t('Detail accounts must sit under a group account.')}
+                        </p>
                         <Select value={data.parent_account_id?.toString() || ''} onValueChange={handleParentAccountChange}>
                             <SelectTrigger>
                                 <SelectValue placeholder={t('Select Parent Account')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="0">{t('None')}</SelectItem>
                                 {filteredParentAccounts.map((item: any) => (
                                     <SelectItem key={item.id} value={item.id.toString()}>
                                         {item.account_name}

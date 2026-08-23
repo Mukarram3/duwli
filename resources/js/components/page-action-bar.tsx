@@ -60,19 +60,24 @@ type Props = {
     children?: React.ReactNode;
 };
 
+/**
+ * Qoyod renders page actions as a row of solid navy-blue rectangles. That blue
+ * is fixed rather than taken from the tenant's theme colour, so the accounting
+ * screens stay visually consistent whatever brand colour a company sets.
+ */
 const variantClasses: Record<NonNullable<PageAction['variant']>, string> = {
-    primary: 'bg-primary text-primary-foreground hover:bg-primary/90 border border-transparent',
+    primary: 'bg-[#1E3A6F] text-white hover:bg-[#183057] border border-transparent',
     outline: 'bg-background text-foreground border border-input hover:bg-accent',
     destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-transparent',
 };
 
 export function PageActionBar({
-                                  actions,
-                                  permissions,
-                                  maxVisible = 4,
-                                  className,
-                                  children,
-                              }: Props) {
+    actions,
+    permissions,
+    maxVisible = 4,
+    className,
+    children,
+}: Props) {
     const { t } = useTranslation();
     const { settings } = useBrand();
     const isRtl = settings.layoutDirection === 'rtl';

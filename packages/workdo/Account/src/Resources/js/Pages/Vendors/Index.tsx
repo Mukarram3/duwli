@@ -1,4 +1,7 @@
+// packages/workdo/Account/src/Resources/js/Pages/Vendors/Index.tsx
 import { useState } from 'react';
+import ImportDialog from '../Customers/ImportDialog';
+import { Upload, Download } from 'lucide-react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -89,6 +92,8 @@ export default function Index() {
         setFilters({ company_name: '', vendor_code: '', tax_number: '' });
         router.get(route('account.vendors.index'), {per_page: perPage, view: viewMode});
     };
+
+    const [importOpen, setImportOpen] = useState(false);
 
     const openModal = (mode: 'add' | 'edit', data: Vendor | null = null) => {
         setModalState({ isOpen: true, mode, data });
@@ -228,7 +233,7 @@ export default function Index() {
             breadcrumbs={[{label: t('Accounting'), url:route('account.index')},{label: t('Vendors')}]}
             pageTitle={t('Manage Vendors')}
             pageActions={
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                         {googleDriveButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
@@ -238,20 +243,37 @@ export default function Index() {
                         {dropboxBtn.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                    <TooltipProvider>
-                        {auth.user?.permissions?.includes('create-vendors') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => openModal('add')}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                    </TooltipProvider>
+                    {auth.user?.permissions?.includes('create-vendors') && (
+                        <Button
+                            size="sm"
+                            onClick={() => setImportOpen(true)}
+                            className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
+                        >
+                            <Upload className="mr-1.5 h-4 w-4" />
+                            {t('Import Vendors')}
+                        </Button>
+                    )}
+                    {auth.user?.permissions?.includes('manage-vendors') && (
+                        <a href={route('account.vendors.export')} download>
+                            <Button
+                                size="sm"
+                                className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
+                            >
+                                <Download className="mr-1.5 h-4 w-4" />
+                                {t('Export Vendors')}
+                            </Button>
+                        </a>
+                    )}
+                    {auth.user?.permissions?.includes('create-vendors') && (
+                        <Button
+                            size="sm"
+                            onClick={() => openModal('add')}
+                            className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            {t('New Vendor')}
+                        </Button>
+                    )}
                 </div>
             }
         >
@@ -558,6 +580,13 @@ export default function Index() {
                 confirmText="Delete"
                 onConfirm={confirmDelete}
                 variant="destructive"
+            />
+            <ImportDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                importRoute="account.vendors.import"
+                templateRoute="account.vendors.import.template"
+                title={t('Import Vendors')}
             />
         </AuthenticatedLayout>
     );

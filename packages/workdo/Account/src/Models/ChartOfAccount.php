@@ -15,6 +15,7 @@ class ChartOfAccount extends Model
         'account_code',
         'account_name',
         'level',
+        'is_group',
         'normal_balance',
         'opening_balance',
         'current_balance',
@@ -30,6 +31,7 @@ class ChartOfAccount extends Model
     protected function casts(): array
     {
         return [
+            'is_group' => 'boolean',
             'opening_balance' => 'decimal:2',
             'current_balance' => 'decimal:2',
             'is_active' => 'boolean'

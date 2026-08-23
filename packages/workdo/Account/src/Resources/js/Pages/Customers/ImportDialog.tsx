@@ -25,9 +25,19 @@ import { Upload, Download, FileSpreadsheet, AlertCircle, X } from 'lucide-react'
 type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** Route names for this entity. Defaults to customers. */
+    importRoute?: string;
+    templateRoute?: string;
+    title?: string;
 };
 
-export default function ImportDialog({ open, onOpenChange }: Props) {
+export default function ImportDialog({
+    open,
+    onOpenChange,
+    importRoute = 'account.customers.import',
+    templateRoute = 'account.customers.import.template',
+    title,
+}: Props) {
     const { t } = useTranslation();
     const { props } = usePage<any>();
     const inputRef = useRef<HTMLInputElement>(null);
@@ -54,7 +64,7 @@ export default function ImportDialog({ open, onOpenChange }: Props) {
         payload.append('file', file);
 
         setUploading(true);
-        router.post(route('account.customers.import'), payload, {
+        router.post(route(importRoute), payload, {
             forceFormData: true,
             preserveScroll: true,
             onFinish: () => setUploading(false),
@@ -77,9 +87,9 @@ export default function ImportDialog({ open, onOpenChange }: Props) {
         <Dialog open={open} onOpenChange={close}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>{t('Import Customers')}</DialogTitle>
+                    <DialogTitle>{title || t('Import Customers')}</DialogTitle>
                     <DialogDescription>
-                        {t('Upload an Excel file to add customers in bulk. Download the template to see the expected columns.')}
+                        {t('Upload an Excel file to add records in bulk. Download the template to see the expected columns.')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -90,7 +100,7 @@ export default function ImportDialog({ open, onOpenChange }: Props) {
                             <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
                             <span>{t('Not sure about the format?')}</span>
                         </div>
-                        <a href={route('account.customers.import.template')} download>
+                        <a href={route(templateRoute)} download>
                             <Button variant="outline" size="sm" type="button">
                                 <Download className="mr-1.5 h-4 w-4" />
                                 {t('Download Template')}

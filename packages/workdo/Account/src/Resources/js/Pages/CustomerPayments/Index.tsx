@@ -1,4 +1,7 @@
+// packages/workdo/Account/src/Resources/js/Pages/CustomerPayments/Index.tsx
 import { useState } from 'react';
+import { PageActionBar } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 
@@ -248,20 +251,20 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Customer Payments')}
             pageActions={
-                <TooltipProvider>
-                    {auth.user?.permissions?.includes('create-customer-payments') && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" onClick={() => openModal('add')}>
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('Create')}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                </TooltipProvider>
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('New Customer Receipt'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-customer-payments',
+                        },
+                        ...getRelatedActions('account.customer-payments.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                />
             }
         >
             <Head title={t('Customer Payments')} />

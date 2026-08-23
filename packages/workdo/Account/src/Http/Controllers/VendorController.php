@@ -13,6 +13,8 @@ use Workdo\Account\Events\CreateVendor;
 use Workdo\Account\Events\UpdateVendor;
 use Workdo\Account\Events\DestroyVendor;
 use Workdo\Account\Services\CustomerUserLinkService;
+use Workdo\Account\Services\VendorImportExportService;
+use Illuminate\Http\Request;
 
 class VendorController extends Controller
 {
@@ -119,5 +121,65 @@ class VendorController extends Controller
             return back()->with('success', __('The vendor has been deleted.'));
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    // -----------------------------------------------------------------
+    // Excel import / export
+    // -----------------------------------------------------------------
+
+    public function export(VendorImportExportService $service)
+    {
+        if (!Auth::user()->can('manage-vendors')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export();
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'vendors-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function importTemplate(VendorImportExportService $service)
+    {
+        if (!Auth::user()->can('create-vendors')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        return response()->download($service->template(), 'vendors-template.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request, VendorImportExportService $service)
+    {
+        if (!Auth::user()->can('create-vendors')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ], [
+            'file.mimes' => __('Please upload an .xlsx, .xls or .csv file.'),
+            'file.max'   => __('The file may not be larger than 5 MB.'),
+        ]);
+
+        try {
+            $result = $service->import($request->file('file')->getRealPath());
+        } catch (\Exception $e) {
+            return back()->with('error', __('Import failed: ') . $e->getMessage());
+        }
+
+        if (!empty($result['errors'])) {
+            return back()
+                ->with('error', __('Import cancelled — :count problem(s) found. No vendors were added.', [
+                    'count' => count($result['errors']),
+                ]))
+                ->with('importErrors', array_slice($result['errors'], 0, 20));
+        }
+
+        return back()->with('success', __(':count vendor(s) imported.', ['count' => $result['imported']]));
     }
 }

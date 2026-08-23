@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronDown, Eye, Edit as EditIcon, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Eye, Edit as EditIcon, Trash2, Folder, FileText } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +28,7 @@ export type TreeAccount = {
     is_system_account: number | boolean;
     description: string | null;
     parent_account_id: number | null;
+    is_group: boolean;
     depth: number;
     children: TreeAccount[];
 };
@@ -165,13 +166,25 @@ export default function AccountTree({
                                             <span className="h-5 w-5 shrink-0" />
                                         )}
 
-                                        <span className={cn(hasChildren && 'font-semibold')}>
+                                        {node.is_group ? (
+                                            <Folder className="h-4 w-4 shrink-0 text-amber-500" />
+                                        ) : (
+                                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                        )}
+
+                                        <span className={cn(node.is_group && 'font-semibold')}>
                                             {node.account_name}
                                         </span>
 
                                         {hasChildren && (
                                             <span className="ml-1 rounded bg-muted px-1.5 text-xs text-muted-foreground">
                                                 {node.children.length}
+                                            </span>
+                                        )}
+
+                                        {node.is_group && !hasChildren && (
+                                            <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs text-amber-700">
+                                                {t('Empty group')}
                                             </span>
                                         )}
                                     </div>
