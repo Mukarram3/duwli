@@ -1,4 +1,7 @@
+// packages/workdo/Recruitment/src/Resources/js/Pages/Candidates/Index.tsx
 import { useState, useEffect } from 'react';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -346,25 +349,27 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Candidates')}
             pageActions={
-                <div className="flex gap-2">
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Create Candidate'),
+                            href: actionRoute('recruitment.candidates.create'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-candidates',
+                        },
+                        // Interview pipeline, moved off the sidebar.
+                        ...getRelatedActions('recruitment.candidates.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                >
                     <TooltipProvider>
                         {dropboxBtn.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                        {auth.user?.permissions?.includes('create-candidates') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => router.get(route('recruitment.candidates.create'))}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title={t('Candidates')} />

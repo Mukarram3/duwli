@@ -1,4 +1,7 @@
+// packages/workdo/Recruitment/src/Resources/js/Pages/JobPostings/Index.tsx
 import { useState, useEffect, useMemo } from 'react';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -358,25 +361,27 @@ export default function Index() {
             pageTitle={t('Manage Job Postings')}
             pageDescription={t('Manage recruitment postings, application details, and requirements.')}
             pageActions={
-                <div className="flex gap-2">
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Create Job Posting'),
+                            href: actionRoute('recruitment.job-postings.create'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-job-postings',
+                        },
+                        // Candidates, interviews and offers, moved off the sidebar.
+                        ...getRelatedActions('recruitment.job-postings.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                >
                     <TooltipProvider>
                         {dropboxBtn.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                        {auth.user?.permissions?.includes('create-job-postings') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => router.get(route('recruitment.job-postings.create'))}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title={t('Job Postings')} />

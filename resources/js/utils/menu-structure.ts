@@ -220,58 +220,38 @@ const SECTIONS: Section[] = [
             {
                 routes: ['hrm.employees.index'],
             },
+            // Time Management (Attendances, Shifts, Timesheet, Holidays) is no
+            // longer a sidebar dropdown — those four live as buttons on the
+            // Employees page. See page-actions.ts.
+            // Leave Balance and Leave Types are buttons on the Leave
+            // Applications page, so only that page needs a sidebar row.
             {
-                title: 'Time Management',
-                routes: [
-                    'hrm.attendances.index',
-                    'hrm.shifts.index',
-                    'timesheet.index',
-                    'hrm.working-days.index',
-                    'hrm.holidays.index',
-                ],
+                routes: ['hrm.leave-applications.index'],
+            },
+            // Set Salary is a button on the Payrolls page.
+            {
+                routes: ['hrm.payrolls.index'],
             },
             {
-                title: 'Leave Management',
-                routes: [
-                    'hrm.leave-applications.index',
-                    'hrm.leave-balance.index',
-                    'hrm.leave-types.index',
-                ],
+                routes: ['hrm.announcements.index', 'hrm.events.index'],
             },
+            // Recruitment is one row: candidates, interviews and offers are
+            // buttons on the Job Postings page.
             {
-                title: 'Payroll',
-                routes: ['hrm.payrolls.index', 'hrm.set-salary.index'],
+                routes: ['recruitment.job-postings.index'],
             },
+            // Trainers and Training Types are buttons on the Training List.
             {
-                routes: ['hrm.announcements.index'],
+                routes: ['training.trainings.index'],
             },
+            // Goals, cycles and indicators are buttons on Employee Reviews.
             {
-                title: 'Recruitment',
-                routes: [
-                    'recruitment.job-postings.index',
-                    'recruitment.candidates.index',
-                ],
-            },
-            {
-                title: 'Training',
-                routes: [
-                    'training.trainings.index',
-                    'training.trainers.index',
-                    'training.training-types.index',
-                ],
-            },
-            {
-                title: 'Performance',
-                routes: [
-                    'performance.employee-reviews.index',
-                    'performance.employee-goals.index',
-                    'performance.review-cycles.index',
-                    'performance.indicators.index',
-                ],
+                routes: ['performance.employee-reviews.index'],
             },
             {
                 title: 'System Setup',
                 routes: [
+                    'hrm.working-days.index',
                     'hrm.branches.index',
                     'hrm.departments.index',
                     'hrm.designations.index',
@@ -299,6 +279,12 @@ const SECTIONS: Section[] = [
                     'recruitment.job-locations.index',
                     'recruitment.custom-questions.index',
                     'recruitment.settings.index',
+                    'recruitment.about-company.index',
+                    'recruitment.application-tips.index',
+                    'recruitment.what-happens-next.index',
+                    'recruitment.need-help.index',
+                    'recruitment.tracking-faq.index',
+                    'recruitment.offer-letter-template.index',
                 ],
             },
         ],
@@ -612,13 +598,36 @@ export const applyQoyodStructure = (items: NavItem[]): NavItem[] => {
     SECTIONS.forEach((section, index) => {
         const children = built.get(section.name) || [];
         if (children.length === 0) return;
+
+        /**
+         * Every section gets an Overview row pointing at its hub page, which
+         * lists every function in the section as an icon card — including the
+         * ones demoted to page action bars. Without it, a demoted screen is
+         * only reachable by knowing which page it sits on.
+         */
+        const overviewHref = path('section.hub')
+            ? `/section/${section.name}`
+            : null;
+
+        const withOverview = overviewHref
+            ? [
+                  {
+                      title: 'Overview',
+                      href: overviewHref,
+                      icon: LayoutGrid,
+                      activePaths: [`/section/${section.name}`],
+                  } as NavItem,
+                  ...children,
+              ]
+            : children;
+
         output.push({
             title: section.title,
             icon: section.icon,
             name: section.name,
             group: '',
             order: (index + 1) * 100,
-            children: dedupeTitles(children),
+            children: dedupeTitles(withOverview),
         });
     });
 

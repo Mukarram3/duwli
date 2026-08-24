@@ -106,6 +106,13 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::post('subscriptions', [PlanController::class, 'store'])->name('subscriptions.store');
 
     // Add-on management routes
+    // Section hub — one landing page per top-level menu section, showing every
+    // function in that section as an icon card. The page builds itself from the
+    // menu, so no controller logic is needed beyond passing the section key.
+    Route::get('section/{section}', function (string $section) {
+        return \Inertia\Inertia::render('sections/hub', ['section' => $section]);
+    })->name('section.hub');
+
     Route::get('add-ons', [ModuleController::class, 'index'])->name('add-ons.index');
     Route::get('add-on/upload', [ModuleController::class, 'upload'])->name('add-on.upload');
     Route::post('add-ons/install', [ModuleController::class, 'install'])->name('add-ons.install');

@@ -1,4 +1,7 @@
+// packages/workdo/Hrm/src/Resources/js/Pages/LeaveApplications/Index.tsx
 import { useState, useEffect, useCallback } from 'react';
+import { PageActionBar } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -355,19 +358,21 @@ export default function Index() {
             ]}
             pageTitle={t('Leave Applications')}
             pageActions={
-                <TooltipProvider>
-                    {auth.user?.permissions?.includes('create-leave-applications') && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" onClick={() => openModal('add')} className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    {t('Add Leave Application')}
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{t('Create')}</p></TooltipContent>
-                        </Tooltip>
-                    )}
-                </TooltipProvider>
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Add Leave Application'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-leave-applications',
+                        },
+                        // Leave Balance and Leave Types, moved off the sidebar.
+                        ...getRelatedActions('hrm.leave-applications.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                />
             }
         >
             <Head title={t('Leave Applications')} />

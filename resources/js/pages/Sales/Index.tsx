@@ -1,4 +1,6 @@
+// resources/js/pages/Sales/Index.tsx
 import { useState } from 'react';
+import { RowActions } from '@/components/row-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -12,7 +14,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Replace, User as UserIcon } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer, Replace, User as UserIcon } from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
@@ -251,68 +253,77 @@ export default function Index() {
         ...(auth.user?.permissions?.some((p: string) => ['view-sales-invoices', 'edit-sales-invoices', 'delete-sales-invoices', 'post-sales-invoices', 'print-sales-invoices'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
-            render: (_: any, invoice: SalesInvoice) => (
-                <div className="flex gap-1">
-                    <TooltipProvider>
-                        <SignatureButtons invoice={invoice} />
-                        {auth.user?.permissions?.includes('print-sales-invoices') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm" onClick={() => window.open(route('sales-invoices.print', invoice.id) + '?download=pdf', '_blank')} className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700">
-                                        <Download className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>{t('Download PDF')}</p></TooltipContent>
-                            </Tooltip>
-                        )}
-                        <InvoiceActionButtons invoice={invoice} />
-                        {auth.user?.permissions?.includes('view-sales-invoices') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm" onClick={() => router.get(route('sales-invoices.show', invoice.id))} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
-                                        <Eye className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>{t('View')}</p></TooltipContent>
-                            </Tooltip>
-                        )}
-                        {invoice.status === 'draft' && (
-                            <>
-                                {auth.user?.permissions?.includes('post-sales-invoices') && (
-                                    <Tooltip delayDuration={0}>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="sm" onClick={() => router.post(route('sales-invoices.post', invoice.id))} className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700">
-                                                <FileText className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>{t('Post invoice to finalize and create journal entries')}</p></TooltipContent>
-                                    </Tooltip>
-                                )}
-                                {auth.user?.permissions?.includes('edit-sales-invoices') && (
-                                    <Tooltip delayDuration={0}>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="sm" onClick={() => router.visit(route('sales-invoices.edit', invoice.id))} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
-                                                <EditIcon className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>{t('Edit')}</p></TooltipContent>
-                                    </Tooltip>
-                                )}
-                                {auth.user?.permissions?.includes('delete-sales-invoices') && (
-                                    <Tooltip delayDuration={0}>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="sm" onClick={() => openDeleteDialog(invoice.id)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>{t('Delete')}</p></TooltipContent>
-                                    </Tooltip>
-                                )}
-                            </>
-                        )}
-                    </TooltipProvider>
-                </div>
-            )
+            render: (_: any, invoice: SalesInvoice) => {
+                const isDraft = invoice.status === 'draft';
+                const notDraft = t('Only draft invoices can be changed. This invoice is :status.', { status: t(invoice.status) });
+
+                return (
+                    <div className="flex items-center gap-1">
+                        <TooltipProvider>
+                            <SignatureButtons invoice={invoice} />
+                            <InvoiceActionButtons invoice={invoice} />
+                        </TooltipProvider>
+
+                        {/*
+                          Same icons on every row. Post/Edit/Delete are shown
+                          greyed out once an invoice is posted rather than
+                          disappearing, so the column stays readable.
+                        */}
+                        <RowActions
+                            actions={[
+                                {
+                                    label: t('View'),
+                                    icon: Eye,
+                                    className: 'text-green-600 hover:text-green-700',
+                                    permitted: auth.user?.permissions?.includes('view-sales-invoices'),
+                                    onClick: () => router.get(route('sales-invoices.show', invoice.id)),
+                                },
+                                {
+                                    label: t('Print'),
+                                    icon: Printer,
+                                    className: 'text-slate-600 hover:text-slate-700',
+                                    permitted: auth.user?.permissions?.includes('print-sales-invoices'),
+                                    onClick: () => window.open(route('sales-invoices.print', invoice.id), '_blank'),
+                                },
+                                {
+                                    label: t('Download PDF'),
+                                    icon: Download,
+                                    className: 'text-orange-600 hover:text-orange-700',
+                                    permitted: auth.user?.permissions?.includes('print-sales-invoices'),
+                                    onClick: () => window.open(route('sales-invoices.print', invoice.id) + '?download=pdf', '_blank'),
+                                },
+                                {
+                                    label: t('Post invoice to finalize and create journal entries'),
+                                    icon: FileText,
+                                    className: 'text-purple-600 hover:text-purple-700',
+                                    permitted: auth.user?.permissions?.includes('post-sales-invoices'),
+                                    available: isDraft,
+                                    disabledReason: t('Already posted'),
+                                    onClick: () => router.post(route('sales-invoices.post', invoice.id)),
+                                },
+                                {
+                                    label: t('Edit'),
+                                    icon: EditIcon,
+                                    className: 'text-blue-600 hover:text-blue-700',
+                                    permitted: auth.user?.permissions?.includes('edit-sales-invoices'),
+                                    available: isDraft,
+                                    disabledReason: notDraft,
+                                    onClick: () => router.visit(route('sales-invoices.edit', invoice.id)),
+                                },
+                                {
+                                    label: t('Delete'),
+                                    icon: Trash2,
+                                    className: 'text-destructive hover:text-destructive',
+                                    permitted: auth.user?.permissions?.includes('delete-sales-invoices'),
+                                    available: isDraft,
+                                    disabledReason: notDraft,
+                                    onClick: () => openDeleteDialog(invoice.id),
+                                },
+                            ]}
+                        />
+                    </div>
+                );
+            }
         }] : [])
     ];
 

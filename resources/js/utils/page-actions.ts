@@ -1,6 +1,16 @@
 // resources/js/utils/page-actions.ts
 import {
     Award,
+    Target,
+    RefreshCw,
+    Gauge,
+    GraduationCap,
+    Wallet,
+    Scale,
+    Tags,
+    CalendarCheck,
+    Clock,
+    Timer,
     BadgeCheck,
     Bell,
     CalendarDays,
@@ -56,15 +66,51 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * records. All of it belongs on the employee screen.
      */
     'hrm.employees.index': [
-        { label: 'Promotions', route: 'hrm.promotions.index', icon: TrendingUp, permission: 'manage-promotion' },
-        { label: 'Transfers', route: 'hrm.employee-transfers.index', icon: ArrowLeftRight, permission: 'manage-transfer' },
-        { label: 'Resignations', route: 'hrm.resignations.index', icon: LogOut, permission: 'manage-resignation' },
-        { label: 'Terminations', route: 'hrm.terminations.index', icon: UserMinus, permission: 'manage-termination' },
+        // Time Management — promoted from a sidebar dropdown to buttons here.
+        { label: 'Attendances', route: 'hrm.attendances.index', icon: CalendarCheck, permission: 'manage-attendance' },
+        { label: 'Shifts', route: 'hrm.shifts.index', icon: Clock, permission: 'manage-shift' },
+        { label: 'Timesheet', route: 'timesheet.index', icon: Timer, permission: 'manage-timesheet' },
+        { label: 'Holidays', route: 'hrm.holidays.index', icon: CalendarDays, permission: 'manage-holiday' },
+        { label: 'Promotions', route: 'hrm.promotions.index', icon: TrendingUp, overflow: true, permission: 'manage-promotion' },
+        { label: 'Transfers', overflow: true, route: 'hrm.employee-transfers.index', icon: ArrowLeftRight, permission: 'manage-transfer' },
+        { label: 'Resignations', overflow: true, route: 'hrm.resignations.index', icon: LogOut, permission: 'manage-resignation' },
+        { label: 'Terminations', overflow: true, route: 'hrm.terminations.index', icon: UserMinus, permission: 'manage-termination' },
         { label: 'Warnings', route: 'hrm.warnings.index', icon: AlertTriangle, overflow: true, permission: 'manage-warning' },
         { label: 'Complaints', route: 'hrm.complaints.index', icon: MessageSquareWarning, overflow: true, permission: 'manage-complaint' },
         { label: 'Awards', route: 'hrm.awards.index', icon: Award, overflow: true, permission: 'manage-award' },
         { label: 'Acknowledgments', route: 'hrm.acknowledgments.index', icon: BadgeCheck, overflow: true, permission: 'manage-acknowledgement' },
         { label: 'Documents', route: 'hrm.documents.index', icon: FileText, overflow: true, permission: 'manage-document' },
+    ],
+
+
+
+
+
+    /** Performance — goals, cycles and indicators move onto Employee Reviews. */
+    'performance.employee-reviews.index': [
+        { label: 'Employee Goals', route: 'performance.employee-goals.index', icon: Target, permission: 'manage-employee-goals' },
+        { label: 'Review Cycles', route: 'performance.review-cycles.index', icon: RefreshCw, permission: 'manage-review-cycles' },
+        { label: 'Performance Indicators', route: 'performance.indicators.index', icon: Gauge, permission: 'manage-indicators' },
+    ],
+
+    /** Training — trainers and types move onto the Training List page. */
+    'training.trainings.index': [
+        { label: 'Trainers', route: 'training.trainers.index', icon: GraduationCap, permission: 'manage-trainer' },
+        { label: 'Training Types', route: 'training.training-types.index', icon: Tags, permission: 'manage-training-type' },
+    ],
+
+    /** Payroll — Set Salary moves off the sidebar onto the Payrolls page. */
+    'hrm.payrolls.index': [
+        { label: 'Set Salary', route: 'hrm.set-salary.index', icon: Wallet, permission: 'manage-set-salary' },
+    ],
+
+    /**
+     * Leave Management — the dropdown is replaced by the Leave Applications
+     * page, with balance and types as buttons on it.
+     */
+    'hrm.leave-applications.index': [
+        { label: 'Leave Balance', route: 'hrm.leave-balance.index', icon: Scale, permission: 'manage-leave-balance' },
+        { label: 'Leave Types', route: 'hrm.leave-types.index', icon: Tags, permission: 'manage-leave-type' },
     ],
 
     /** HR — Announcements page absorbs the other broadcast surfaces. */
@@ -87,6 +133,10 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
 
     /** Recruitment — job postings own the careers-site content. */
     'recruitment.job-postings.index': [
+        // Candidates and the interview pipeline live here now.
+        { label: 'Candidates', route: 'recruitment.candidates.index', icon: Users, permission: 'manage-candidates' },
+        { label: 'Interviews', route: 'recruitment.interviews.index', icon: ClipboardList, permission: 'manage-interview' },
+        { label: 'Offers', route: 'recruitment.offers.index', icon: Send, permission: 'manage-offer' },
         { label: 'About Company', route: 'recruitment.about-company.index', icon: FileText, overflow: true },
         { label: 'Application Tips', route: 'recruitment.application-tips.index', icon: FileText, overflow: true },
         { label: 'What Happens Next', route: 'recruitment.what-happens-next.index', icon: FileText, overflow: true },
@@ -127,11 +177,36 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
         { label: 'Debit Notes', route: 'account.debit-notes.index', overflow: true, permission: 'manage-debit-notes', keepInNav: true },
     ],
 
-    /** Purchasing — mirror of the sales screen. */
+
+    /**
+     * Purchasing — the exact mirror of the sales trio above. Bills, debit notes
+     * and vendor receipts cross-link to each other so the purchasing workflow
+     * reads the same way as the sales one.
+     */
     'purchase-invoices.index': [
-        { label: 'Supplier Payments', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
-        { label: 'Debit Notes', route: 'account.debit-notes.index', permission: 'manage-debit-notes' },
-        { label: 'Purchase Returns', route: 'purchase-returns.index', permission: 'manage-purchase-return-invoices' },
+        { label: 'Manage Receipts', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Manage Debit Notes', route: 'account.debit-notes.index', permission: 'manage-debit-notes', keepInNav: true },
+        { label: 'Purchase Returns', route: 'purchase-returns.index', permission: 'manage-purchase-return-invoices', keepInNav: true },
+        { label: 'Vendors', route: 'account.vendors.index', overflow: true, permission: 'manage-vendors', keepInNav: true },
+    ],
+
+    'account.debit-notes.index': [
+        { label: 'Bills', route: 'purchase-invoices.index', permission: 'manage-purchase-invoices', keepInNav: true },
+        { label: 'Manage Receipts', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Credit Notes', route: 'account.credit-notes.index', overflow: true, permission: 'manage-credit-notes', keepInNav: true },
+    ],
+
+    'account.vendor-payments.index': [
+        { label: 'Bills', route: 'purchase-invoices.index', permission: 'manage-purchase-invoices', keepInNav: true },
+        { label: 'Customer Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Debit Notes', route: 'account.debit-notes.index', overflow: true, permission: 'manage-debit-notes', keepInNav: true },
+    ],
+
+    /** Products — stock and taxonomy screens sit on the product list. */
+    'product-service.items.index': [
+        { label: 'Warehouses', route: 'warehouses.index', permission: 'manage-warehouses', keepInNav: true },
+        { label: 'Inventory Transfers', route: 'transfers.index', permission: 'manage-transfers', keepInNav: true },
+        { label: 'Product Categories', route: 'product-service.item-categories.index', permission: 'manage-product-service', keepInNav: true },
     ],
 
     /** Assets — the lifecycle of an asset lives on the asset list. */
@@ -155,8 +230,17 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
 export const WIRED_PAGES: string[] = [
     'sales-invoices.index',
     'hrm.employees.index',
+    'hrm.leave-applications.index',
+    'hrm.payrolls.index',
+    'recruitment.job-postings.index',
+    'recruitment.candidates.index',
+    'training.trainings.index',
+    'performance.employee-reviews.index',
     'account.credit-notes.index',
     'account.customer-payments.index',
+    'purchase-invoices.index',
+    'account.debit-notes.index',
+    'account.vendor-payments.index',
 ];
 
 /**

@@ -1,4 +1,7 @@
+// packages/workdo/Account/src/Resources/js/Pages/DebitNotes/Index.tsx
 import { useState } from 'react';
+import { PageActionBar } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { usePageButtons } from '@/hooks/usePageButtons';
@@ -256,13 +259,19 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Debit Notes')}
             pageActions={
-                <div className="flex gap-2">
+                <PageActionBar
+                    actions={[
+                        ...getRelatedActions('account.debit-notes.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                >
                     <TooltipProvider>
                         {pageButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title={t('Debit Notes')} />

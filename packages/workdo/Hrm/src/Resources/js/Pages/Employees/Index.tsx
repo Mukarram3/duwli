@@ -1,3 +1,4 @@
+// packages/workdo/Hrm/src/Resources/js/Pages/Employees/Index.tsx
 import { useState, useEffect } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Plus, Edit as EditIcon, Trash2, Eye, Users as UsersIcon, Lock, Download, FileImage, User as UserIcon, Calendar, Clock, TrendingUp, LayoutGrid, Briefcase, FileText } from "lucide-react";
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { FilterButton } from '@/components/ui/filter-button';
@@ -304,7 +307,22 @@ export default function Index() {
             pageTitle={t('Employees')}
             pageDescription={t('View and manage employee profiles, branch, departments, and designation.')}
             pageActions={
-                <div className="flex gap-2">
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('New Employee'),
+                            href: actionRoute('hrm.employees.create'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-employees',
+                        },
+                        // Promotions, transfers, warnings, resignations, terminations,
+                        // awards and documents live here instead of the sidebar.
+                        ...getRelatedActions('hrm.employees.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={6}
+                >
                     <TooltipProvider>
                         {pageButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
@@ -312,20 +330,8 @@ export default function Index() {
                         {oneDriveButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                        {auth.user?.permissions?.includes('create-employees') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => router.visit(route('hrm.employees.create'))}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title={t('Employees')} />

@@ -1,4 +1,7 @@
+// packages/workdo/Hrm/src/Resources/js/Pages/Payrolls/Index.tsx
 import { useState } from 'react';
+import { PageActionBar } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -334,20 +337,21 @@ export default function Index() {
             pageTitle={t('Manage Payrolls')}
             pageDescription={t('Manage and process employee payrolls, calculate salaries, and generate payslips.')}
             pageActions={
-                <TooltipProvider>
-                    {auth.user?.permissions?.includes('create-payrolls') && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" onClick={() => openModal('add')}>
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('Create')}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                </TooltipProvider>
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Create Payroll'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-payrolls',
+                        },
+                        // Set Salary, moved off the sidebar.
+                        ...getRelatedActions('hrm.payrolls.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                />
             }
         >
             <Head title={t('Payrolls')} />

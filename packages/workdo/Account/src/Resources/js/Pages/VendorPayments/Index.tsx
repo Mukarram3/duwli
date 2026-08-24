@@ -1,4 +1,7 @@
+// packages/workdo/Account/src/Resources/js/Pages/VendorPayments/Index.tsx
 import { useState } from 'react';
+import { PageActionBar } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -265,20 +268,20 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Vendor Payments')}
             pageActions={
-                <TooltipProvider>
-                    {auth.user?.permissions?.includes('create-vendor-payments') && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" onClick={() => openModal('add')}>
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('Create')}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                </TooltipProvider>
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('New Vendor Receipt'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-vendor-payments',
+                        },
+                        ...getRelatedActions('account.vendor-payments.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={4}
+                />
             }
         >
             <Head title={t('Vendor Payments')} />
