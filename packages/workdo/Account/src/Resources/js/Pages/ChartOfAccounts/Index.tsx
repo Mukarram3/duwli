@@ -296,11 +296,6 @@ export default function Index() {
                         className="h-9 px-3.5 text-[13px] font-semibold"
                         title={viewMode === 'tree' ? t('Switch to list view') : t('Switch to tree view')}
                     >
-                        {viewMode === 'tree' && tree.length > 0 && allParentIds.length === 0 && (
-                            <div className="border-b bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-                                {t('This chart of accounts is flat — no account has a Parent Account set, so Expand All and Collapse All have nothing to act on. Edit an account and choose its Parent Account to build the hierarchy.')}
-                            </div>
-                        )}
                         {viewMode === 'tree' ? (
                             <List className="mr-1.5 h-4 w-4" />
                         ) : (
@@ -315,19 +310,23 @@ export default function Index() {
                         {quickBooksPageBtn.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
-                        {auth.user?.permissions?.includes('create-chart-of-accounts') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => openModal('add')}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
                     </TooltipProvider>
+
+                    {/*
+                      One create control, labelled. The bare "+" icon that used
+                      to sit here did the same thing as this button, so the page
+                      offered two ways to create an account side by side.
+                    */}
+                    {auth.user?.permissions?.includes('create-chart-of-accounts') && (
+                        <Button
+                            size="sm"
+                            onClick={() => openModal('add')}
+                            className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            {t('New Account')}
+                        </Button>
+                    )}
                 </div>
             }
         >
@@ -443,6 +442,11 @@ export default function Index() {
                 <CardContent className="p-0">
                     <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
                         <div className="min-w-[800px]">
+                        {viewMode === 'tree' && tree.length > 0 && allParentIds.length === 0 && (
+                            <div className="border-b bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                                {t('This chart of accounts is flat — no account has a Parent Account set, so Expand All and Collapse All have nothing to act on. Edit an account and choose its Parent Account to build the hierarchy.')}
+                            </div>
+                        )}
                         {viewMode === 'tree' ? (
                             visibleTree.length === 0 ? (
                                 <NoRecordsFound

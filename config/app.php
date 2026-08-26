@@ -14,6 +14,9 @@ return [
     |
     */
 
+    // Render the unified ERP dashboard instead of the legacy one.
+    'erp_unified_dashboard' => env('ERP_UNIFIED_DASHBOARD', true),
+
     'name' => env('APP_NAME', 'Laravel'),
 
     /*

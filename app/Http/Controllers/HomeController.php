@@ -80,6 +80,28 @@ class HomeController extends Controller
             }
         }
 
+        /**
+         * The unified ERP dashboard.
+         *
+         * Note the module-dashboard redirect above: if any active module
+         * declares a dashboard menu entry, this action redirects there and the
+         * main dashboard is never seen. That is why the new dashboard appeared
+         * to have "no effect" — it was compiled into the bundle but nothing
+         * ever rendered it.
+         *
+         * Set ERP_UNIFIED_DASHBOARD=false in .env to restore the old page.
+         */
+        if (config('app.erp_unified_dashboard', true)) {
+            // Figures come from POSTED journal entries, the same source as the
+            // Trial Balance and P&L, so the dashboard can never disagree with
+            // the financial statements.
+            $metrics = Module_is_active('Account')
+                ? app(\Workdo\Account\Services\DashboardMetricsService::class)->all()
+                : [];
+
+            return Inertia::render('dashboard-erp', $metrics);
+        }
+
         return Inertia::render('dashboard');
     }
 }

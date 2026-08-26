@@ -64,10 +64,27 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     red: '#ef4444'
   };
 
-  const getPrimaryColor = () => {
-    return settings.themeColor === 'custom'
-      ? settings.customColor || '#10b77f'
-      : themeColors[settings.themeColor as keyof typeof themeColors] || '#10b77f';
+  /**
+   * Returns the tenant's chosen brand colour, or null when they have not
+   * chosen one.
+   *
+   * Returning null matters: this provider writes --primary as an INLINE STYLE
+   * on <html>, and inline styles beat every stylesheet. Previously it always
+   * returned a hard-coded green (#10b77f), so the design tokens in
+   * theme-tokens.css were overwritten on every page load and the ERP theme
+   * never appeared. Now the stylesheet governs unless a colour was actually
+   * picked in settings.
+   */
+  const getPrimaryColor = (): string | null => {
+    if (settings.themeColor === 'custom') {
+      return settings.customColor || null;
+    }
+
+    if (!settings.themeColor || settings.themeColor === 'default') {
+      return null;
+    }
+
+    return themeColors[settings.themeColor as keyof typeof themeColors] || null;
   };
 
   useEffect(() => {
@@ -98,9 +115,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
     };
 
-    // Set CSS custom properties
-    root.style.setProperty('--primary', hexToHsl(primaryColor));
-    root.style.setProperty('--primary-foreground', '0 0% 98%');
+    // Only override the stylesheet when the tenant picked a colour. Clearing
+    // the inline value lets theme-tokens.css take effect again if they reset.
+    if (primaryColor) {
+      root.style.setProperty('--primary', hexToHsl(primaryColor));
+      root.style.setProperty('--primary-foreground', '0 0% 98%');
+    } else {
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--primary-foreground');
+    }
 
     // Set global RTL direction
     const isRTL = settings.layoutDirection === 'rtl';
@@ -142,9 +165,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     if (settings.sidebarStyle === 'colored' || settings.sidebarStyle === 'gradient') {
+      const sidebarColor = primaryColor || '#1E3A6F';
       const sidebarBg = settings.sidebarStyle === 'colored'
-        ? primaryColor
-        : `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}80 100%)`;
+        ? sidebarColor
+        : `linear-gradient(135deg, ${sidebarColor} 0%, ${sidebarColor}80 100%)`;
 
       existingStyle.textContent = `
 
@@ -165,7 +189,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }, [settings.themeColor, settings.customColor, settings.layoutDirection, settings.themeMode]);
 
   const getSidebarStyles = (): React.CSSProperties => {
-    const primaryColor = getPrimaryColor();
+    // Falls back to the themed primary when no brand colour is set.
+    const primaryColor = getPrimaryColor() || '#1E3A6F';
 
     if (settings.sidebarStyle === 'colored') {
       return { backgroundColor: primaryColor };

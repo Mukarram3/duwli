@@ -32,8 +32,8 @@ class ChartOfAccountController extends Controller
                 })
                 ->when(request('account_code'), function($q) {
                     $q->where(function($query) {
-                        $query->where('account_code', 'like', '%' . request('account_code') . '%');
-                        $query->orWhere('account_name', 'like', '%' . request('account_code') . '%');
+                    $query->where('account_code', 'like', '%' . request('account_code') . '%');
+                    $query->orWhere('account_name', 'like', '%' . request('account_code') . '%');
                     });
                 })
                 ->when(request('account_type_id') && request('account_type_id') !== 'all', fn($q) => $q->where('account_type_id', request('account_type_id')))
@@ -87,10 +87,32 @@ class ChartOfAccountController extends Controller
 
         $byParent = $accounts->groupBy('parent_account_id');
 
-        $build = function ($parentId, $depth) use (&$build, $byParent) {
+        /**
+         * Roll balances up the tree.
+         *
+         * A group account holds no postings of its own — its meaning is the sum
+         * of everything beneath it. Without this, "1 - Assets" shows 0.00 while
+         * its children hold the real figures, which is what makes the chart
+         * look broken at the top level.
+         */
+        $subtree = function ($accountId, $ownOpening, $ownCurrent) use (&$subtree, $byParent) {
+            $opening = (float) $ownOpening;
+            $current = (float) $ownCurrent;
+
+            foreach ($byParent->get($accountId, collect()) as $child) {
+                $childTotals = $subtree($child->id, $child->opening_balance, $child->current_balance);
+                $opening += $childTotals['opening'];
+                $current += $childTotals['current'];
+            }
+
+            return ['opening' => $opening, 'current' => $current];
+        };
+
+        $build = function ($parentId, $depth) use (&$build, $byParent, $subtree) {
             return $byParent->get($parentId, collect())
-                ->map(function ($account) use ($build, $depth) {
+                ->map(function ($account) use ($build, $depth, $subtree) {
                     $children = $build($account->id, $depth + 1);
+                    $totals = $subtree($account->id, $account->opening_balance, $account->current_balance);
 
                     return [
                         'id'                => $account->id,
@@ -98,8 +120,10 @@ class ChartOfAccountController extends Controller
                         'account_name'      => $account->account_name,
                         'account_type'      => $account->account_type ? ['name' => $account->account_type->name] : null,
                         'normal_balance'    => $account->normal_balance,
-                        'opening_balance'   => $account->opening_balance,
-                        'current_balance'   => $account->current_balance,
+                        'opening_balance'   => $totals['opening'],
+                        'current_balance'   => $totals['current'],
+                        // What this account alone holds, before children.
+                        'own_balance'       => (float) $account->current_balance,
                         'is_active'         => (bool) $account->is_active,
                         'is_system_account' => $account->is_system_account,
                         'description'       => $account->description,
@@ -119,15 +143,18 @@ class ChartOfAccountController extends Controller
             fn($a) => is_null($a->parent_account_id) || !$ids->contains($a->parent_account_id)
         );
 
-        return $roots->map(function ($account) use ($build) {
+        return $roots->map(function ($account) use ($build, $subtree) {
+            $totals = $subtree($account->id, $account->opening_balance, $account->current_balance);
+
             return [
                 'id'                => $account->id,
                 'account_code'      => $account->account_code,
                 'account_name'      => $account->account_name,
                 'account_type'      => $account->account_type ? ['name' => $account->account_type->name] : null,
                 'normal_balance'    => $account->normal_balance,
-                'opening_balance'   => $account->opening_balance,
-                'current_balance'   => $account->current_balance,
+                'opening_balance'   => $totals['opening'],
+                'current_balance'   => $totals['current'],
+                'own_balance'       => (float) $account->current_balance,
                 'is_active'         => (bool) $account->is_active,
                 'is_system_account' => $account->is_system_account,
                 'description'       => $account->description,
@@ -261,8 +288,8 @@ class ChartOfAccountController extends Controller
             // Calculate actual balance from journal entries
             $totalDebits = JournalEntryItem::where('account_id', $chartofaccount->id)->sum('debit_amount');
             $totalCredits = JournalEntryItem::where('account_id', $chartofaccount->id)->sum('credit_amount');
-
-            $calculatedBalance = $chartofaccount->normal_balance === 'debit'
+            
+            $calculatedBalance = $chartofaccount->normal_balance === 'debit' 
                 ? ($chartofaccount->opening_balance + $totalDebits - $totalCredits)
                 : ($chartofaccount->opening_balance + $totalCredits - $totalDebits);
 
