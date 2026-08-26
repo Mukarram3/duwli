@@ -64,18 +64,32 @@ class HomeController extends Controller
     {
         $packagesPath = base_path('packages/workdo');
 
+        /**
+         * Module-dashboard redirect.
+         *
+         * This loop sends /dashboard to the first active module that declares a
+         * dashboard (Account, HRM, CRM...). It runs BEFORE anything else, so
+         * while it is active the unified dashboard is unreachable no matter
+         * what is rendered further down — the reason /dashboard kept landing on
+         * /dashboard/account.
+         *
+         * Skipped entirely when the unified dashboard is on. Module dashboards
+         * remain reachable from their own menu entries.
+         */
+        $useUnified = config('app.erp_unified_dashboard', true);
+
         // find dashboard menu from all  active package and redirect if found
-        if (is_dir($packagesPath)) {
+        if (!$useUnified && is_dir($packagesPath)) {
             foreach (glob($packagesPath . '/*/src/Resources/js/menus/company-menu.ts') as $menuFile) {
                 preg_match('/packages\/workdo\/([^\/]+)\//', $menuFile, $moduleMatch);
                 $moduleName = $moduleMatch[1] ?? null;
-                    $content = file_get_contents($menuFile);
-                    if (preg_match("/parent:\s*['\"]dashboard['\"]/", $content)) {
-                        preg_match("/href:\s*route\(['\"]([^'\"]+)['\"]/", $content, $routeMatch);
-                        preg_match("/permission:\s*['\"]([^'\"]+)['\"]/", $content, $permMatch);
-                        if (!empty($routeMatch[1]) && !empty($permMatch[1]) &&  Module_is_active($moduleName) && Auth::user()->can($permMatch[1])) {
-                            return redirect()->route($routeMatch[1]);
-                        }
+                $content = file_get_contents($menuFile);
+                if (preg_match("/parent:\s*['\"]dashboard['\"]/", $content)) {
+                    preg_match("/href:\s*route\(['\"]([^'\"]+)['\"]/", $content, $routeMatch);
+                    preg_match("/permission:\s*['\"]([^'\"]+)['\"]/", $content, $permMatch);
+                    if (!empty($routeMatch[1]) && !empty($permMatch[1]) &&  Module_is_active($moduleName) && Auth::user()->can($permMatch[1])) {
+                        return redirect()->route($routeMatch[1]);
+                    }
                 }
             }
         }
@@ -91,7 +105,7 @@ class HomeController extends Controller
          *
          * Set ERP_UNIFIED_DASHBOARD=false in .env to restore the old page.
          */
-        if (config('app.erp_unified_dashboard', true)) {
+        if ($useUnified) {
             // Figures come from POSTED journal entries, the same source as the
             // Trial Balance and P&L, so the dashboard can never disagree with
             // the financial statements.
