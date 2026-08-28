@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Workdo\Account\Models\ChartOfAccount;
 use Workdo\Account\Models\JournalEntry;
 use Workdo\Account\Services\JournalService;
+use Workdo\Account\Services\JournalImportService;
 
 /**
  * Manual (general) journal entries.
@@ -248,5 +249,73 @@ class JournalEntryController extends Controller
         ], [
             'lines.min' => __('A journal entry needs at least two lines — one debit and one credit.'),
         ]);
+    }
+
+    // -----------------------------------------------------------------
+    // Excel import / export
+    // -----------------------------------------------------------------
+
+    public function importTemplate(JournalImportService $service)
+    {
+        if (!Auth::user()->can('create-journal-entries')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        return response()->download($service->template(), 'journal-entries-template.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function export(JournalImportService $service)
+    {
+        if (!Auth::user()->can('manage-journal-entries')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export();
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'journal-entries-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request, JournalImportService $service)
+    {
+        if (!Auth::user()->can('create-journal-entries')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ], [
+            'file.mimes' => __('Please upload an .xlsx, .xls or .csv file.'),
+            'file.max'   => __('The file may not be larger than 5 MB.'),
+        ]);
+
+        // Imported vouchers land as drafts unless the user asks to post them,
+        // so a bad batch can be deleted without touching account balances.
+        $post = $request->boolean('post_immediately')
+            && Auth::user()->can('post-journal-entries');
+
+        try {
+            $result = $service->import($request->file('file')->getRealPath(), $post);
+        } catch (\Exception $e) {
+            return back()->with('error', __('Import failed: ') . $e->getMessage());
+        }
+
+        if (!empty($result['errors'])) {
+            return back()
+                ->with('error', __('Import cancelled — :count problem(s) found. Nothing was imported.', [
+                    'count' => count($result['errors']),
+                ]))
+                ->with('importErrors', array_slice($result['errors'], 0, 20));
+        }
+
+        return back()->with('success', __(':count voucher(s) with :lines line(s) imported.', [
+            'count' => $result['imported'],
+            'lines' => $result['lines'],
+        ]));
     }
 }

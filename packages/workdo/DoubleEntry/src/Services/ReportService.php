@@ -17,16 +17,16 @@ class ReportService
         $toDate = $filters['to_date'] ?? null;
 
         $query = JournalEntryItem::select(
-                'journal_entry_items.id',
-                'journal_entries.journal_date',
-                'journal_entries.reference_type',
-                'journal_entries.reference_id',
-                'journal_entry_items.description',
-                'journal_entry_items.debit_amount',
-                'journal_entry_items.credit_amount',
-                'chart_of_accounts.account_code',
-                'chart_of_accounts.account_name'
-            )
+            'journal_entry_items.id',
+            'journal_entries.journal_date',
+            'journal_entries.reference_type',
+            'journal_entries.reference_id',
+            'journal_entry_items.description',
+            'journal_entry_items.debit_amount',
+            'journal_entry_items.credit_amount',
+            'chart_of_accounts.account_code',
+            'chart_of_accounts.account_name'
+        )
             ->join('journal_entries', 'journal_entry_items.journal_entry_id', '=', 'journal_entries.id')
             ->join('chart_of_accounts', 'journal_entry_items.account_id', '=', 'chart_of_accounts.id')
             ->where('journal_entries.status', 'posted')
@@ -151,7 +151,7 @@ class ReportService
 
         foreach ($accounts as $account) {
             $balance = $this->calculateAccountBalance($account->id, $asOfDate);
-            
+
             if (!$showZeroBalances && abs($balance) < 0.01) {
                 continue;
             }
@@ -249,7 +249,7 @@ class ReportService
 
         foreach ($accounts as $account) {
             $balance = $this->getAccountBalanceForPeriod($account->id, $fromDate, $toDate);
-            
+
             if (!$showZeroBalances && abs($balance) < 0.01) {
                 continue;
             }
@@ -317,9 +317,20 @@ class ReportService
             ->whereBetween('account_code', [1000, 1099])
             ->get();
 
+        /**
+         * Beginning cash must be the position the DAY BEFORE the period starts.
+         *
+         * calculateAccountBalance() filters on journal_date <= $asOfDate, so
+         * passing $fromDate included transactions dated on the first day of the
+         * period — counting them once in the opening balance and again in the
+         * period movement below, which inflated ending cash by that day's
+         * activity.
+         */
+        $balanceAsOf = \Carbon\Carbon::parse($fromDate)->subDay()->format('Y-m-d');
+
         $beginningCash = 0;
         foreach ($cashAccounts as $account) {
-            $beginningCash += $this->calculateAccountBalance($account->id, $fromDate);
+            $beginningCash += $this->calculateAccountBalance($account->id, $balanceAsOf);
         }
 
         $operating = $this->getCashFlowByCategory($fromDate, $toDate, 4000, 5999);
@@ -371,7 +382,7 @@ class ReportService
 
         foreach ($accounts as $account) {
             $balance = $this->getAccountBalanceForPeriod($account->id, $fromDate, $toDate);
-            
+
             if (abs($balance) < 0.01) {
                 continue;
             }

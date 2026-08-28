@@ -1,5 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/JournalEntries/Index.tsx
 import { useState } from 'react';
+import ImportDialog from '../Customers/ImportDialog';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
@@ -18,7 +19,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { PerPageSelector } from '@/components/ui/per-page-selector';
 import NoRecordsFound from '@/components/no-records-found';
 import { PageActionBar, actionRoute, type PageAction } from '@/components/page-action-bar';
-import { Eye, Plus, Check, Undo2, Lock, BookOpen } from 'lucide-react';
+import { Eye, Plus, Check, Undo2, Lock, BookOpen, Upload, Download } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { PageProps } from '@/types';
 
@@ -45,6 +46,7 @@ export default function Index({ journalEntries, filters: initialFilters }: any) 
     const { t } = useTranslation();
     const { auth } = usePage<PageProps>().props as any;
     const [filters, setFilters] = useState(initialFilters || {});
+    const [importOpen, setImportOpen] = useState(false);
 
     const applyFilters = (next: Record<string, any>) => {
         const merged = { ...filters, ...next };
@@ -61,6 +63,23 @@ export default function Index({ journalEntries, filters: initialFilters }: any) 
             href: actionRoute('account.journal-entries.create'),
             icon: Plus,
             permission: 'create-journal-entries',
+        },
+        {
+            // Bulk entry of journal vouchers from a spreadsheet — the way
+            // opening balances and month-end adjustments actually arrive.
+            label: t('Import'),
+            onClick: () => setImportOpen(true),
+            icon: Upload,
+            variant: 'primary',
+            permission: 'create-journal-entries',
+        },
+        {
+            label: t('Export'),
+            href: actionRoute('account.journal-entries.export'),
+            icon: Download,
+            variant: 'primary',
+            external: true,
+            permission: 'manage-journal-entries',
         },
         {
             label: t('Chart of Accounts'),
@@ -138,94 +157,94 @@ export default function Index({ journalEntries, filters: initialFilters }: any) 
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/50 text-left">
-                                <tr>
-                                    <th className="px-4 py-3 font-medium">{t('Number')}</th>
-                                    <th className="px-4 py-3 font-medium">{t('Date')}</th>
-                                    <th className="px-4 py-3 font-medium">{t('Description')}</th>
-                                    <th className="px-4 py-3 font-medium">{t('Type')}</th>
-                                    <th className="px-4 py-3 text-right font-medium">{t('Debit')}</th>
-                                    <th className="px-4 py-3 text-right font-medium">{t('Credit')}</th>
-                                    <th className="px-4 py-3 font-medium">{t('Status')}</th>
-                                    <th className="px-4 py-3 text-right font-medium">{t('Action')}</th>
-                                </tr>
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium">{t('Number')}</th>
+                                        <th className="px-4 py-3 font-medium">{t('Date')}</th>
+                                        <th className="px-4 py-3 font-medium">{t('Description')}</th>
+                                        <th className="px-4 py-3 font-medium">{t('Type')}</th>
+                                        <th className="px-4 py-3 text-right font-medium">{t('Debit')}</th>
+                                        <th className="px-4 py-3 text-right font-medium">{t('Credit')}</th>
+                                        <th className="px-4 py-3 font-medium">{t('Status')}</th>
+                                        <th className="px-4 py-3 text-right font-medium">{t('Action')}</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {journalEntries.data.map((entry: JournalEntry) => (
-                                    <tr key={entry.id} className="border-t hover:bg-muted/30">
-                                        <td className="px-4 py-3 font-mono text-xs">{entry.journal_number}</td>
-                                        <td className="px-4 py-3">{formatDate(entry.journal_date)}</td>
-                                        <td className="max-w-xs truncate px-4 py-3">{entry.description}</td>
-                                        <td className="px-4 py-3">
-                                            {entry.entry_type === 'manual' ? (
-                                                <span className="text-muted-foreground">{t('Manual')}</span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    {journalEntries.data.map((entry: JournalEntry) => (
+                                        <tr key={entry.id} className="border-t hover:bg-muted/30">
+                                            <td className="px-4 py-3 font-mono text-xs">{entry.journal_number}</td>
+                                            <td className="px-4 py-3">{formatDate(entry.journal_date)}</td>
+                                            <td className="max-w-xs truncate px-4 py-3">{entry.description}</td>
+                                            <td className="px-4 py-3">
+                                                {entry.entry_type === 'manual' ? (
+                                                    <span className="text-muted-foreground">{t('Manual')}</span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-muted-foreground">
                                                         <Lock className="h-3 w-3" />
-                                                    {t('Automatic')}
+                                                        {t('Automatic')}
                                                     </span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">{formatCurrency(entry.total_debit)}</td>
-                                        <td className="px-4 py-3 text-right">{formatCurrency(entry.total_credit)}</td>
-                                        <td className="px-4 py-3">
-                                            <Badge variant="secondary" className={statusStyles[entry.status]}>
-                                                {t(entry.status.charAt(0).toUpperCase() + entry.status.slice(1))}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-end gap-1">
-                                                {entry.status === 'draft' &&
-                                                    entry.entry_type === 'manual' &&
-                                                    auth.user?.permissions?.includes('post-journal-entries') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            title={t('Post')}
-                                                            className="h-8 w-8 p-0 text-emerald-600"
-                                                            onClick={() =>
-                                                                router.post(
-                                                                    route('account.journal-entries.post', entry.id),
-                                                                )
-                                                            }
-                                                        >
-                                                            <Check className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                {entry.status === 'posted' &&
-                                                    entry.entry_type === 'manual' &&
-                                                    auth.user?.permissions?.includes('post-journal-entries') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            title={t('Reverse')}
-                                                            className="h-8 w-8 p-0 text-amber-600"
-                                                            onClick={() =>
-                                                                router.post(
-                                                                    route(
-                                                                        'account.journal-entries.reverse',
-                                                                        entry.id,
-                                                                    ),
-                                                                )
-                                                            }
-                                                        >
-                                                            <Undo2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    title={t('View')}
-                                                    className="h-8 w-8 p-0 text-green-600"
-                                                    onClick={() =>
-                                                        router.get(route('account.journal-entries.show', entry.id))
-                                                    }
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">{formatCurrency(entry.total_debit)}</td>
+                                            <td className="px-4 py-3 text-right">{formatCurrency(entry.total_credit)}</td>
+                                            <td className="px-4 py-3">
+                                                <Badge variant="secondary" className={statusStyles[entry.status]}>
+                                                    {t(entry.status.charAt(0).toUpperCase() + entry.status.slice(1))}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    {entry.status === 'draft' &&
+                                                        entry.entry_type === 'manual' &&
+                                                        auth.user?.permissions?.includes('post-journal-entries') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                title={t('Post')}
+                                                                className="h-8 w-8 p-0 text-emerald-600"
+                                                                onClick={() =>
+                                                                    router.post(
+                                                                        route('account.journal-entries.post', entry.id),
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Check className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    {entry.status === 'posted' &&
+                                                        entry.entry_type === 'manual' &&
+                                                        auth.user?.permissions?.includes('post-journal-entries') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                title={t('Reverse')}
+                                                                className="h-8 w-8 p-0 text-amber-600"
+                                                                onClick={() =>
+                                                                    router.post(
+                                                                        route(
+                                                                            'account.journal-entries.reverse',
+                                                                            entry.id,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Undo2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        title={t('View')}
+                                                        className="h-8 w-8 p-0 text-green-600"
+                                                        onClick={() =>
+                                                            router.get(route('account.journal-entries.show', entry.id))
+                                                        }
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -244,6 +263,13 @@ export default function Index({ journalEntries, filters: initialFilters }: any) 
                     />
                 </CardFooter>
             </Card>
+            <ImportDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                importRoute="account.journal-entries.import"
+                templateRoute="account.journal-entries.import.template"
+                title={t('Import Journal Entries')}
+            />
         </AuthenticatedLayout>
     );
 }
