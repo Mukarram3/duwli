@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 import { router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronDown, Eye, Edit as EditIcon, Trash2, Folder, FileText } from 'lucide-react';
+import { ChevronRight, ChevronDown, Eye, Edit as EditIcon, Trash2, Folder, FileText, Plus } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
+import { RowActions } from '@/components/row-actions';
 import { cn } from '@/lib/utils';
 
 /**
@@ -82,16 +83,19 @@ type Props = {
     permissions: string[];
     onEdit: (account: TreeAccount) => void;
     onDelete: (id: number) => void;
+    /** Create a sub-account beneath this one. */
+    onAddChild?: (parent: TreeAccount) => void;
 };
 
 export default function AccountTree({
-    nodes,
-    expandedIds,
-    onToggle,
-    permissions,
-    onEdit,
-    onDelete,
-}: Props) {
+                                        nodes,
+                                        expandedIds,
+                                        onToggle,
+                                        permissions,
+                                        onEdit,
+                                        onDelete,
+                                        onAddChild,
+                                    }: Props) {
     const { t } = useTranslation();
 
     const canView = permissions?.includes('view-chart-of-accounts');
@@ -124,76 +128,76 @@ export default function AccountTree({
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left">
-                    <tr>
-                        <th className="px-4 py-3 font-medium">{t('Account Name')}</th>
-                        <th className="px-4 py-3 font-medium">{t('Account Code')}</th>
-                        <th className="px-4 py-3 font-medium">{t('Account Type Name')}</th>
-                        <th className="px-4 py-3 font-medium">{t('Normal Balance')}</th>
-                        <th className="px-4 py-3 text-right font-medium">{t('Opening Balance')}</th>
-                        <th className="px-4 py-3 text-right font-medium">{t('Current Balance')}</th>
-                        <th className="px-4 py-3 font-medium">{t('Status')}</th>
-                        {showActions && <th className="px-4 py-3 text-right font-medium">{t('Actions')}</th>}
-                    </tr>
+                <tr>
+                    <th className="px-4 py-3 font-medium">{t('Account Name')}</th>
+                    <th className="px-4 py-3 font-medium">{t('Account Code')}</th>
+                    <th className="px-4 py-3 font-medium">{t('Account Type Name')}</th>
+                    <th className="px-4 py-3 font-medium">{t('Normal Balance')}</th>
+                    <th className="px-4 py-3 text-right font-medium">{t('Opening Balance')}</th>
+                    <th className="px-4 py-3 text-right font-medium">{t('Current Balance')}</th>
+                    <th className="px-4 py-3 font-medium">{t('Status')}</th>
+                    {showActions && <th className="px-4 py-3 text-right font-medium">{t('Actions')}</th>}
+                </tr>
                 </thead>
                 <tbody>
-                    {visibleRows.map((node) => {
-                        const hasChildren = node.children.length > 0;
-                        const isOpen = expandedIds.has(node.id);
+                {visibleRows.map((node) => {
+                    const hasChildren = node.children.length > 0;
+                    const isOpen = expandedIds.has(node.id);
 
-                        return (
-                            <tr key={node.id} className="border-t hover:bg-muted/30">
-                                <td className="px-4 py-2.5">
-                                    <div
-                                        className="flex items-center gap-1.5"
-                                        // Indent by depth. Leaves get extra padding so their
-                                        // names line up with siblings that have a chevron.
-                                        style={{ paddingInlineStart: `${node.depth * 20}px` }}
-                                    >
-                                        {hasChildren ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => onToggle(node.id)}
-                                                aria-label={isOpen ? t('Collapse') : t('Expand')}
-                                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
-                                            >
-                                                {isOpen ? (
-                                                    <ChevronDown className="h-4 w-4" />
-                                                ) : (
-                                                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
-                                                )}
-                                            </button>
-                                        ) : (
-                                            <span className="h-5 w-5 shrink-0" />
-                                        )}
+                    return (
+                        <tr key={node.id} className="border-t hover:bg-muted/30">
+                            <td className="px-4 py-2.5">
+                                <div
+                                    className="flex items-center gap-1.5"
+                                    // Indent by depth. Leaves get extra padding so their
+                                    // names line up with siblings that have a chevron.
+                                    style={{ paddingInlineStart: `${node.depth * 20}px` }}
+                                >
+                                    {hasChildren ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => onToggle(node.id)}
+                                            aria-label={isOpen ? t('Collapse') : t('Expand')}
+                                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
+                                        >
+                                            {isOpen ? (
+                                                <ChevronDown className="h-4 w-4" />
+                                            ) : (
+                                                <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                                            )}
+                                        </button>
+                                    ) : (
+                                        <span className="h-5 w-5 shrink-0" />
+                                    )}
 
-                                        {node.is_group ? (
-                                            <Folder className="h-4 w-4 shrink-0 text-amber-500" />
-                                        ) : (
-                                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        )}
+                                    {node.is_group ? (
+                                        <Folder className="h-4 w-4 shrink-0 text-amber-500" />
+                                    ) : (
+                                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                    )}
 
-                                        <span className={cn(node.is_group && 'font-semibold')}>
+                                    <span className={cn(node.is_group && 'font-semibold')}>
                                             {node.account_name}
                                         </span>
 
-                                        {hasChildren && (
-                                            <span className="ml-1 rounded bg-muted px-1.5 text-xs text-muted-foreground">
+                                    {hasChildren && (
+                                        <span className="ml-1 rounded bg-muted px-1.5 text-xs text-muted-foreground">
                                                 {node.children.length}
                                             </span>
-                                        )}
+                                    )}
 
-                                        {node.is_group && !hasChildren && (
-                                            <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs text-amber-700">
+                                    {node.is_group && !hasChildren && (
+                                        <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs text-amber-700">
                                                 {t('Empty group')}
                                             </span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                    {node.account_code}
-                                </td>
-                                <td className="px-4 py-2.5">{node.account_type?.name || '-'}</td>
-                                <td className="px-4 py-2.5">
+                                    )}
+                                </div>
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                {node.account_code}
+                            </td>
+                            <td className="px-4 py-2.5">{node.account_type?.name || '-'}</td>
+                            <td className="px-4 py-2.5">
                                     <span
                                         className={cn(
                                             'rounded-full px-2 py-1 text-xs',
@@ -204,17 +208,17 @@ export default function AccountTree({
                                     >
                                         {t(
                                             node.normal_balance.charAt(0).toUpperCase() +
-                                                node.normal_balance.slice(1),
+                                            node.normal_balance.slice(1),
                                         )}
                                     </span>
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                    {node.opening_balance ? formatCurrency(node.opening_balance) : '-'}
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                    {node.current_balance ? formatCurrency(node.current_balance) : '-'}
-                                </td>
-                                <td className="px-4 py-2.5">
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                                {node.opening_balance ? formatCurrency(node.opening_balance) : '-'}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                                {node.current_balance ? formatCurrency(node.current_balance) : '-'}
+                            </td>
+                            <td className="px-4 py-2.5">
                                     <span
                                         className={cn(
                                             'rounded-full px-2 py-1 text-xs',
@@ -225,53 +229,67 @@ export default function AccountTree({
                                     >
                                         {node.is_active ? t('Active') : t('Inactive')}
                                     </span>
+                            </td>
+                            {showActions && (
+                                <td className="px-4 py-2.5">
+                                    {/*
+                                          The same four icons on every row.
+                                          Previously Edit and Delete were hidden
+                                          on rows that did not allow them, so one
+                                          row showed two icons and the next showed
+                                          five, and the column read as broken.
+                                          Now unavailable actions are greyed out
+                                          with a reason instead of disappearing.
+                                        */}
+                                    <RowActions
+                                        className="justify-end"
+                                        actions={[
+                                            {
+                                                label: t('Add sub-account'),
+                                                icon: Plus,
+                                                className: 'text-[#1E3A6F]',
+                                                permitted: canEdit && !!onAddChild,
+                                                onClick: () => onAddChild && onAddChild(node),
+                                            },
+                                            {
+                                                label: t('View'),
+                                                icon: Eye,
+                                                className: 'text-green-600',
+                                                permitted: canView,
+                                                onClick: () =>
+                                                    router.visit(route('account.chart-of-accounts.show', node.id)),
+                                            },
+                                            {
+                                                // System accounts ARE editable — you need to
+                                                // rename them and set parents to build the
+                                                // hierarchy. Only deletion is restricted.
+                                                label: t('Edit'),
+                                                icon: EditIcon,
+                                                className: 'text-blue-600',
+                                                permitted: canEdit,
+                                                onClick: () => onEdit(node),
+                                            },
+                                            {
+                                                label: t('Delete'),
+                                                icon: Trash2,
+                                                className: 'text-destructive',
+                                                permitted: canDelete,
+                                                available:
+                                                    node.is_system_account == 0 &&
+                                                    node.children.length === 0,
+                                                disabledReason:
+                                                    node.children.length > 0
+                                                        ? t('Move or delete the sub-accounts first.')
+                                                        : t('System accounts cannot be deleted.'),
+                                                onClick: () => onDelete(node.id),
+                                            },
+                                        ]}
+                                    />
                                 </td>
-                                {showActions && (
-                                    <td className="px-4 py-2.5">
-                                        <div className="flex items-center justify-end gap-1">
-                                            {canView && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    title={t('View')}
-                                                    className="h-8 w-8 p-0 text-green-600"
-                                                    onClick={() =>
-                                                        router.visit(
-                                                            route('account.chart-of-accounts.show', node.id),
-                                                        )
-                                                    }
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {canEdit && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    title={t('Edit')}
-                                                    className="h-8 w-8 p-0 text-blue-600"
-                                                    onClick={() => onEdit(node)}
-                                                >
-                                                    <EditIcon className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {canDelete && node.is_system_account == 0 && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    title={t('Delete')}
-                                                    className="h-8 w-8 p-0 text-destructive"
-                                                    onClick={() => onDelete(node.id)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </td>
-                                )}
-                            </tr>
-                        );
-                    })}
+                            )}
+                        </tr>
+                    );
+                })}
                 </tbody>
             </table>
         </div>

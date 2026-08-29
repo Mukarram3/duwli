@@ -468,6 +468,12 @@ export default function Index() {
                                     permissions={auth.user?.permissions || []}
                                     onEdit={(account) => openModal('edit', account as any)}
                                     onDelete={(id) => openDeleteDialog(id)}
+                                    // Opens the create modal with this account
+                                    // pre-selected as the parent, so building
+                                    // the hierarchy does not mean retyping it.
+                                    onAddChild={(parent) =>
+                                        openModal('add', { parent_account_id: parent.id } as any)
+                                    }
                                 />
                             )
                         ) : (

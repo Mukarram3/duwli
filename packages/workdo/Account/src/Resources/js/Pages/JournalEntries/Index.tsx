@@ -19,7 +19,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { PerPageSelector } from '@/components/ui/per-page-selector';
 import NoRecordsFound from '@/components/no-records-found';
 import { PageActionBar, actionRoute, type PageAction } from '@/components/page-action-bar';
-import { Eye, Plus, Check, Undo2, Lock, BookOpen, Upload, Download } from 'lucide-react';
+import { Eye, Plus, Check, Undo2, Lock, BookOpen, Upload } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { PageProps } from '@/types';
 
@@ -72,14 +72,6 @@ export default function Index({ journalEntries, filters: initialFilters }: any) 
             icon: Upload,
             variant: 'primary',
             permission: 'create-journal-entries',
-        },
-        {
-            label: t('Export'),
-            href: actionRoute('account.journal-entries.export'),
-            icon: Download,
-            variant: 'primary',
-            external: true,
-            permission: 'manage-journal-entries',
         },
         {
             label: t('Chart of Accounts'),
