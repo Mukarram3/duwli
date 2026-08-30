@@ -14,6 +14,20 @@ import { Button } from '@/components/ui/button';
 import { Upload, Download, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
 
 /**
+ * route() throws when a route is missing, which crashes the whole page rather
+ * than just breaking one link. Resolve defensively so an undeployed backend
+ * degrades to a disabled control instead of a white screen.
+ */
+const safeRoute = (name: string): string | undefined => {
+    try {
+        const fn = (window as any).route;
+        return typeof fn === 'function' ? fn(name) : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
+/**
  * Customer Excel import.
  *
  * The import is all-or-nothing on the server: if any row fails validation
@@ -64,7 +78,13 @@ export default function ImportDialog({
         payload.append('file', file);
 
         setUploading(true);
-        router.post(route(importRoute), payload, {
+        const target = safeRoute(importRoute);
+        if (!target) {
+            setErrors([t('Import is not available yet — the server routes are missing.')]);
+            return;
+        }
+
+        router.post(target, payload, {
             forceFormData: true,
             preserveScroll: true,
             onFinish: () => setUploading(false),
@@ -100,8 +120,13 @@ export default function ImportDialog({
                             <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
                             <span>{t('Not sure about the format?')}</span>
                         </div>
-                        <a href={route(templateRoute)} download>
-                            <Button variant="outline" size="sm" type="button">
+                        <a href={safeRoute(templateRoute) || '#'} download>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                disabled={!safeRoute(templateRoute)}
+                            >
                                 <Download className="mr-1.5 h-4 w-4" />
                                 {t('Download Template')}
                             </Button>

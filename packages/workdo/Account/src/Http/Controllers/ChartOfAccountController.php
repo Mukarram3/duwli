@@ -2,7 +2,9 @@
 
 namespace Workdo\Account\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Workdo\Account\Models\ChartOfAccount;
+use Workdo\Account\Services\ChartOfAccountImportExportService;
 use Workdo\Account\Http\Requests\StoreChartOfAccountRequest;
 use Workdo\Account\Http\Requests\UpdateChartOfAccountRequest;
 use Illuminate\Routing\Controller;
@@ -320,5 +322,65 @@ class ChartOfAccountController extends Controller
         else{
             return redirect()->route('account.chart-of-accounts.index')->with('error', __('Permission denied'));
         }
+    }
+
+    // -----------------------------------------------------------------
+    // Excel import / export
+    // -----------------------------------------------------------------
+
+    public function export(ChartOfAccountImportExportService $service)
+    {
+        if (!Auth::user()->can('manage-chart-of-accounts')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export();
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'chart-of-accounts-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function importTemplate(ChartOfAccountImportExportService $service)
+    {
+        if (!Auth::user()->can('create-chart-of-accounts')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        return response()->download($service->template(), 'chart-of-accounts-template.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request, ChartOfAccountImportExportService $service)
+    {
+        if (!Auth::user()->can('create-chart-of-accounts')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ], [
+            'file.mimes' => __('Please upload an .xlsx, .xls or .csv file.'),
+            'file.max'   => __('The file may not be larger than 5 MB.'),
+        ]);
+
+        try {
+            $result = $service->import($request->file('file')->getRealPath());
+        } catch (\Exception $e) {
+            return back()->with('error', __('Import failed: ') . $e->getMessage());
+        }
+
+        if (!empty($result['errors'])) {
+            return back()
+                ->with('error', __('Import cancelled — :count problem(s) found. Nothing was imported.', [
+                    'count' => count($result['errors']),
+                ]))
+                ->with('importErrors', array_slice($result['errors'], 0, 20));
+        }
+
+        return back()->with('success', __(':count account(s) imported.', ['count' => $result['imported']]));
     }
 }

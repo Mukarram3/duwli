@@ -1,5 +1,7 @@
 // packages/workdo/Account/src/Resources/js/Pages/ChartOfAccounts/Index.tsx
 import { useState, useMemo, useEffect } from 'react';
+import ImportDialog from '../Customers/ImportDialog';
+import { actionRoute } from '@/components/page-action-bar';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -26,7 +28,7 @@ import NoRecordsFound from '@/components/no-records-found';
 import { ChartOfAccount, ChartOfAccountsIndexProps, ChartOfAccountFilters, ChartOfAccountModalState } from './types';
 import { formatDate, formatTime, formatDateTime, formatCurrency, getImagePath } from '@/utils/helpers';
 import AccountTree, { collectParentIds, filterTree, type TreeAccount } from './AccountTree';
-import { ChevronsDownUp, ChevronsUpDown, List, Network } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, List, Network, Upload, Archive, PencilLine, FileText } from 'lucide-react';
 
 export default function Index() {
     const { t } = useTranslation();
@@ -47,8 +49,35 @@ export default function Index() {
     const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
     const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
     const [treeSearch, setTreeSearch] = useState('');
+    const [importOpen, setImportOpen] = useState(false);
+    // Archived = inactive accounts, kept out of the default view.
+    const [showArchived, setShowArchived] = useState(false);
+    // Quick edit turns account name and code into inline inputs so a whole
+    // chart can be corrected without opening a modal per row.
+    const [quickEdit, setQuickEdit] = useState(false);
 
-    const tree: TreeAccount[] = accountTree || [];
+    const rawTree: TreeAccount[] = accountTree || [];
+
+    /**
+     * Archived accounts are inactive ones. They are hidden by default so the
+     * working chart stays readable, and a parent is kept whenever any
+     * descendant still matches — otherwise the visible children would lose
+     * their heading.
+     */
+    const filterByActive = (nodes: TreeAccount[], wantArchived: boolean): TreeAccount[] =>
+        nodes
+            .map((node) => {
+                const children = filterByActive(node.children, wantArchived);
+                const selfMatches = wantArchived ? !node.is_active : node.is_active;
+                if (!selfMatches && children.length === 0) return null;
+                return { ...node, children };
+            })
+            .filter((node): node is TreeAccount => node !== null);
+
+    const tree: TreeAccount[] = useMemo(
+        () => filterByActive(rawTree, showArchived),
+        [rawTree, showArchived],
+    );
 
     // Every node that has children, at any depth — the target of Expand All.
     const allParentIds = useMemo(() => collectParentIds(tree), [tree]);
@@ -65,6 +94,55 @@ export default function Index() {
             setExpandedIds((current) => new Set([...current, ...openIds]));
         }
     }, [treeSearch, openIds.join(',')]);
+
+    /**
+     * Client-side PDF. jspdf + autotable are already dependencies, so this
+     * needs no server route and no extra install. Indentation is preserved
+     * with leading spaces so the hierarchy survives into the document.
+     */
+    const downloadPdf = async () => {
+        const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+            import('jspdf'),
+            import('jspdf-autotable'),
+        ]);
+
+        const rows: any[] = [];
+        const walk = (nodes: TreeAccount[]) => {
+            nodes.forEach((node) => {
+                rows.push([
+                    '    '.repeat(node.depth) + node.account_name,
+                    node.account_code,
+                    node.account_type?.name || '-',
+                    node.normal_balance,
+                    node.opening_balance ? Number(node.opening_balance).toFixed(2) : '-',
+                    node.current_balance ? Number(node.current_balance).toFixed(2) : '-',
+                    node.is_active ? t('Active') : t('Inactive'),
+                ]);
+                if (node.children?.length) walk(node.children);
+            });
+        };
+        walk(tree);
+
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        doc.setFontSize(14);
+        doc.text(t('Chart Of Accounts'), 14, 16);
+        doc.setFontSize(9);
+        doc.text(new Date().toLocaleDateString(), 14, 22);
+
+        autoTable(doc, {
+            startY: 27,
+            head: [[
+                t('Account Name'), t('Account Code'), t('Account Type Name'),
+                t('Normal Balance'), t('Opening Balance'), t('Current Balance'), t('Status'),
+            ]],
+            body: rows,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [30, 58, 111], textColor: 255 },
+            columnStyles: { 0: { cellWidth: 60 } },
+        });
+
+        doc.save('chart-of-accounts-' + new Date().toISOString().slice(0, 10) + '.pdf');
+    };
 
     const expandAll = () => setExpandedIds(new Set(allParentIds));
     const collapseAll = () => setExpandedIds(new Set());
@@ -259,7 +337,7 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Chart Of Accounts')}
             pageActions={
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
                     {viewMode === 'tree' && (
                         <>
                             <Button
@@ -317,6 +395,59 @@ export default function Index() {
                       to sit here did the same thing as this button, so the page
                       offered two ways to create an account side by side.
                     */}
+                    {auth.user?.permissions?.includes('edit-chart-of-accounts') && viewMode === 'tree' && (
+                        <Button
+                            variant={quickEdit ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setQuickEdit(!quickEdit)}
+                            className="h-9 px-3.5 text-[13px] font-semibold"
+                        >
+                            <PencilLine className="mr-1.5 h-4 w-4" />
+                            {quickEdit ? t('Done') : t('Quick Edit')}
+                        </Button>
+                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadPdf}
+                        disabled={tree.length === 0}
+                        className="h-9 px-3.5 text-[13px] font-semibold"
+                    >
+                        <FileText className="mr-1.5 h-4 w-4" />
+                        {t('Download PDF')}
+                    </Button>
+                    {auth.user?.permissions?.includes('create-chart-of-accounts') &&
+                        actionRoute('account.chart-of-accounts.import') && (
+                        <Button
+                            size="sm"
+                            onClick={() => setImportOpen(true)}
+                            className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
+                        >
+                            <Upload className="mr-1.5 h-4 w-4" />
+                            {t('Import Accounts')}
+                        </Button>
+                    )}
+                    {auth.user?.permissions?.includes('manage-chart-of-accounts') &&
+                        actionRoute('account.chart-of-accounts.export') && (
+                        <a href={actionRoute('account.chart-of-accounts.export') || '#'} download>
+                            <Button
+                                size="sm"
+                                className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
+                            >
+                                <Download className="mr-1.5 h-4 w-4" />
+                                {t('Export Accounts')}
+                            </Button>
+                        </a>
+                    )}
+                    <Button
+                        variant={showArchived ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setShowArchived(!showArchived)}
+                        className="h-9 px-3.5 text-[13px] font-semibold"
+                    >
+                        <Archive className="mr-1.5 h-4 w-4" />
+                        {showArchived ? t('Active Accounts') : t('Archived Accounts')}
+                    </Button>
                     {auth.user?.permissions?.includes('create-chart-of-accounts') && (
                         <Button
                             size="sm"
@@ -471,6 +602,7 @@ export default function Index() {
                                     // Opens the create modal with this account
                                     // pre-selected as the parent, so building
                                     // the hierarchy does not mean retyping it.
+                                    quickEdit={quickEdit}
                                     onAddChild={(parent) =>
                                         openModal('add', { parent_account_id: parent.id } as any)
                                     }
@@ -537,6 +669,13 @@ export default function Index() {
                 confirmText={t('Delete')}
                 onConfirm={confirmDelete}
                 variant="destructive"
+            />
+            <ImportDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                importRoute="account.chart-of-accounts.import"
+                templateRoute="account.chart-of-accounts.import.template"
+                title={t('Import Accounts')}
             />
         </AuthenticatedLayout>
     );

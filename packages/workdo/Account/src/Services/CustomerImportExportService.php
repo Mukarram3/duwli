@@ -260,16 +260,11 @@ class CustomerImportExportService
         }
 
         DB::transaction(function () use ($prepared) {
-            $linker = app(CustomerUserLinkService::class);
-
             foreach ($prepared as $data) {
-                $customer = Customer::create(array_merge($data, [
+                Customer::create(array_merge($data, [
                     'creator_id' => Auth::id(),
                     'created_by' => creatorId(),
                 ]));
-
-                // Imported customers must also reach the invoice pickers.
-                $linker->link($customer);
             }
         });
 

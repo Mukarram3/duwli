@@ -27,7 +27,17 @@ use Workdo\Account\Models\AccountType;
 
 Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group(function () {
     Route::get('/dashboard/account', [DashboardController::class, 'index'])->name('account.index');
+    // Vendor Excel import/export — before the resource route so 'export' is
+    // not matched as {vendor}.
+    Route::get('account/vendors/export', [VendorController::class, 'export'])->name('account.vendors.export');
+    Route::get('account/vendors/import/template', [VendorController::class, 'importTemplate'])->name('account.vendors.import.template');
+    Route::post('account/vendors/import', [VendorController::class, 'import'])->name('account.vendors.import');
     Route::resource('account/vendors', VendorController::class, ['as' => 'account']);
+    // Customer Excel import/export — declared BEFORE the resource route so
+    // 'export' is not swallowed by the {customer} wildcard.
+    Route::get('account/customers/export', [CustomerController::class, 'export'])->name('account.customers.export');
+    Route::get('account/customers/import/template', [CustomerController::class, 'importTemplate'])->name('account.customers.import.template');
+    Route::post('account/customers/import', [CustomerController::class, 'import'])->name('account.customers.import');
     Route::resource('account/customers', CustomerController::class, ['as' => 'account']);
 
     Route::prefix('account/bank-accounts')->name('account.bank-accounts.')->group(function () {
@@ -49,6 +59,10 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
     Route::prefix('account/chart-of-accounts')->name('account.chart-of-accounts.')->group(function () {
         Route::get('/', [ChartOfAccountController::class, 'index'])->name('index');
         Route::post('/', [ChartOfAccountController::class, 'store'])->name('store');
+        // Before {chartofaccount} so 'export' is not treated as an account id.
+        Route::get('/export', [ChartOfAccountController::class, 'export'])->name('export');
+        Route::get('/import/template', [ChartOfAccountController::class, 'importTemplate'])->name('import.template');
+        Route::post('/import', [ChartOfAccountController::class, 'import'])->name('import');
         Route::get('/{chartofaccount}', [ChartOfAccountController::class, 'show'])->name('show');
         Route::get('/{chartofaccount}/edit', [ChartOfAccountController::class, 'edit'])->name('edit');
         Route::put('/{chartofaccount}', [ChartOfAccountController::class, 'update'])->name('update');
@@ -87,11 +101,6 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         Route::get('/', [JournalEntryController::class, 'index'])->name('index');
         Route::get('/create', [JournalEntryController::class, 'create'])->name('create');
         Route::post('/', [JournalEntryController::class, 'store'])->name('store');
-        // Excel routes come BEFORE {journalEntry} so 'export' and 'import'
-        // are not matched as a journal id.
-        Route::get('/export', [JournalEntryController::class, 'export'])->name('export');
-        Route::get('/import/template', [JournalEntryController::class, 'importTemplate'])->name('import.template');
-        Route::post('/import', [JournalEntryController::class, 'import'])->name('import');
         Route::get('/{journalEntry}', [JournalEntryController::class, 'show'])->name('show');
         Route::get('/{journalEntry}/edit', [JournalEntryController::class, 'edit'])->name('edit');
         Route::put('/{journalEntry}', [JournalEntryController::class, 'update'])->name('update');

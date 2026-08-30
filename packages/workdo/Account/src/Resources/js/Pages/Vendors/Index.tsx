@@ -1,5 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/Vendors/Index.tsx
 import { useState } from 'react';
+import { actionRoute } from '@/components/page-action-bar';
 import ImportDialog from '../Customers/ImportDialog';
 import { Upload, Download } from 'lucide-react';
 import { Head, usePage, router } from '@inertiajs/react';
@@ -253,8 +254,8 @@ export default function Index() {
                             {t('Import Vendors')}
                         </Button>
                     )}
-                    {auth.user?.permissions?.includes('manage-vendors') && (
-                        <a href={route('account.vendors.export')} download>
+                    {auth.user?.permissions?.includes('manage-vendors') && actionRoute('account.vendors.export') && (
+                        <a href={actionRoute('account.vendors.export') || '#'} download>
                             <Button
                                 size="sm"
                                 className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"

@@ -1,5 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/Customers/Index.tsx
 import { useState } from 'react';
+import { actionRoute } from '@/components/page-action-bar';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -278,8 +279,8 @@ export default function Index() {
                             {t('New Customer')}
                         </Button>
                     )}
-                    {auth.user?.permissions?.includes('manage-customers') && (
-                        <a href={route('account.customers.export')} download>
+                    {auth.user?.permissions?.includes('manage-customers') && actionRoute('account.customers.export') && (
+                        <a href={actionRoute('account.customers.export') || '#'} download>
                             <Button
                                 variant="outline"
                                 size="sm"
