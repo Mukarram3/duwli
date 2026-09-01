@@ -32,6 +32,7 @@ export default function Create() {
     const [availableProducts, setAvailableProducts] = useState([]);
 
     const { data, setData, post, processing, errors } = useForm({
+        post_immediately: false,
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
         customer_id: '',
@@ -112,10 +113,28 @@ export default function Create() {
         }]);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    /**
+     * Two separate save paths, as an accountant expects:
+     *
+     *   Save as Draft   the invoice is stored and nothing else happens — no
+     *                   journal entries, no effect on account balances
+     *   Save and Post   a single operation that stores the invoice AND posts
+     *                   it, creating the journal entries
+     *
+     * The flag travels with the same request, so posting is part of the save
+     * rather than a second action the user has to remember.
+     */
+    const submit = (e: React.FormEvent, postImmediately: boolean) => {
         e.preventDefault();
-        post(route('sales-invoices.store'));
+        setData('post_immediately', postImmediately);
+
+        // setData is async; transform guarantees the flag is on this request.
+        post(route('sales-invoices.store'), {
+            transform: (payload: any) => ({ ...payload, post_immediately: postImmediately }),
+        } as any);
     };
+
+    const handleSubmit = (e: React.FormEvent) => submit(e, false);
 
     const totals = useTaxCalculator(data.items);
 
@@ -528,18 +547,23 @@ export default function Create() {
                                 {t('Cancel')}
                             </Button>
                             <Button
-                                type="submit"
+                                type="button"
+                                variant="outline"
                                 disabled={processing || data.items.length === 0}
+                                onClick={(e) => submit(e, false)}
                                 className="rounded-lg shadow-sm flex items-center justify-center min-w-[140px]"
                             >
-                                {processing ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-foreground mr-2"></div>
-                                        <span>{t('Creating...')}</span>
-                                    </>
-                                ) : (
-                                    <span>{t('Create Invoice')}</span>
-                                )}
+                                <Save className="mr-1.5 h-4 w-4" />
+                                <span>{processing ? t('Saving...') : t('Save as Draft')}</span>
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={processing || data.items.length === 0}
+                                onClick={(e) => submit(e, true)}
+                                className="rounded-lg shadow-sm flex items-center justify-center min-w-[160px]"
+                            >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                <span>{processing ? t('Saving...') : t('Save and Post')}</span>
                             </Button>
                         </div>
                     </div>

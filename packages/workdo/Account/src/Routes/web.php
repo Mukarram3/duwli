@@ -101,6 +101,11 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         Route::get('/', [JournalEntryController::class, 'index'])->name('index');
         Route::get('/create', [JournalEntryController::class, 'create'])->name('create');
         Route::post('/', [JournalEntryController::class, 'store'])->name('store');
+        // Excel routes MUST come before {journalEntry}, or 'export' and
+        // 'import' are matched as a journal id and 404.
+        Route::get('/export', [JournalEntryController::class, 'export'])->name('export');
+        Route::get('/import/template', [JournalEntryController::class, 'importTemplate'])->name('import.template');
+        Route::post('/import', [JournalEntryController::class, 'import'])->name('import');
         Route::get('/{journalEntry}', [JournalEntryController::class, 'show'])->name('show');
         Route::get('/{journalEntry}/edit', [JournalEntryController::class, 'edit'])->name('edit');
         Route::put('/{journalEntry}', [JournalEntryController::class, 'update'])->name('update');

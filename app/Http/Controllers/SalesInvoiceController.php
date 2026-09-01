@@ -153,10 +153,39 @@ class SalesInvoiceController extends Controller
             // Create invoice items
             $this->createInvoiceItems($invoice->id, $request->items);
 
+            // Status is explicit rather than left to the column default, so
+            // the two save paths are visible in the code:
+            //   Save as Draft   -> stays draft, no journal entries
+            //   Save and Post   -> posted in the same operation
+            $invoice->status = 'draft';
+            $invoice->save();
+
             try {
                 CreateSalesInvoice::dispatch($request, $invoice);
             } catch (\Throwable $th) {
                 return back()->with('error', $th->getMessage());
+            }
+
+            // A single combined operation: the invoice is saved and posted
+            // together, rather than the user saving then posting separately.
+            if ($request->boolean('post_immediately')) {
+                if (!Auth::user()->can('post-sales-invoices')) {
+                    return redirect()->route('sales-invoices.index')
+                        ->with('warning', __('The invoice was saved as a draft — you do not have permission to post.'));
+                }
+
+                try {
+                    PostSalesInvoice::dispatch($invoice);
+                    $invoice->update(['status' => 'posted']);
+                } catch (\Throwable $th) {
+                    // The invoice exists as a draft; only posting failed, so
+                    // say so rather than implying nothing was saved.
+                    return redirect()->route('sales-invoices.index')
+                        ->with('error', __('Saved as draft, but posting failed: ') . $th->getMessage());
+                }
+
+                return redirect()->route('sales-invoices.index')
+                    ->with('success', __('The sales invoice has been saved and posted.'));
             }
 
             return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice has been created successfully.'));
@@ -329,12 +358,21 @@ class SalesInvoiceController extends Controller
         }
 
         try {
+            /**
+             * Mark posted BEFORE dispatching.
+             *
+             * The listener creates the journal entries. If it threw after a
+             * successful write, the old order left the invoice still marked
+             * draft while its journals existed — so posting again would
+             * duplicate them. Updating first means a failure leaves the status
+             * to be corrected, not the ledger.
+             */
+            $salesInvoice->update(['status' => 'posted']);
             PostSalesInvoice::dispatch($salesInvoice);
         } catch (\Throwable $th) {
+            $salesInvoice->update(['status' => 'draft']);
             return back()->with('error', $th->getMessage());
         }
-
-        $salesInvoice->update(['status' => 'posted']);
 
         return back()->with('success', __('The sales invoice has been posted successfully.'));
         }
