@@ -5,6 +5,7 @@ namespace Workdo\Account\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Workdo\Account\Console\CheckJournalSetup;
+use Workdo\Account\Console\BuildAccountHierarchy;
 use Workdo\Account\Console\LinkCustomers;
 use Workdo\Account\Console\CheckAccountingSetup;
 
@@ -25,6 +26,7 @@ class AccountServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 CheckJournalSetup::class,
+                BuildAccountHierarchy::class,
                 LinkCustomers::class,
                 CheckAccountingSetup::class,
             ]);

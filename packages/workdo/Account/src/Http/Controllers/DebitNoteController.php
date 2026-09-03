@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Workdo\Account\Events\ApproveDebitNote;
 use Workdo\Account\Events\DestroyDebitNote;
 use Workdo\Account\Services\JournalService;
+use Workdo\Account\Services\DebitNoteExportService;
 
 class DebitNoteController extends Controller
 {
@@ -155,5 +156,28 @@ class DebitNoteController extends Controller
         else {
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Export the current list to Excel.
+     *
+     * Export only — no import. A debit note is raised from a purchase return
+     * and carries return_id, so importing standalone rows would produce notes
+     * with no source document.
+     */
+    public function export(Request $request, DebitNoteExportService $service)
+    {
+        if (!Auth::user()->can('manage-debit-notes')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export($request->only(['search', 'status', 'date_from', 'date_to']));
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'debit-notes-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
     }
 }

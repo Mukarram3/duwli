@@ -54,7 +54,7 @@ const getPackageMenuItems = (userRoles: string[], activatedPackages: string[], t
 const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): NavItem[] => {
     const { auth } = usePage().props as any;
     const customMenus = auth?.customMenus || [];
-
+    
     return customMenus.map((menu: any) => {
         // Convert string icon to Lucide icon component
         let iconComponent = null;
@@ -64,7 +64,7 @@ const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): Na
                 iconComponent = IconComponent;
             }
         }
-
+        
         return {
             ...menu,
             icon: iconComponent,
@@ -141,16 +141,16 @@ export const allMenuItems = (): NavItem[] => {
     const coreMenuItems = getCoreMenuItems(userRoles, t);
 
     const packageMenuItems = getPackageMenuItems(userRoles, activatedPackages, t);
-
+    
     const customMenuItems = getCustomMenuItems(userRoles, t);
-
+    
     // Separate custom menus into parents and children
     const customParentMenus = customMenuItems.filter(menu => !menu.parent);
     const customChildMenus = customMenuItems.filter(menu => menu.parent);
-
+    
     // First add custom parent menus to core menus
     const coreWithCustomParents = [...coreMenuItems, ...customParentMenus];
-
+    
     // Then group all children (package + custom children) with their parents
     const allChildMenus = [...packageMenuItems, ...customChildMenus];
     const finalGroupedMenuItems = groupMenusByParent(coreWithCustomParents, allChildMenus);

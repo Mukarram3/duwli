@@ -83,13 +83,13 @@ class HomeController extends Controller
             foreach (glob($packagesPath . '/*/src/Resources/js/menus/company-menu.ts') as $menuFile) {
                 preg_match('/packages\/workdo\/([^\/]+)\//', $menuFile, $moduleMatch);
                 $moduleName = $moduleMatch[1] ?? null;
-                $content = file_get_contents($menuFile);
-                if (preg_match("/parent:\s*['\"]dashboard['\"]/", $content)) {
-                    preg_match("/href:\s*route\(['\"]([^'\"]+)['\"]/", $content, $routeMatch);
-                    preg_match("/permission:\s*['\"]([^'\"]+)['\"]/", $content, $permMatch);
-                    if (!empty($routeMatch[1]) && !empty($permMatch[1]) &&  Module_is_active($moduleName) && Auth::user()->can($permMatch[1])) {
-                        return redirect()->route($routeMatch[1]);
-                    }
+                    $content = file_get_contents($menuFile);
+                    if (preg_match("/parent:\s*['\"]dashboard['\"]/", $content)) {
+                        preg_match("/href:\s*route\(['\"]([^'\"]+)['\"]/", $content, $routeMatch);
+                        preg_match("/permission:\s*['\"]([^'\"]+)['\"]/", $content, $permMatch);
+                        if (!empty($routeMatch[1]) && !empty($permMatch[1]) &&  Module_is_active($moduleName) && Auth::user()->can($permMatch[1])) {
+                            return redirect()->route($routeMatch[1]);
+                        }
                 }
             }
         }

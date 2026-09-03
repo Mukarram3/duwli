@@ -1,6 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/DebitNotes/Index.tsx
 import { useState } from 'react';
-import { PageActionBar } from '@/components/page-action-bar';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
 import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Eye, XCircle, CheckCircle, Trash2 } from "lucide-react";
+import { Eye, XCircle, CheckCircle, Trash2, Plus, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -261,6 +261,25 @@ export default function Index() {
             pageActions={
                 <PageActionBar
                     actions={[
+                        {
+                            // Debit notes are raised FROM a purchase return —
+                            // there is no standalone create. This sends the
+                            // user where the note actually originates rather
+                            // than to a form that cannot exist.
+                            label: t('New Debit Note'),
+                            href: actionRoute('purchase-returns.create'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-purchase-return-invoices',
+                        },
+                        {
+                            label: t('Export'),
+                            href: actionRoute('account.debit-notes.export'),
+                            icon: Download,
+                            variant: 'primary',
+                            external: true,
+                            permission: 'manage-debit-notes',
+                        },
                         ...getRelatedActions('account.debit-notes.index', t),
                     ]}
                     permissions={auth.user?.permissions}

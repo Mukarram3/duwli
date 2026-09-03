@@ -92,6 +92,8 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
 
     Route::prefix('account/debit-notes')->name('account.debit-notes.')->group(function () {
         Route::get('/', [DebitNoteController::class, 'index'])->name('index');
+        // Before {debitNote} so 'export' is not matched as an id.
+        Route::get('/export', [DebitNoteController::class, 'export'])->name('export');
         Route::post('/{debitNote}/approve', [DebitNoteController::class, 'approve'])->name('approve');
         Route::delete('/{debitNote}', [DebitNoteController::class, 'destroy'])->name('destroy');
         Route::get('/{debitNote}', [DebitNoteController::class, 'show'])->name('show');

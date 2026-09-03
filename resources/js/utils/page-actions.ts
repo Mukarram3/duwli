@@ -67,19 +67,19 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      */
     'hrm.employees.index': [
         // Time Management — promoted from a sidebar dropdown to buttons here.
-        { label: 'Attendances', route: 'hrm.attendances.index', icon: CalendarCheck, permission: 'manage-attendance' },
-        { label: 'Shifts', route: 'hrm.shifts.index', icon: Clock, permission: 'manage-shift' },
+        { label: 'Attendances', route: 'hrm.attendances.index', icon: CalendarCheck, permission: 'manage-attendances' },
+        { label: 'Shifts', route: 'hrm.shifts.index', icon: Clock, permission: 'manage-shifts' },
         { label: 'Timesheet', route: 'timesheet.index', icon: Timer, permission: 'manage-timesheet' },
-        { label: 'Holidays', route: 'hrm.holidays.index', icon: CalendarDays, permission: 'manage-holiday' },
-        { label: 'Promotions', route: 'hrm.promotions.index', icon: TrendingUp, overflow: true, permission: 'manage-promotion' },
-        { label: 'Transfers', overflow: true, route: 'hrm.employee-transfers.index', icon: ArrowLeftRight, permission: 'manage-transfer' },
-        { label: 'Resignations', overflow: true, route: 'hrm.resignations.index', icon: LogOut, permission: 'manage-resignation' },
-        { label: 'Terminations', overflow: true, route: 'hrm.terminations.index', icon: UserMinus, permission: 'manage-termination' },
-        { label: 'Warnings', route: 'hrm.warnings.index', icon: AlertTriangle, overflow: true, permission: 'manage-warning' },
-        { label: 'Complaints', route: 'hrm.complaints.index', icon: MessageSquareWarning, overflow: true, permission: 'manage-complaint' },
-        { label: 'Awards', route: 'hrm.awards.index', icon: Award, overflow: true, permission: 'manage-award' },
-        { label: 'Acknowledgments', route: 'hrm.acknowledgments.index', icon: BadgeCheck, overflow: true, permission: 'manage-acknowledgement' },
-        { label: 'Documents', route: 'hrm.documents.index', icon: FileText, overflow: true, permission: 'manage-document' },
+        { label: 'Holidays', route: 'hrm.holidays.index', icon: CalendarDays, permission: 'manage-holidays' },
+        { label: 'Promotions', route: 'hrm.promotions.index', icon: TrendingUp, overflow: true, permission: 'manage-promotions' },
+        { label: 'Transfers', overflow: true, route: 'hrm.employee-transfers.index', icon: ArrowLeftRight, permission: 'manage-employee-transfers' },
+        { label: 'Resignations', overflow: true, route: 'hrm.resignations.index', icon: LogOut, permission: 'manage-resignations' },
+        { label: 'Terminations', overflow: true, route: 'hrm.terminations.index', icon: UserMinus, permission: 'manage-terminations' },
+        { label: 'Warnings', route: 'hrm.warnings.index', icon: AlertTriangle, overflow: true, permission: 'manage-warnings' },
+        { label: 'Complaints', route: 'hrm.complaints.index', icon: MessageSquareWarning, overflow: true, permission: 'manage-complaints' },
+        { label: 'Awards', route: 'hrm.awards.index', icon: Award, overflow: true, permission: 'manage-awards' },
+        { label: 'Acknowledgments', route: 'hrm.acknowledgments.index', icon: BadgeCheck, overflow: true, permission: 'manage-acknowledgments' },
+        { label: 'Documents', route: 'hrm.documents.index', icon: FileText, overflow: true, permission: 'manage-hrm-documents' },
     ],
 
 
@@ -90,13 +90,13 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
     'performance.employee-reviews.index': [
         { label: 'Employee Goals', route: 'performance.employee-goals.index', icon: Target, permission: 'manage-employee-goals' },
         { label: 'Review Cycles', route: 'performance.review-cycles.index', icon: RefreshCw, permission: 'manage-review-cycles' },
-        { label: 'Performance Indicators', route: 'performance.indicators.index', icon: Gauge, permission: 'manage-indicators' },
+        { label: 'Performance Indicators', route: 'performance.indicators.index', icon: Gauge, permission: 'manage-performance-indicators' },
     ],
 
     /** Training — trainers and types move onto the Training List page. */
     'training.trainings.index': [
-        { label: 'Trainers', route: 'training.trainers.index', icon: GraduationCap, permission: 'manage-trainer' },
-        { label: 'Training Types', route: 'training.training-types.index', icon: Tags, permission: 'manage-training-type' },
+        { label: 'Trainers', route: 'training.trainers.index', icon: GraduationCap, permission: 'manage-trainers' },
+        { label: 'Training Types', route: 'training.training-types.index', icon: Tags, permission: 'manage-training-types' },
     ],
 
     /** Payroll — Set Salary moves off the sidebar onto the Payrolls page. */
@@ -110,12 +110,12 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      */
     'hrm.leave-applications.index': [
         { label: 'Leave Balance', route: 'hrm.leave-balance.index', icon: Scale, permission: 'manage-leave-balance' },
-        { label: 'Leave Types', route: 'hrm.leave-types.index', icon: Tags, permission: 'manage-leave-type' },
+        { label: 'Leave Types', route: 'hrm.leave-types.index', icon: Tags, permission: 'manage-leave-types' },
     ],
 
     /** HR — Announcements page absorbs the other broadcast surfaces. */
     'hrm.announcements.index': [
-        { label: 'Events', route: 'hrm.events.index', icon: CalendarDays, permission: 'manage-event' },
+        { label: 'Events', route: 'hrm.events.index', icon: CalendarDays, permission: 'manage-events' },
     ],
 
     /**
@@ -124,19 +124,19 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * candidates screen.
      */
     'recruitment.candidates.index': [
-        { label: 'Interviews', route: 'recruitment.interviews.index', icon: Users, permission: 'manage-interview' },
-        { label: 'Interview Feedback', route: 'recruitment.interview-feedbacks.index', icon: ClipboardList, permission: 'manage-interview-feedback' },
-        { label: 'Candidate Assessments', route: 'recruitment.candidate-assessments.index', icon: ClipboardList, overflow: true, permission: 'manage-candidate-assessment' },
-        { label: 'Offers', route: 'recruitment.offers.index', icon: Send, overflow: true, permission: 'manage-offer' },
-        { label: 'Candidate Onboarding', route: 'recruitment.candidate-onboardings.index', icon: BadgeCheck, overflow: true, permission: 'manage-candidate-onboarding' },
+        { label: 'Interviews', route: 'recruitment.interviews.index', icon: Users, permission: 'manage-interviews' },
+        { label: 'Interview Feedback', route: 'recruitment.interview-feedbacks.index', icon: ClipboardList, permission: 'manage-interview-feedbacks' },
+        { label: 'Candidate Assessments', route: 'recruitment.candidate-assessments.index', icon: ClipboardList, overflow: true, permission: 'manage-candidate-assessments' },
+        { label: 'Offers', route: 'recruitment.offers.index', icon: Send, overflow: true, permission: 'manage-offers' },
+        { label: 'Candidate Onboarding', route: 'recruitment.candidate-onboardings.index', icon: BadgeCheck, overflow: true, permission: 'manage-candidate-onboardings' },
     ],
 
     /** Recruitment — job postings own the careers-site content. */
     'recruitment.job-postings.index': [
         // Candidates and the interview pipeline live here now.
         { label: 'Candidates', route: 'recruitment.candidates.index', icon: Users, permission: 'manage-candidates' },
-        { label: 'Interviews', route: 'recruitment.interviews.index', icon: ClipboardList, permission: 'manage-interview' },
-        { label: 'Offers', route: 'recruitment.offers.index', icon: Send, permission: 'manage-offer' },
+        { label: 'Interviews', route: 'recruitment.interviews.index', icon: ClipboardList, permission: 'manage-interviews' },
+        { label: 'Offers', route: 'recruitment.offers.index', icon: Send, permission: 'manage-offers' },
         { label: 'About Company', route: 'recruitment.about-company.index', icon: FileText, overflow: true },
         { label: 'Application Tips', route: 'recruitment.application-tips.index', icon: FileText, overflow: true },
         { label: 'What Happens Next', route: 'recruitment.what-happens-next.index', icon: FileText, overflow: true },
@@ -206,7 +206,7 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
     'product-service.items.index': [
         { label: 'Warehouses', route: 'warehouses.index', permission: 'manage-warehouses', keepInNav: true },
         { label: 'Inventory Transfers', route: 'transfers.index', permission: 'manage-transfers', keepInNav: true },
-        { label: 'Product Categories', route: 'product-service.item-categories.index', permission: 'manage-product-service', keepInNav: true },
+        { label: 'Product Categories', route: 'product-service.item-categories.index', keepInNav: true },
     ],
 
     /** Assets — the lifecycle of an asset lives on the asset list. */
