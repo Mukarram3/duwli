@@ -1,6 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/VendorPayments/Index.tsx
 import { useState } from 'react';
-import { PageActionBar } from '@/components/page-action-bar';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
 import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Eye, Trash2, CreditCard, CheckCircle, X } from "lucide-react";
+import { Plus, Eye, Trash2, CreditCard, CheckCircle, X, Layers, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -178,8 +178,8 @@ export default function Index() {
             render: (value: string) => (
                 <span className={`px-2 py-1 rounded-full text-sm ${
                     value === 'cleared' ? 'bg-green-100 text-green-800' :
-                    value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
+                        value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
                 }`}>
                     {t(value)}
                 </span>
@@ -191,7 +191,7 @@ export default function Index() {
             render: (_: any, payment: VendorPayment) => (
                 <div className="flex gap-1">
                     <TooltipProvider>
-                    {auth.user?.permissions?.includes('cleared-vendor-payments') && payment.status === 'pending' && (
+                        {auth.user?.permissions?.includes('cleared-vendor-payments') && payment.status === 'pending' && (
                             <>
                                 <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
@@ -276,6 +276,21 @@ export default function Index() {
                             icon: Plus,
                             variant: 'primary',
                             permission: 'create-vendor-payments',
+                        },
+                        {
+                            label: t('All Receipts'),
+                            href: actionRoute('account.vendor-payments.all-receipts'),
+                            icon: Layers,
+                            variant: 'primary',
+                            permission: 'manage-vendor-payments',
+                        },
+                        {
+                            label: t('Export'),
+                            href: actionRoute('account.vendor-payments.export'),
+                            icon: Download,
+                            variant: 'primary',
+                            external: true,
+                            permission: 'manage-vendor-payments',
                         },
                         ...getRelatedActions('account.vendor-payments.index', t),
                     ]}
@@ -468,8 +483,8 @@ export default function Index() {
                                             <div className="flex items-center justify-between p-3 border-t bg-gray-50/50">
                                                 <span className={`px-2 py-1 rounded-full text-sm ${
                                                     payment.status === 'cleared' ? 'bg-green-100 text-green-800' :
-                                                    payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
+                                                        payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                            'bg-red-100 text-red-800'
                                                 }`}>
                                                     {t(payment.status)}
                                                 </span>

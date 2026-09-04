@@ -16,10 +16,20 @@ const USE_QOYOD_STRUCTURE = true;
 
 // Get role-based core menu items
 const getCoreMenuItems = (userRoles: string[], t: (key: string) => string): NavItem[] => {
-    if (userRoles.includes('superadmin')) {
-        return getSuperAdminMenu(t);
+    // Same protection as the package menus below: the core menu resolves
+    // dozens of routes, and one missing route would otherwise blank the whole
+    // application rather than dropping a single entry.
+    try {
+        if (userRoles.includes('superadmin')) {
+            return getSuperAdminMenu(t);
+        }
+        return getCompanyMenu(t);
+    } catch (error) {
+        if (import.meta.env.DEV) {
+            console.warn('[menu] Core menu failed to build — a route is missing.', error);
+        }
+        return [];
     }
-    return getCompanyMenu(t);
 };
 
 // Auto-load package menus based on activated packages
@@ -38,13 +48,36 @@ const getPackageMenuItems = (userRoles: string[], activatedPackages: string[], t
         const menuPath = `../../../packages/workdo/${packageName}/src/Resources/js/menus/${menuType}.ts`;
         const module = allModules[menuPath] as any;
 
-        if (module) {
-            Object.values(module).forEach((item: any) => {
+        if (!module) return;
+
+        Object.values(module).forEach((item: any) => {
+            /**
+             * Each package menu is isolated.
+             *
+             * Package menus call route() directly, and Ziggy THROWS when a
+             * route is not registered — which happens whenever a module is
+             * listed as active but its routes are not loaded (files not
+             * deployed, provider not registered, module half-installed).
+             *
+             * Without this guard that single throw propagates out of
+             * AppSidebar and blanks the entire application on every page. One
+             * misconfigured module should cost its own menu entry, nothing
+             * more.
+             */
+            try {
                 const result = typeof item === 'function' ? item(t) : item;
                 const items = Array.isArray(result) ? result : [result];
-                menuItems.push(...items);
-            });
-        }
+                menuItems.push(...items.filter(Boolean));
+            } catch (error) {
+                if (import.meta.env.DEV) {
+                    console.warn(
+                        `[menu] Skipped "${packageName}" — its routes are not registered. ` +
+                        `Check the module is enabled and its routes are deployed.`,
+                        error,
+                    );
+                }
+            }
+        });
     });
 
     return menuItems;
@@ -54,7 +87,7 @@ const getPackageMenuItems = (userRoles: string[], activatedPackages: string[], t
 const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): NavItem[] => {
     const { auth } = usePage().props as any;
     const customMenus = auth?.customMenus || [];
-    
+
     return customMenus.map((menu: any) => {
         // Convert string icon to Lucide icon component
         let iconComponent = null;
@@ -64,7 +97,7 @@ const getCustomMenuItems = (userRoles: string[], t: (key: string) => string): Na
                 iconComponent = IconComponent;
             }
         }
-        
+
         return {
             ...menu,
             icon: iconComponent,
@@ -141,16 +174,16 @@ export const allMenuItems = (): NavItem[] => {
     const coreMenuItems = getCoreMenuItems(userRoles, t);
 
     const packageMenuItems = getPackageMenuItems(userRoles, activatedPackages, t);
-    
+
     const customMenuItems = getCustomMenuItems(userRoles, t);
-    
+
     // Separate custom menus into parents and children
     const customParentMenus = customMenuItems.filter(menu => !menu.parent);
     const customChildMenus = customMenuItems.filter(menu => menu.parent);
-    
+
     // First add custom parent menus to core menus
     const coreWithCustomParents = [...coreMenuItems, ...customParentMenus];
-    
+
     // Then group all children (package + custom children) with their parents
     const allChildMenus = [...packageMenuItems, ...customChildMenus];
     const finalGroupedMenuItems = groupMenusByParent(coreWithCustomParents, allChildMenus);

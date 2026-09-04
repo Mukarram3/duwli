@@ -1,4 +1,8 @@
+// packages/workdo/Assets/src/Resources/js/Pages/Assets/Index.tsx
 import { useState } from 'react';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
+import ImportDialog from '@/components/import-dialog';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -9,7 +13,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit as EditIcon, Trash2, Eye, Package as PackageIcon, Download, FileImage } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, Package as PackageIcon, Download, FileImage, Upload } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -86,6 +90,8 @@ export default function Index() {
         });
         router.get(route('assets.assets.index'), {per_page: perPage, view: viewMode});
     };
+
+    const [importOpen, setImportOpen] = useState(false);
 
     const openModal = (mode: 'add' | 'edit' | 'view', data: Asset | null = null) => {
         setModalState({ isOpen: true, mode, data });
@@ -223,7 +229,37 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Assets')}
             pageActions={
-                <div className="flex items-center gap-2">
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Add an asset'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-assets',
+                        },
+                        {
+                            label: t('Import'),
+                            onClick: () => setImportOpen(true),
+                            icon: Upload,
+                            variant: 'primary',
+                            permission: 'create-assets',
+                        },
+                        {
+                            label: t('Export'),
+                            href: actionRoute('assets.assets.export'),
+                            icon: Download,
+                            variant: 'primary',
+                            external: true,
+                            permission: 'manage-assets',
+                        },
+                        // Classifications, transfers, maintenance and
+                        // depreciation, from the registry.
+                        ...getRelatedActions('assets.assets.index', t),
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={5}
+                >
                     {dropboxBtn.map((button) => (
                         <div key={button.id}>{button.component}</div>
                     ))}
@@ -231,20 +267,8 @@ export default function Index() {
                         <div key={button.id}>{button.component}</div>
                     ))}
                     <TooltipProvider>
-                        {auth.user?.permissions?.includes('create-assets') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => openModal('add')}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title={t('Assets')} />
@@ -519,6 +543,13 @@ export default function Index() {
                 confirmText={t('Delete')}
                 onConfirm={confirmDelete}
                 variant="destructive"
+            />
+            <ImportDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                importRoute="assets.assets.import"
+                templateRoute="assets.assets.import.template"
+                title={t('Import Assets')}
             />
         </AuthenticatedLayout>
     );

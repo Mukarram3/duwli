@@ -211,11 +211,11 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
 
     /** Assets — the lifecycle of an asset lives on the asset list. */
     'assets.assets.index': [
-        { label: 'Assignments', route: 'assets.asset-assignments.index' },
+        { label: 'Asset Classifications', route: 'assets.categories.index' },
+        { label: 'Asset Transfer', route: 'assets.asset-assignments.index' },
         { label: 'Maintenance', route: 'assets.asset-maintenance.index' },
         { label: 'Depreciation', route: 'assets.asset-depreciation.index' },
         { label: 'Locations', route: 'assets.asset-locations.index', overflow: true },
-        { label: 'Category', route: 'assets.categories.index', overflow: true },
     ],
 };
 
@@ -229,6 +229,7 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
  */
 export const WIRED_PAGES: string[] = [
     'sales-invoices.index',
+    'assets.assets.index',
     'hrm.employees.index',
     'hrm.leave-applications.index',
     'hrm.payrolls.index',

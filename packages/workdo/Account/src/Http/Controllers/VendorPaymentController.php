@@ -3,6 +3,8 @@
 namespace Workdo\Account\Http\Controllers;
 
 use Workdo\Account\Models\VendorPayment;
+use Workdo\Account\Models\CustomerPayment;
+use Workdo\Account\Services\ReceiptExportService;
 use Workdo\Account\Models\VendorPaymentAllocation;
 use Workdo\Account\Models\BankAccount;
 use Workdo\Account\Models\DebitNote;
@@ -239,5 +241,105 @@ class VendorPaymentController extends Controller
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    // -----------------------------------------------------------------
+    // Export + the combined receipts view
+    // -----------------------------------------------------------------
+
+    public function export(Request $request, ReceiptExportService $service)
+    {
+        if (!Auth::user()->can('manage-vendor-payments')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export('vendor', $request->only(['search', 'status', 'date_from', 'date_to']));
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'vendor-receipts-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    /** Export the combined customer + vendor list. */
+    public function exportAll(Request $request, ReceiptExportService $service)
+    {
+        if (!Auth::user()->can('manage-vendor-payments') && !Auth::user()->can('manage-customer-payments')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export('all', $request->only(['search', 'status', 'date_from', 'date_to']));
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'all-receipts-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    /**
+     * All Receipts — money in and money out in one list.
+     *
+     * Customer and vendor payments have identical shapes, so they are unioned
+     * in PHP with an explicit direction rather than through a database view.
+     * Direction is carried as a field: in a combined list, received and paid
+     * must never be ambiguous.
+     */
+    public function allReceipts(Request $request)
+    {
+        if (!Auth::user()->can('manage-vendor-payments') && !Auth::user()->can('manage-customer-payments')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $collect = function ($query, string $direction, string $partyRelation) use ($request) {
+            $query->where('created_by', creatorId());
+
+            if ($request->search) {
+                $query->where('payment_number', 'like', '%' . $request->search . '%');
+            }
+            if ($request->status && $request->status !== 'all') {
+                $query->where('status', $request->status);
+            }
+            if ($request->date_from) {
+                $query->whereDate('payment_date', '>=', $request->date_from);
+            }
+            if ($request->date_to) {
+                $query->whereDate('payment_date', '<=', $request->date_to);
+            }
+
+            return $query->get()->map(fn($p) => [
+                'id'             => $p->id,
+                'payment_number' => $p->payment_number,
+                'payment_date'   => $p->payment_date,
+                'direction'      => $direction,
+                'party'          => $p->{$partyRelation}->company_name ?? '',
+                'bank_account'   => $p->bankAccount->account_name ?? '',
+                'amount'         => $p->payment_amount,
+                'status'         => $p->status,
+            ]);
+        };
+
+        $customer = Auth::user()->can('manage-customer-payments')
+            ? $collect(CustomerPayment::with(['customer:id,company_name', 'bankAccount:id,account_name']), 'received', 'customer')
+            : collect();
+
+        $vendor = Auth::user()->can('manage-vendor-payments')
+            ? $collect(VendorPayment::with(['vendor:id,company_name', 'bankAccount:id,account_name']), 'paid', 'vendor')
+            : collect();
+
+        $all = $customer->concat($vendor)->sortByDesc('payment_date')->values();
+
+        return Inertia::render('Account/Receipts/All', [
+            'receipts' => $all,
+            'totals'   => [
+                'received' => round($customer->sum('amount'), 2),
+                'paid'     => round($vendor->sum('amount'), 2),
+                'net'      => round($customer->sum('amount') - $vendor->sum('amount'), 2),
+            ],
+            'filters'  => $request->only(['search', 'status', 'date_from', 'date_to']),
+        ]);
     }
 }

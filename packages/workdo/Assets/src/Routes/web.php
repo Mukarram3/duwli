@@ -21,6 +21,10 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Assets'])->group(
     Route::prefix('assets')->name('assets.assets.')->group(function () {
         Route::get('/', [AssetController::class, 'index'])->name('index');
         Route::post('/', [AssetController::class, 'store'])->name('store');
+        // Before {asset} so 'export' is not matched as an asset id.
+        Route::get('/export', [AssetController::class, 'export'])->name('export');
+        Route::get('/import/template', [AssetController::class, 'importTemplate'])->name('import.template');
+        Route::post('/import', [AssetController::class, 'import'])->name('import');
         Route::put('/{asset}', [AssetController::class, 'update'])->name('update');
         Route::delete('/{asset}', [AssetController::class, 'destroy'])->name('destroy');
     });

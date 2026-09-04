@@ -3,6 +3,7 @@
 namespace Workdo\Assets\Http\Controllers;
 
 use Workdo\Assets\Models\Asset;
+use Workdo\Assets\Services\AssetImportExportService;
 use Workdo\Assets\Http\Requests\StoreAssetRequest;
 use Workdo\Assets\Http\Requests\UpdateAssetRequest;
 use Illuminate\Routing\Controller;
@@ -129,5 +130,73 @@ class AssetController extends Controller
         else{
             return redirect()->route('assets.assets.index')->with('error', __('Permission denied'));
         }
+    }
+
+    // -----------------------------------------------------------------
+    // Excel import / export
+    // -----------------------------------------------------------------
+
+    public function export(AssetImportExportService $service)
+    {
+        if (!Auth::user()->can('manage-assets')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export();
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'fixed-assets-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function importTemplate(AssetImportExportService $service)
+    {
+        if (!Auth::user()->can('create-assets')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        return response()->download($service->template(), 'fixed-assets-template.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request, AssetImportExportService $service)
+    {
+        if (!Auth::user()->can('create-assets')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ], [
+            'file.mimes' => __('Please upload an .xlsx, .xls or .csv file.'),
+            'file.max'   => __('The file may not be larger than 5 MB.'),
+        ]);
+
+        try {
+            $result = $service->import($request->file('file')->getRealPath());
+        } catch (\Exception $e) {
+            return back()->with('error', __('Import failed: ') . $e->getMessage());
+        }
+
+        if (!empty($result['errors'])) {
+            return back()
+                ->with('error', __('Import cancelled — :count problem(s) found. Nothing was imported.', [
+                    'count' => count($result['errors']),
+                ]))
+                ->with('importErrors', array_slice($result['errors'], 0, 20));
+        }
+
+        $message = __(':count asset(s) imported.', ['count' => $result['imported']]);
+        if ($result['created_categories'] || $result['created_locations']) {
+            $message .= ' ' . __('Created :cats new categor(ies) and :locs new location(s).', [
+                'cats' => $result['created_categories'],
+                'locs' => $result['created_locations'],
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 }

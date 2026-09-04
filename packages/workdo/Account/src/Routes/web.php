@@ -17,6 +17,7 @@ use Workdo\Account\Http\Controllers\VendorPaymentController;
 use Workdo\Account\Http\Controllers\BankTransactionController;
 use Workdo\Account\Http\Controllers\BankTransferController;
 use Workdo\Account\Http\Controllers\DebitNoteController;
+use Workdo\Account\Http\Controllers\AuditProcessController;
 use Workdo\Account\Http\Controllers\CreditNoteController;
 use Workdo\Account\Http\Controllers\CustomerPaymentController;
 use Workdo\Account\Http\Controllers\RevenueController;
@@ -70,6 +71,10 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
     });
 
     Route::prefix('account/vendor-payments')->name('account.vendor-payments.')->group(function () {
+        // Before {vendorPayment} so these are not matched as ids.
+        Route::get('/export', [VendorPaymentController::class, 'export'])->name('export');
+        Route::get('/export-all', [VendorPaymentController::class, 'exportAll'])->name('export-all');
+        Route::get('/all-receipts', [VendorPaymentController::class, 'allReceipts'])->name('all-receipts');
         Route::get('/', [VendorPaymentController::class, 'index'])->name('index');
         Route::post('/store', [VendorPaymentController::class, 'store'])->name('store');
         Route::delete('/{vendorPayment}', [VendorPaymentController::class, 'destroy'])->name('destroy');
@@ -88,6 +93,13 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         Route::put('/{banktransfer}', [BankTransferController::class, 'update'])->name('update');
         Route::delete('/{banktransfer}', [BankTransferController::class, 'destroy'])->name('destroy');
         Route::post('/{banktransfer}/process', [BankTransferController::class, 'process'])->name('process');
+    });
+
+    Route::prefix('account/audit-process')->name('account.audit-process.')->group(function () {
+        Route::get('/', [AuditProcessController::class, 'index'])->name('index');
+        Route::post('/', [AuditProcessController::class, 'store'])->name('store');
+        Route::put('/{auditProcessItem}', [AuditProcessController::class, 'update'])->name('update');
+        Route::delete('/{auditProcessItem}', [AuditProcessController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('account/debit-notes')->name('account.debit-notes.')->group(function () {
