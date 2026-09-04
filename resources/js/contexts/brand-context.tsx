@@ -57,6 +57,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   };
 
   const themeColors = {
+    // The ERP default, matching theme-tokens.css. Present as a named option so
+    // a company that previously saved 'green' can switch to it from Settings
+    // rather than needing its stored setting cleared.
+    navy: '#1E3A6F',
     blue: '#3b82f6',
     green: '#10b77f',
     purple: '#8b5cf6',
@@ -81,6 +85,19 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     if (!settings.themeColor || settings.themeColor === 'default') {
+      return null;
+    }
+
+    /**
+     * 'green' was the shipped default, so almost every existing company has it
+     * stored without anyone having deliberately picked it. Treat it as "no
+     * choice made" and let theme-tokens.css govern — otherwise the ERP theme
+     * would never appear for any existing tenant.
+     *
+     * A company that genuinely wants green can still select it: the Settings
+     * screen writes 'custom' with #10b77f, which is honoured above.
+     */
+    if (settings.themeColor === 'green') {
       return null;
     }
 
