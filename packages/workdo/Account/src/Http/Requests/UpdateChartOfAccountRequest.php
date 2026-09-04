@@ -14,7 +14,7 @@ class UpdateChartOfAccountRequest extends FormRequest
     public function rules(): array
     {
         $chartOfAccountId = $this->route('chartofaccount') ? $this->route('chartofaccount')->id : null;
-
+        
         return [
             'account_code' => 'required|string|max:255|unique:chart_of_accounts,account_code,' . $chartOfAccountId . ',id,created_by,' . creatorId(),
             'account_name' => 'required|string|max:255',

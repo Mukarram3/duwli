@@ -12,16 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import {
-    Plus,
-    Edit,
-    Trash2,
-    GraduationCap,
-    CheckSquare,
-    Building,
-    Building2,
-    ChevronRight,
-    Search,
+import { 
+    Plus, 
+    Edit, 
+    Trash2, 
+    GraduationCap, 
+    CheckSquare, 
+    Building, 
+    Building2, 
+    ChevronRight, 
+    Search, 
     X,
     Calendar,
     MapPin,
@@ -77,7 +77,7 @@ export default function Index() {
         mode: '',
         data: null
     });
-
+    
     // Close modal on initial render
     useEffect(() => {
         setModalState({
@@ -244,15 +244,15 @@ export default function Index() {
     };
 
     // Client-side filtering of branches, departments, and training types
-    const filteredBranchesList = branches.filter(b =>
+    const filteredBranchesList = branches.filter(b => 
         b.branch_name.toLowerCase().includes(branchSearch.toLowerCase())
     );
 
-    const filteredDeptsList = filteredDepartments.filter(d =>
+    const filteredDeptsList = filteredDepartments.filter(d => 
         d.department_name.toLowerCase().includes(deptSearch.toLowerCase())
     );
 
-    const filteredTypesList = trainingTypes.filter(t =>
+    const filteredTypesList = trainingTypes.filter(t => 
         t.name.toLowerCase().includes(typeSearch.toLowerCase())
     );
 
@@ -265,7 +265,7 @@ export default function Index() {
     const activeTab = filters.status || 'all';
 
     // Client-side training list filter based on selected training type
-    const displayedTrainings = trainings.data.filter(t =>
+    const displayedTrainings = trainings.data.filter(t => 
         !selectedTrainingTypeId || t.training_type_id.toString() === selectedTrainingTypeId
     );
 
@@ -288,7 +288,7 @@ export default function Index() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Training')},
+                {label: t('Training')}, 
                 {label: t('Training List')}
             ]}
             pageTitle={t('Manage Training List')}
@@ -314,11 +314,11 @@ export default function Index() {
             <Head title={t('Training List')} />
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-
+                
                 {/* Column 1: Branches or Departments */}
                 <div className="xl:col-span-3 [perspective:1000px] relative h-[500px] xl:h-[calc(100vh-170px)] xl:min-h-[620px]">
                     <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isBranchSelected ? '[transform:rotateY(180deg)]' : ''}`}>
-
+                        
                         {/* Front Face: Branches */}
                         <div className="absolute inset-0 w-full h-full [backface-visibility:hidden]">
                             <Card className="h-full flex flex-col overflow-hidden shadow-sm border border-gray-300 dark:border-zinc-800">
@@ -760,10 +760,10 @@ export default function Index() {
                                                         {auth.user?.permissions?.includes('manage-training-tasks') && (
                                                             <Tooltip delayDuration={0}>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={() => router.visit(route('training.trainings.tasks.index', training.id))}
+                                                                    <Button 
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        onClick={() => router.visit(route('training.trainings.tasks.index', training.id))} 
                                                                         className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
                                                                     >
                                                                         <CheckSquare className="h-4 w-4" />
@@ -777,10 +777,10 @@ export default function Index() {
                                                         {auth.user?.permissions?.includes('edit-trainings') && (
                                                             <Tooltip delayDuration={0}>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={() => openModal('edit', training)}
+                                                                    <Button 
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        onClick={() => openModal('edit', training)} 
                                                                         className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
                                                                     >
                                                                         <Edit className="h-4 w-4" />

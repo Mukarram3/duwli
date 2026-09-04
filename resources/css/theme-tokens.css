@@ -107,3 +107,74 @@
     border-radius: var(--radius);
     box-shadow: 0 1px 2px 0 rgb(5 19 33 / 0.04);
 }
+
+/* ---------------------------------------------------------------------------
+ * KANAKKU TABLE & SURFACE STYLING
+ *
+ * Applied through element and token selectors rather than per-page classes, so
+ * every existing table, card and form control in the application inherits the
+ * template's look without editing ~30 page files. That is also why it survives
+ * future page changes.
+ *
+ * Values taken from the template's _variables.scss:
+ *   border  #E2E4E6   header bg  #F6F7F9   text  #051321   muted  #5D6772
+ * ------------------------------------------------------------------------ */
+
+/* Table header: light grey band, quiet uppercase labels. */
+table thead tr,
+table thead th {
+    background-color: hsl(var(--muted));
+}
+
+table thead th {
+    color: hsl(var(--muted-foreground));
+    font-weight: 600;
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    padding-top: 0.875rem;
+    padding-bottom: 0.875rem;
+}
+
+/* Body rows: single hairline separator, subtle hover, comfortable height. */
+table tbody tr {
+    border-top: 1px solid hsl(var(--border));
+    transition: background-color 0.12s ease;
+}
+
+table tbody tr:hover {
+    background-color: hsl(var(--muted) / 0.6);
+}
+
+table tbody td {
+    padding-top: 0.8125rem;
+    padding-bottom: 0.8125rem;
+    color: hsl(var(--foreground));
+    font-size: 0.875rem;
+}
+
+/* Numeric columns read better tabular-aligned. */
+table td.text-right,
+table th.text-right {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Cards: hairline border plus a very low-spread shadow, per the template. */
+.rounded-lg.border.bg-card,
+.erp-card {
+    box-shadow: 0 1px 2px 0 rgb(5 19 33 / 0.04);
+}
+
+/* Inputs and selects: match the template's field height and border. */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+    border-color: hsl(var(--border));
+}
+
+/* Status pills: consistent shape wherever they appear. */
+.badge,
+[class*='rounded-full'][class*='px-2'] {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}

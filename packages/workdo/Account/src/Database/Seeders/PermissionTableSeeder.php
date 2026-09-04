@@ -64,6 +64,12 @@ class PermissionTableSeeder extends Seeder
             ['name' => 'edit-chart-of-accounts', 'module' => 'chart-of-accounts', 'label' => 'Edit ChartOfAccounts'],
             ['name' => 'delete-chart-of-accounts', 'module' => 'chart-of-accounts', 'label' => 'Delete ChartOfAccounts'],
 
+            // Audit process
+            ['name' => 'manage-audit-process', 'module' => 'audit-process', 'label' => 'Manage Audit Process'],
+            ['name' => 'create-audit-process', 'module' => 'audit-process', 'label' => 'Add to Audit Process'],
+            ['name' => 'review-audit-process', 'module' => 'audit-process', 'label' => 'Review Audit Process'],
+            ['name' => 'delete-audit-process', 'module' => 'audit-process', 'label' => 'Remove from Audit Process'],
+
             // Journal entries (manual / general journal)
             ['name' => 'manage-journal-entries', 'module' => 'journal-entries', 'label' => 'Manage Journal Entries'],
             ['name' => 'view-journal-entries', 'module' => 'journal-entries', 'label' => 'View Journal Entries'],

@@ -178,8 +178,8 @@ export default function Index() {
             render: (value: string) => (
                 <span className={`px-2 py-1 rounded-full text-sm ${
                     value === 'cleared' ? 'bg-green-100 text-green-800' :
-                        value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
+                    value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
                 }`}>
                     {t(value)}
                 </span>
@@ -191,7 +191,7 @@ export default function Index() {
             render: (_: any, payment: VendorPayment) => (
                 <div className="flex gap-1">
                     <TooltipProvider>
-                        {auth.user?.permissions?.includes('cleared-vendor-payments') && payment.status === 'pending' && (
+                    {auth.user?.permissions?.includes('cleared-vendor-payments') && payment.status === 'pending' && (
                             <>
                                 <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
@@ -483,8 +483,8 @@ export default function Index() {
                                             <div className="flex items-center justify-between p-3 border-t bg-gray-50/50">
                                                 <span className={`px-2 py-1 rounded-full text-sm ${
                                                     payment.status === 'cleared' ? 'bg-green-100 text-green-800' :
-                                                        payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-red-100 text-red-800'
+                                                    payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-red-100 text-red-800'
                                                 }`}>
                                                     {t(payment.status)}
                                                 </span>

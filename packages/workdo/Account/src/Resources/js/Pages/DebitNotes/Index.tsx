@@ -1,5 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/DebitNotes/Index.tsx
 import { useState } from 'react';
+import { addToAuditProcess, auditProcessAvailable } from '@/utils/audit-process';
 import { PageActionBar, actionRoute } from '@/components/page-action-bar';
 import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
@@ -14,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Eye, XCircle, CheckCircle, Trash2, Plus, Download } from 'lucide-react';
+import { Eye, XCircle, CheckCircle, Trash2, Plus, Download, ShieldCheck } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -271,6 +272,22 @@ export default function Index() {
                             icon: Plus,
                             variant: 'primary',
                             permission: 'create-purchase-return-invoices',
+                        },
+                        {
+                            // Sends every debit note currently listed into the
+                            // audit queue. The documents themselves are not
+                            // modified — the queue is a separate review list.
+                            label: t('Add to audit process'),
+                            onClick: () =>
+                                addToAuditProcess(
+                                    'debit_note',
+                                    (debitNotes?.data || []).map((n: any) => n.id),
+                                ),
+                            icon: ShieldCheck,
+                            variant: 'primary',
+                            permission: 'create-audit-process',
+                            available: auditProcessAvailable() && (debitNotes?.data || []).length > 0,
+                            disabledReason: t('No debit notes to add.'),
                         },
                         {
                             label: t('Export'),

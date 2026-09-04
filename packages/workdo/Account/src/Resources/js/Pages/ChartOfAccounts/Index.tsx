@@ -1,6 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/ChartOfAccounts/Index.tsx
 import { useState, useMemo, useEffect } from 'react';
-import ImportDialog from '../Customers/ImportDialog';
+import ImportDialog from '@/components/import-dialog';
 import { actionRoute } from '@/components/page-action-bar';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';

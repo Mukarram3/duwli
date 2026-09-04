@@ -115,12 +115,12 @@ const EmployeeReviewActionButtons = ({ review, auth, t, openModal, openDeleteDia
 
 export default function Index() {
     const { t } = useTranslation();
-    const { employeeReviews, employees = [], reviewers = [], reviewCycles = [], auth } = usePage<{
-        employeeReviews: any;
-        employees: any[];
-        reviewers: any[];
-        reviewCycles: any[];
-        auth: any
+    const { employeeReviews, employees = [], reviewers = [], reviewCycles = [], auth } = usePage<{ 
+        employeeReviews: any; 
+        employees: any[]; 
+        reviewers: any[]; 
+        reviewCycles: any[]; 
+        auth: any 
     }>().props;
     const urlParams = useMemo(() => new URLSearchParams(window.location.search), [window.location.search]);
 
@@ -141,7 +141,7 @@ export default function Index() {
         mode: '',
         data: null
     });
-
+    
     const [showModalState, setShowModalState] = useState<ShowModalState>({
         isOpen: false,
         data: null,
@@ -184,7 +184,7 @@ export default function Index() {
     const closeModal = () => {
         setModalState({ isOpen: false, mode: '', data: null });
     };
-
+    
     const openShowModal = async (review: EmployeeReview) => {
         try {
             const response = await fetch(route('performance.employee-reviews.show', review.id), {
@@ -204,7 +204,7 @@ export default function Index() {
             console.error('Error fetching review details:', error);
         }
     };
-
+    
     const closeShowModal = () => {
         setShowModalState({ isOpen: false, data: null, performanceIndicators: {}, averageRating: null });
     };
@@ -304,14 +304,14 @@ export default function Index() {
                 const rating = Math.round(value * 10) / 10;
                 const fullStars = Math.floor(rating);
                 const hasHalfStar = rating % 1 >= 0.5;
-
+                
                 return (
                     <div className="flex items-center gap-1">
                         <div className="flex">
                             {[...Array(5)].map((_, i) => (
                                 <span key={i} className={`text-lg ${
-                                    i < fullStars ? 'text-yellow-500' :
-                                        i === fullStars && hasHalfStar ? 'text-yellow-300' : 'text-gray-300'
+                                    i < fullStars ? 'text-yellow-500' : 
+                                    i === fullStars && hasHalfStar ? 'text-yellow-300' : 'text-gray-300'
                                 }`}>
                                     {i < fullStars ? '★' : i === fullStars && hasHalfStar ? '★' : '☆'}
                                 </span>
@@ -337,14 +337,14 @@ export default function Index() {
             header: t('Actions'),
             render: (_: any, item: EmployeeReview) => (
                 <div className="flex gap-1">
-                    <EmployeeReviewActionButtons
-                        review={item}
-                        auth={auth}
-                        t={t}
-                        openModal={openModal}
-                        openDeleteDialog={openDeleteDialog}
-                        openShowModal={openShowModal}
-                        router={router}
+                    <EmployeeReviewActionButtons 
+                        review={item} 
+                        auth={auth} 
+                        t={t} 
+                        openModal={openModal} 
+                        openDeleteDialog={openDeleteDialog} 
+                        openShowModal={openShowModal} 
+                        router={router} 
                     />
                 </div>
             )
@@ -552,8 +552,8 @@ export default function Index() {
                                                                             const hasHalfStar = rating % 1 >= 0.5;
                                                                             return (
                                                                                 <span key={i} className={`text-sm ${
-                                                                                    i < fullStars ? 'text-yellow-500' :
-                                                                                        i === fullStars && hasHalfStar ? 'text-yellow-300' : 'text-gray-300'
+                                                                                    i < fullStars ? 'text-yellow-500' : 
+                                                                                    i === fullStars && hasHalfStar ? 'text-yellow-300' : 'text-gray-300'
                                                                                 }`}>
                                                                                     {i < fullStars ? '★' : i === fullStars && hasHalfStar ? '★' : '☆'}
                                                                                 </span>
@@ -677,16 +677,16 @@ export default function Index() {
 
                 <Dialog open={modalState.isOpen} onOpenChange={closeModal}>
                     {modalState.mode === 'add' && (
-                        <Create
-                            onSuccess={closeModal}
+                        <Create 
+                            onSuccess={closeModal} 
                             employees={employees}
                             reviewers={reviewers}
                             reviewCycles={reviewCycles}
                         />
                     )}
                     {modalState.mode === 'edit' && modalState.data && (
-                        <EditEmployeeReview
-                            employeeReview={modalState.data}
+                        <EditEmployeeReview 
+                            employeeReview={modalState.data} 
                             onSuccess={closeModal}
                             employees={employees}
                             reviewers={reviewers}
@@ -694,10 +694,10 @@ export default function Index() {
                         />
                     )}
                 </Dialog>
-
+                
                 <Dialog open={showModalState.isOpen} onOpenChange={closeShowModal}>
                     {showModalState.data && (
-                        <Show
+                        <Show 
                             employeeReview={showModalState.data}
                             performanceIndicators={showModalState.performanceIndicators}
                             averageRating={showModalState.averageRating}

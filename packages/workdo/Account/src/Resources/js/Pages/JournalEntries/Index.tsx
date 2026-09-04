@@ -1,6 +1,6 @@
 // packages/workdo/Account/src/Resources/js/Pages/JournalEntries/Index.tsx
 import { useState } from 'react';
-import ImportDialog from '../Customers/ImportDialog';
+import ImportDialog from '@/components/import-dialog';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';

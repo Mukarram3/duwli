@@ -1,3 +1,5 @@
+// packages/workdo/Account/src/Resources/js/menus/company-menu.ts
+
 import { Calculator } from 'lucide-react';
 
 declare global {

@@ -1,4 +1,6 @@
+// packages/workdo/Assets/src/Resources/js/Pages/AssetLocations/Index.tsx
 import { useState, useMemo } from 'react';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -177,20 +179,25 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Locations')}
             pageActions={
-                <TooltipProvider>
-                    {auth.user?.permissions?.includes('create-asset-locations') && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" onClick={() => openModal('add')}>
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('Create')}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                </TooltipProvider>
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Add Location'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-asset-locations',
+                        },
+                        {
+                            label: t('Fixed Assets'),
+                            href: actionRoute('assets.assets.index'),
+                            variant: 'outline',
+                            permission: 'manage-assets',
+                        },
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={3}
+                />
             }
         >
             <Head title={t('Locations')} />

@@ -1,4 +1,6 @@
+// packages/workdo/Assets/src/Resources/js/Pages/AssetAssignments/Index.tsx
 import { useState } from 'react';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { usePageButtons } from '@/hooks/usePageButtons';
@@ -262,25 +264,31 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Assignments')}
             pageActions={
-                <div className="flex gap-2">
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Assign Asset'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-asset-assignments',
+                        },
+                        {
+                            label: t('Fixed Assets'),
+                            href: actionRoute('assets.assets.index'),
+                            variant: 'outline',
+                            permission: 'manage-assets',
+                        },
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={3}
+                >
                     <TooltipProvider>
-                        {auth.user?.permissions?.includes('create-asset-assignments') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button size="sm" onClick={() => openModal('add')}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Create')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
                         {pageButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>
                         ))}
                     </TooltipProvider>
-                </div>
+                </PageActionBar>
             }
         >
             <Head title="Asset Assignments" />

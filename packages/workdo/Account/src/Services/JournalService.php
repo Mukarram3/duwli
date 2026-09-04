@@ -113,8 +113,8 @@ class JournalService
     {
 
         $allocations = RetainerPaymentAllocation::whereHas('payment', function($q) {
-            $q->where('status', 'cleared');
-        })
+                $q->where('status', 'cleared');
+            })
             ->where('retainer_id', $retainer->id)
             ->get();
 
@@ -627,8 +627,8 @@ class JournalService
     public function deleteStockTransferJournal($transferId)
     {
         $journalEntry = JournalEntry::where('reference_type', 'stock_transfer')
-            ->where('reference_id', $transferId)
-            ->first();
+                                  ->where('reference_id', $transferId)
+                                  ->first();
 
         if ($journalEntry) {
             // Reverse account balances before deleting

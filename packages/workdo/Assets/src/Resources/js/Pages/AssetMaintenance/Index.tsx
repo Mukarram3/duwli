@@ -1,4 +1,6 @@
+// packages/workdo/Assets/src/Resources/js/Pages/AssetMaintenance/Index.tsx
 import { useState, useMemo } from 'react';
+import { PageActionBar, actionRoute } from '@/components/page-action-bar';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -216,20 +218,25 @@ export default function Index() {
             ]}
             pageTitle={t('Manage Maintenance')}
             pageActions={
-                <TooltipProvider>
-                    {auth.user?.permissions?.includes('create-asset-maintenance') && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" onClick={() => openModal('add')}>
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{t('Create')}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                </TooltipProvider>
+                <PageActionBar
+                    actions={[
+                        {
+                            label: t('Add Maintenance'),
+                            onClick: () => openModal('add'),
+                            icon: Plus,
+                            variant: 'primary',
+                            permission: 'create-asset-maintenance',
+                        },
+                        {
+                            label: t('Fixed Assets'),
+                            href: actionRoute('assets.assets.index'),
+                            variant: 'outline',
+                            permission: 'manage-assets',
+                        },
+                    ]}
+                    permissions={auth.user?.permissions}
+                    maxVisible={3}
+                />
             }
         >
             <Head title={t('Maintenance')} />

@@ -86,40 +86,40 @@ export default function View({ journalEntry }: any) {
                 <CardContent className="p-0">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-left">
-                        <tr>
-                            <th className="px-4 py-3 font-medium">{t('Account')}</th>
-                            <th className="px-4 py-3 font-medium">{t('Line Description')}</th>
-                            <th className="px-4 py-3 text-right font-medium">{t('Debit')}</th>
-                            <th className="px-4 py-3 text-right font-medium">{t('Credit')}</th>
-                        </tr>
+                            <tr>
+                                <th className="px-4 py-3 font-medium">{t('Account')}</th>
+                                <th className="px-4 py-3 font-medium">{t('Line Description')}</th>
+                                <th className="px-4 py-3 text-right font-medium">{t('Debit')}</th>
+                                <th className="px-4 py-3 text-right font-medium">{t('Credit')}</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {journalEntry.items.map((item: any) => (
-                            <tr key={item.id} className="border-t">
-                                <td className="px-4 py-3">
+                            {journalEntry.items.map((item: any) => (
+                                <tr key={item.id} className="border-t">
+                                    <td className="px-4 py-3">
                                         <span className="font-mono text-xs text-muted-foreground">
                                             {item.account?.account_code}
                                         </span>{' '}
-                                    {item.account?.account_name}
-                                </td>
-                                <td className="px-4 py-3 text-muted-foreground">{item.description || '—'}</td>
-                                <td className="px-4 py-3 text-right">
-                                    {Number(item.debit_amount) > 0 ? formatCurrency(item.debit_amount) : ''}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                    {Number(item.credit_amount) > 0 ? formatCurrency(item.credit_amount) : ''}
-                                </td>
-                            </tr>
-                        ))}
+                                        {item.account?.account_name}
+                                    </td>
+                                    <td className="px-4 py-3 text-muted-foreground">{item.description || '—'}</td>
+                                    <td className="px-4 py-3 text-right">
+                                        {Number(item.debit_amount) > 0 ? formatCurrency(item.debit_amount) : ''}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        {Number(item.credit_amount) > 0 ? formatCurrency(item.credit_amount) : ''}
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                         <tfoot className="border-t bg-muted/30 font-semibold">
-                        <tr>
-                            <td className="px-4 py-3" colSpan={2}>
-                                {t('Totals')}
-                            </td>
-                            <td className="px-4 py-3 text-right">{formatCurrency(journalEntry.total_debit)}</td>
-                            <td className="px-4 py-3 text-right">{formatCurrency(journalEntry.total_credit)}</td>
-                        </tr>
+                            <tr>
+                                <td className="px-4 py-3" colSpan={2}>
+                                    {t('Totals')}
+                                </td>
+                                <td className="px-4 py-3 text-right">{formatCurrency(journalEntry.total_debit)}</td>
+                                <td className="px-4 py-3 text-right">{formatCurrency(journalEntry.total_credit)}</td>
+                            </tr>
                         </tfoot>
                     </table>
                 </CardContent>

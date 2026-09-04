@@ -1,7 +1,7 @@
 // packages/workdo/Account/src/Resources/js/Pages/Vendors/Index.tsx
 import { useState } from 'react';
 import { actionRoute } from '@/components/page-action-bar';
-import ImportDialog from '../Customers/ImportDialog';
+import ImportDialog from '@/components/import-dialog';
 import { Upload, Download } from 'lucide-react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';

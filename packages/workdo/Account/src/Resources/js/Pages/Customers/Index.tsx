@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit as EditIcon, Trash2, Building2, User as UserIcon, Lock, FileText, Eye, Upload, Download } from "lucide-react";
-import ImportDialog from './ImportDialog';
+import ImportDialog from '@/components/import-dialog';
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable } from "@/components/ui/data-table";
