@@ -1,0 +1,33 @@
+import{a3 as j,a0 as e}from"./ui-CUd_MbMF.js";import{X as y,S as N}from"./app-DhLg_H3G.js";import{a as g}from"./html2pdf-DzC3gBAB.js";import{j as t,c as v,b as l}from"./helpers-B-BvZmKf.js";import{u as w}from"./useTranslation-CB8IO7Zv.js";import"./jspdf.es.min-DZD10MqO.js";function E(){var d,o,m,x;const{t:s}=w(),{sale:n}=y().props,[b,c]=j.useState(!1);j.useEffect(()=>{new URLSearchParams(window.location.search).get("download")==="pdf"&&u()},[]);const u=async()=>{c(!0);const a=document.querySelector(".sale-container");if(a){const r={margin:.25,filename:`pos-sale-${n.sale_number}.pdf`,image:{type:"jpeg",quality:.98},html2canvas:{scale:2},jsPDF:{unit:"in",format:"a4",orientation:"portrait"}};try{await g().set(r).from(a).save(),setTimeout(()=>window.close(),1e3)}catch(i){console.error("PDF generation failed:",i)}}c(!1)};return e.jsxs("div",{className:"min-h-screen bg-white",children:[e.jsx(N,{title:s("POS Sale")}),b&&e.jsx("div",{className:"fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50",children:e.jsx("div",{className:"bg-white p-6 rounded-lg shadow-lg",children:e.jsxs("div",{className:"flex items-center space-x-3",children:[e.jsx("div",{className:"animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"}),e.jsx("p",{className:"text-lg font-semibold text-gray-700",children:s("Generating PDF...")})]})})}),e.jsxs("div",{className:"sale-container bg-white max-w-4xl mx-auto p-12",children:[e.jsxs("div",{className:"flex justify-between items-start mb-12",children:[e.jsxs("div",{className:"w-1/2",children:[e.jsx("h1",{className:"text-2xl font-bold mb-4",children:t("company_name")||"YOUR COMPANY"}),e.jsxs("div",{className:"text-sm space-y-1",children:[t("company_address")&&e.jsx("p",{children:t("company_address")}),(t("company_city")||t("company_state"))&&e.jsxs("p",{children:[t("company_city"),", ",t("company_state")]}),(t("company_country")||t("company_zipcode"))&&e.jsxs("p",{children:[t("company_country")," - ",t("company_zipcode")]}),t("company_telephone")&&e.jsxs("p",{children:[s("Phone"),": ",t("company_telephone")]}),t("company_email")&&e.jsxs("p",{children:[s("Email"),": ",t("company_email")]})]})]}),e.jsxs("div",{className:"text-right w-1/2",children:[e.jsx("h2",{className:"text-2xl font-bold mb-2",children:s("POS SALE")}),e.jsx("p",{className:"text-lg font-semibold",children:n.sale_number}),e.jsx("div",{className:"text-sm mt-2",children:e.jsxs("p",{children:[s("Date"),": ",v(n.created_at)]})})]})]}),e.jsxs("div",{className:"flex justify-between mb-12",children:[e.jsxs("div",{className:"w-1/2",children:[e.jsx("h3",{className:"font-bold mb-3",children:s("CUSTOMER")}),e.jsxs("div",{className:"text-sm space-y-1",children:[e.jsx("p",{className:"font-semibold",children:((d=n.customer)==null?void 0:d.name)||s("Walk-in Customer")}),((o=n.customer)==null?void 0:o.email)&&e.jsx("p",{children:n.customer.email})]})]}),e.jsxs("div",{className:"text-right w-1/2",children:[e.jsx("h3",{className:"font-bold mb-3",children:s("WAREHOUSE")}),e.jsx("div",{className:"text-sm space-y-1",children:e.jsx("p",{className:"font-semibold",children:((m=n.warehouse)==null?void 0:m.name)||"-"})})]})]}),e.jsx("div",{className:"mb-8",children:e.jsxs("table",{className:"w-full table-fixed",children:[e.jsx("thead",{children:e.jsxs("tr",{className:"border-b border-gray-300",children:[e.jsx("th",{className:"text-left py-3 font-bold",children:s("Product")}),e.jsx("th",{className:"text-center py-3 font-bold",children:s("Qty")}),e.jsx("th",{className:"text-right py-3 font-bold",children:s("Unit Price")}),e.jsx("th",{className:"text-center py-3 font-bold",children:s("Tax")}),e.jsx("th",{className:"text-right py-3 font-bold",children:s("Tax Amount")}),e.jsx("th",{className:"text-right py-3 font-bold",children:s("Total")})]})}),e.jsx("tbody",{children:(x=n.items)==null?void 0:x.map((a,r)=>{var i,h;return e.jsxs("tr",{className:"page-break-inside-avoid",children:[e.jsxs("td",{className:"py-4",children:[e.jsx("div",{className:"font-semibold",children:(i=a.product)==null?void 0:i.name}),((h=a.product)==null?void 0:h.sku)&&e.jsxs("div",{className:"text-xs text-gray-500",children:[s("SKU"),": ",a.product.sku]})]}),e.jsx("td",{className:"text-center py-4",children:a.quantity}),e.jsx("td",{className:"text-right py-4",children:l(a.price)}),e.jsx("td",{className:"text-center py-4",children:a.taxes&&a.taxes.length>0?e.jsx("div",{className:"text-xs",children:a.taxes.map((p,f)=>e.jsxs("div",{children:[p.tax_name," (",p.rate,"%)"]},f))}):"-"}),e.jsx("td",{className:"text-right py-4",children:a.tax_amount>0?e.jsx("span",{children:l(a.tax_amount)}):"-"}),e.jsx("td",{className:"text-right py-4 font-semibold",children:l(a.total_amount)})]},r)})})]})}),e.jsx("div",{className:"flex justify-end mb-8",children:e.jsx("div",{className:"w-80",children:e.jsx("div",{className:"border border-gray-400 p-4",children:e.jsxs("div",{className:"space-y-2",children:[e.jsxs("div",{className:"flex justify-between",children:[e.jsxs("span",{children:[s("Subtotal"),":"]}),e.jsx("span",{children:l(n.subtotal||0)})]}),e.jsxs("div",{className:"flex justify-between",children:[e.jsxs("span",{children:[s("Discount"),":"]}),e.jsxs("span",{className:"font-medium text-red-600",children:["-",l(n.discount_amount||0)]})]}),e.jsxs("div",{className:"flex justify-between",children:[e.jsxs("span",{children:[s("Tax"),":"]}),e.jsx("span",{children:l(n.tax_amount||0)})]}),e.jsx("div",{className:"border-t border-gray-400 pt-2 mt-2",children:e.jsxs("div",{className:"flex justify-between font-bold text-lg",children:[e.jsxs("span",{children:[s("TOTAL"),":"]}),e.jsx("span",{children:l(n.total_amount||0)})]})})]})})})}),e.jsx("div",{className:"border-t border-gray-400 pt-6 text-center",children:e.jsx("p",{className:"text-sm mt-2",children:s("Thank you for your business!")})})]}),e.jsx("style",{jsx:!0,global:!0,children:`
+                body {
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
+                    font-family: Arial, sans-serif;
+                }
+
+                @page {
+                    margin: 0.25in;
+                    size: A4;
+                }
+
+                .sale-container {
+                    max-width: 100%;
+                    margin: 0;
+                    box-shadow: none;
+                }
+
+                .page-break-inside-avoid {
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                }
+
+                @media print {
+                    body {
+                        background: white;
+                    }
+
+                    .sale-container {
+                        box-shadow: none;
+                    }
+                }
+            `})]})}export{E as default};

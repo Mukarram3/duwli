@@ -1,0 +1,1 @@
+import{A as s}from"./app-DhLg_H3G.js";const r=e=>{try{const t=window.route;return typeof t=="function"?t(e):void 0}catch{return}},a=()=>!!r("account.audit-process.store"),u=(e,t,n)=>{const o=r("account.audit-process.store");!o||t.length===0||s.post(o,{type:e,ids:t,note:null},{preserveScroll:!0,preserveState:!0})};export{u as a,a as b};
