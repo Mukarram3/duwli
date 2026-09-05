@@ -31,6 +31,7 @@ use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\SalesProposalController;
 use App\Http\Controllers\SalesReturnController;
 use Inertia\Inertia;
+use App\Http\Controllers\SalesDashboardController;
 
 
 Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
@@ -112,6 +113,35 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('section/{section}', function (string $section) {
         return \Inertia\Inertia::render('sections/hub', ['section' => $section]);
     })->name('section.hub');
+
+    /*
+     * Sales Dashboard — the overview screen for the Sales section.
+     *
+     * Unlike the sales-analytics route below, every figure here is queried
+     * from real data by SalesDashboardController. Panels the schema cannot
+     * support are omitted rather than filled with placeholder numbers; see the
+     * controller docblock for which, and why.
+     */
+    Route::get('sales/dashboard', [SalesDashboardController::class, 'index'])
+        ->name('sales.dashboard');
+
+    // Sales Analytics dashboard. Figures are passed as props with empty
+    // defaults, so the page renders empty states until the aggregates are
+    // wired rather than showing invented numbers.
+        Route::get('sales-analytics', function () {
+        return \Inertia\Inertia::render('sales-analytics', [
+            'period'           => null,
+            'salesPerformance' => [],
+            'totalSales'       => null,
+            'salesStatus'      => null,
+            'salesGrowth'      => null,
+            'stats'            => [],
+            'topCountries'     => [],
+            'revenueByHour'    => null,
+            'recentSales'      => [],
+            'viewAllUrl'       => route('sales-invoices.index'),
+        ]);
+    })->name('sales-analytics');
 
     Route::get('add-ons', [ModuleController::class, 'index'])->name('add-ons.index');
     Route::get('add-on/upload', [ModuleController::class, 'upload'])->name('add-on.upload');

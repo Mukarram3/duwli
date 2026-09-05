@@ -1,0 +1,491 @@
+/* resources/css/print.css
+ *
+ * DUWLI DOCUMENT PRINT STYLESHEET
+ * ============================================================================
+ * The print rules for every business document and report in the system:
+ * invoices, quotations, delivery challans, credit/debit notes, statements,
+ * receipts and financial reports.
+ *
+ * Import from app.css:
+ *     @import './print.css';
+ *
+ * ----------------------------------------------------------------------------
+ * WHY THIS FILE EXISTS
+ * ----------------------------------------------------------------------------
+ * Each print screen previously carried its own <style> block, and none of them
+ * solved the two problems that actually make a printed document look amateur:
+ *
+ *   1. MULTI-PAGE TABLE HEADERS DO NOT REPEAT.
+ *      A 40-line invoice prints its column headings on page 1 only. Page 2 is
+ *      a wall of unlabelled numbers. Browsers WILL repeat a <thead> across
+ *      pages, but only if it is `display: table-header-group` — and Tailwind's
+ *      preflight does not set that. One line fixes it, and it has been missing
+ *      from every document in the system.
+ *
+ *   2. ROWS AND TOTALS SPLIT ACROSS THE PAGE BREAK.
+ *      A line item cut in half, or a totals block orphaned onto its own page
+ *      away from the table, is the single most common complaint about printed
+ *      ERP output.
+ *
+ * Everything else here follows from those two, plus getting A4 geometry right.
+ *
+ * ----------------------------------------------------------------------------
+ * A NOTE ON PDF GENERATION
+ * ----------------------------------------------------------------------------
+ * The existing screens generate PDFs with html2pdf.js at html2canvas scale 2.
+ * That RASTERISES the document — the output is a photograph of the invoice, not
+ * a document. Consequences: text cannot be selected, searched or copied; file
+ * sizes run to several MB; and it renders blurry when zoomed or reprinted.
+ *
+ * The browser's own print-to-PDF (window.print) produces real vector text at a
+ * fraction of the size, and it honours everything in this file — including the
+ * repeating headers html2canvas cannot do, because html2canvas has no concept
+ * of a page. `useDocumentPrint` therefore defaults to window.print() and keeps
+ * html2pdf only as an explicit fallback. See the hook for the full reasoning.
+ */
+
+/* ==========================================================================
+   1. SHARED GEOMETRY — applies on screen AND in print
+   ========================================================================== */
+
+/* The page surface. On screen this is a white sheet on a grey desk, which
+   gives the user an accurate preview of the printed result. */
+.doc-sheet {
+    background: #fff;
+    color: #051321;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 16mm 14mm;
+    box-sizing: border-box;
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+}
+
+.doc-desk {
+    background: #f1f3f5;
+    padding: 24px 12px;
+    min-height: 100vh;
+}
+
+@media screen {
+    .doc-sheet {
+        box-shadow: 0 1px 3px rgba(5, 19, 33, 0.12), 0 8px 24px rgba(5, 19, 33, 0.08);
+        border-radius: 2px;
+    }
+}
+
+/* Landscape documents — wide financial reports with many columns. */
+.doc-sheet--landscape {
+    width: 297mm;
+    min-height: 210mm;
+}
+
+/* ==========================================================================
+   2. PAGE BREAK CONTROL
+   ========================================================================== */
+
+/* Never split these across a page boundary. */
+.doc-no-break,
+.doc-totals,
+.doc-signature,
+.doc-parties,
+.doc-summary-band {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* A line item row must not be cut in half. */
+.doc-table tbody tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* Force a new page — used between documents in a batch print. */
+.doc-page-break {
+    page-break-before: always;
+    break-before: page;
+}
+
+/* Keep a heading with the content beneath it. */
+.doc-keep-with-next {
+    page-break-after: avoid;
+    break-after: avoid;
+}
+
+/* Avoid a single line stranded at the top or bottom of a page. */
+.doc-sheet p,
+.doc-sheet li {
+    orphans: 3;
+    widows: 3;
+}
+
+/* ==========================================================================
+   3. THE TABLE HEADER FIX
+   ========================================================================== */
+
+/*
+ * THIS IS THE IMPORTANT RULE IN THIS FILE.
+ *
+ * `display: table-header-group` is what tells the browser to repeat the header
+ * on every page of a table that spans pages. Without it, a long invoice prints
+ * its column headings once and every subsequent page is unlabelled numbers.
+ *
+ * Tailwind's preflight leaves thead as its default, which browsers do NOT
+ * reliably treat as a repeating group once other display rules are in play, so
+ * it is set explicitly.
+ *
+ * tfoot gets the mirror treatment so a running total can repeat at the foot of
+ * each page where a document uses one.
+ */
+.doc-table thead {
+    display: table-header-group;
+}
+
+.doc-table tfoot {
+    display: table-footer-group;
+}
+
+.doc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.doc-table th {
+    text-align: start;
+    font-weight: 600;
+    font-size: 9pt;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 8px 6px;
+    border-bottom: 1.5px solid #051321;
+    white-space: nowrap;
+}
+
+.doc-table td {
+    padding: 9px 6px;
+    border-bottom: 1px solid #e2e4e6;
+    vertical-align: top;
+}
+
+.doc-table .doc-num {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   4. PRINT-ONLY RULES
+   ========================================================================== */
+
+@page {
+    size: A4 portrait;
+    margin: 14mm 12mm;
+}
+
+@page landscape {
+    size: A4 landscape;
+}
+
+@media print {
+    /* Print backgrounds and tinted status pills, which browsers strip by
+       default. Without this a "PAID" stamp prints as invisible white text. */
+    *,
+    *::before,
+    *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* @page already supplies the margin; the on-screen sheet padding would
+       double it and push content off the page. */
+    .doc-sheet {
+        width: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none !important;
+        border-radius: 0;
+    }
+
+    .doc-desk {
+        background: none !important;
+        padding: 0 !important;
+        min-height: 0;
+    }
+
+    /* Anything chrome-like: toolbars, buttons, the app shell. */
+    .no-print,
+    .doc-toolbar {
+        display: none !important;
+    }
+
+    /* Only visible on paper — e.g. "This is a computer-generated document". */
+    .print-only {
+        display: block !important;
+    }
+
+    /* Links print as plain text. A blue underlined URL in a paper invoice is
+       noise, and the href is meaningless once printed. */
+    .doc-sheet a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+
+    /* Let long tables flow across pages instead of being clipped by a
+       scroll container inherited from the app shell. */
+    .doc-sheet,
+    .doc-sheet * {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+}
+
+@media screen {
+    .print-only {
+        display: none;
+    }
+}
+
+/* ==========================================================================
+   5. DOCUMENT FURNITURE
+   ========================================================================== */
+
+/* --- letterhead --- */
+.doc-letterhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16mm;
+    padding-bottom: 6mm;
+    margin-bottom: 8mm;
+}
+
+.doc-letterhead__logo {
+    max-height: 22mm;
+    max-width: 60mm;
+    object-fit: contain;
+}
+
+.doc-title {
+    font-size: 20pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.doc-number {
+    font-size: 11pt;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- meta / parties --- */
+.doc-label {
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #5d6772;
+    margin-bottom: 2mm;
+}
+
+.doc-parties {
+    display: flex;
+    gap: 10mm;
+    margin-bottom: 8mm;
+}
+
+.doc-parties > * {
+    flex: 1;
+    min-width: 0;
+}
+
+/* --- totals ladder --- */
+.doc-totals {
+    margin-inline-start: auto;
+    width: 78mm;
+}
+
+.doc-totals__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8mm;
+    padding: 2mm 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.doc-totals__grand {
+    border-top: 1.5px solid #051321;
+    margin-top: 2mm;
+    padding-top: 3mm;
+    font-size: 12pt;
+    font-weight: 700;
+}
+
+/* --- paid stamp --- */
+/*
+ * Rotated, translucent, and behind the content. Printed on the document rather
+ * than added as a note because a stamp survives photocopying and forwarding,
+ * which is exactly when someone needs to know an invoice is already settled.
+ */
+.doc-stamp {
+    position: absolute;
+    top: 42%;
+    inset-inline-end: 18mm;
+    transform: rotate(-18deg);
+    border: 4px solid currentColor;
+    border-radius: 6px;
+    padding: 4mm 10mm;
+    font-size: 26pt;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.16;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.doc-stamp--paid { color: #27ae60; }
+.doc-stamp--overdue { color: #ef1e1e; }
+.doc-stamp--cancelled { color: #5d6772; }
+.doc-stamp--draft { color: #5d6772; }
+
+.doc-sheet {
+    position: relative;
+}
+
+.doc-sheet > *:not(.doc-stamp) {
+    position: relative;
+    z-index: 1;
+}
+
+/* --- footer --- */
+.doc-footer {
+    margin-top: 10mm;
+    padding-top: 4mm;
+    border-top: 1px solid #e2e4e6;
+    font-size: 8.5pt;
+    color: #5d6772;
+}
+
+/* ==========================================================================
+   6. THEMES
+   ========================================================================== */
+
+/*
+ * Three document themes. They change the letterhead treatment and table
+ * emphasis only — never the geometry, the page breaks or the field order, so
+ * a document says the same thing in every theme.
+ */
+
+/* CLASSIC — a ruled letterhead. Conservative, reads as an accounting document. */
+.doc-theme-classic .doc-letterhead {
+    border-bottom: 2px solid #051321;
+}
+
+.doc-theme-classic .doc-table thead th {
+    background: #f7f8f9;
+}
+
+/* MODERN — a filled brand band across the head, filled table header. */
+.doc-theme-modern .doc-letterhead {
+    background: var(--doc-accent, #1e3a6f);
+    color: #fff;
+    padding: 8mm;
+    margin: -16mm -14mm 8mm;
+    border-bottom: none;
+}
+
+.doc-theme-modern .doc-letterhead .doc-label {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.doc-theme-modern .doc-table thead th {
+    background: var(--doc-accent, #1e3a6f);
+    color: #fff;
+    border-bottom: none;
+}
+
+@media print {
+    /* The negative margin that bleeds the band to the sheet edge on screen
+       has no sheet padding to escape in print, so it is dropped. */
+    .doc-theme-modern .doc-letterhead {
+        margin: 0 0 8mm;
+    }
+}
+
+/* MINIMAL — hairlines, no fills. Cheapest to print, reads as a statement. */
+.doc-theme-minimal .doc-letterhead {
+    border-bottom: 1px solid #e2e4e6;
+}
+
+.doc-theme-minimal .doc-title {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.doc-theme-minimal .doc-table th {
+    border-bottom: 1px solid #aab0b6;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* ==========================================================================
+   7. THERMAL RECEIPT — 80mm roll
+   ========================================================================== */
+
+/*
+ * Point-of-sale receipts are not A4. An 80mm roll is continuous: there is no
+ * page height, so page-break rules must not apply, and the whole thing has to
+ * fit a narrow monospaced column.
+ */
+.doc-sheet--thermal {
+    width: 80mm;
+    min-height: 0;
+    padding: 4mm 3mm;
+    font-family: ui-monospace, "Courier New", monospace;
+    font-size: 9pt;
+    line-height: 1.35;
+}
+
+.doc-sheet--thermal .doc-title {
+    font-size: 12pt;
+    text-align: center;
+}
+
+.doc-sheet--thermal .doc-table th,
+.doc-sheet--thermal .doc-table td {
+    padding: 2px 1px;
+    font-size: 8.5pt;
+}
+
+@media print {
+    .doc-sheet--thermal {
+        width: 80mm;
+    }
+}
+
+/* ==========================================================================
+   8. RTL
+   ========================================================================== */
+
+/*
+ * The layout uses logical properties (margin-inline-start, text-align: start,
+ * inset-inline-end) throughout, so RTL needs almost nothing here. Only the
+ * stamp rotation has to mirror — a stamp tilted the same way in both
+ * directions looks wrong against right-to-left text.
+ */
+[dir="rtl"] .doc-stamp {
+    transform: rotate(18deg);
+}

@@ -1,8 +1,39 @@
-import React, { useEffect, useState } from 'react';
+// packages/workdo/DoubleEntry/src/Resources/js/Pages/TrialBalance/Print.tsx
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
-import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
+import { formatCurrency, formatDate } from '@/utils/helpers';
+import {
+    ReportLayout,
+    DocumentTable,
+    type DocumentColumn,
+} from '@/components/duwli/document';
+
+/**
+ * TRIAL BALANCE — PRINT
+ * ----------------------------------------------------------------------------
+ * Rebuilt on ReportLayout. Reference implementation for the other 11 report
+ * print screens, which all follow this shape.
+ *
+ * WHAT THE SHELL FIXED HERE:
+ *
+ *   - Column headings REPEAT on every page. A trial balance is the longest
+ *     report in the system — a real chart of accounts runs to several hundred
+ *     lines — and previously every page after the first was four unlabelled
+ *     columns of numbers. This is the single worst printing defect in the
+ *     product and it affected exactly the report where it hurts most.
+ *   - The period is printed in the header as a report FILTER. It was present
+ *     before, but as ad-hoc text; making it a structured filter means every
+ *     report prints its parameters the same way and a paper copy stays
+ *     auditable once it leaves the screen.
+ *   - The out-of-balance difference is now shown in the summary band and
+ *     flagged red when non-zero. Previously the report printed `is_balanced`
+ *     nowhere at all — a reader had to subtract the two totals by hand to
+ *     discover the ledger did not balance, which is the one question a trial
+ *     balance exists to answer.
+ *   - Currency and dates now use the company's configured settings; the old
+ *     version called the helpers without pageProps and silently fell back to
+ *     defaults.
+ */
 
 interface TrialBalanceAccount {
     id: number;
@@ -23,153 +54,95 @@ interface TrialBalanceData {
 
 interface TrialBalanceProps {
     trialBalance: TrialBalanceData;
+    [key: string]: any;
 }
 
 export default function Print() {
     const { t } = useTranslation();
-    const { trialBalance } = usePage<TrialBalanceProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
+    const pageProps = usePage<TrialBalanceProps>().props;
+    const { trialBalance } = pageProps;
 
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf') {
-            downloadPDF();
-        }
-    }, []);
+    const money = (value: any) => formatCurrency(value ?? 0, pageProps);
+    const date = (value: any) => (value ? formatDate(value, pageProps) : '—');
 
-    const downloadPDF = async () => {
-        setIsDownloading(true);
+    const difference = Number(trialBalance.total_debit) - Number(trialBalance.total_credit);
+    const balanced = Math.abs(difference) < 0.005;
 
-        const printContent = document.querySelector('.trial-balance-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `trial-balance-${formatDate(trialBalance.from_date)}-to-${formatDate(trialBalance.to_date)}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
-
-            try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
-        }
-
-        setIsDownloading(false);
-    };
+    const columns: DocumentColumn[] = [
+        { key: 'code', header: 'Account Code', width: '28mm' },
+        { key: 'name', header: 'Account Name' },
+        { key: 'debit', header: 'Debit', align: 'end', width: '34mm' },
+        { key: 'credit', header: 'Credit', align: 'end', width: '34mm' },
+    ];
 
     return (
-        <div className="min-h-screen bg-white">
+        <>
             <Head title={t('Trial Balance')} />
 
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="trial-balance-container bg-white max-w-4xl mx-auto p-12">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-12">
-                    <div>
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-2xl font-bold mb-2">{t('TRIAL BALANCE')}</h2>
-                        <div className="text-sm space-y-1">
-                            <p>{t('Period')}: {formatDate(trialBalance.from_date)} - {formatDate(trialBalance.to_date)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Trial Balance Table */}
-                <div className="mb-6">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b-2 border-gray-800">
-                                <th className="text-left py-2 text-sm font-bold">{t('Account Code')}</th>
-                                <th className="text-left py-2 text-sm font-bold">{t('Account Name')}</th>
-                                <th className="text-right py-2 text-sm font-bold">{t('Debit')}</th>
-                                <th className="text-right py-2 text-sm font-bold">{t('Credit')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {trialBalance.accounts.map((account) => (
-                                <tr key={account.id} className="border-b border-gray-100">
-                                    <td className="py-1.5 text-sm">{account.account_code}</td>
-                                    <td className="py-1.5 text-sm">{account.account_name}</td>
-                                    <td className="py-1.5 text-sm text-right tabular-nums">
-                                        {account.debit > 0 ? formatCurrency(account.debit) : '-'}
-                                    </td>
-                                    <td className="py-1.5 text-sm text-right tabular-nums">
-                                        {account.credit > 0 ? formatCurrency(account.credit) : '-'}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot>
-                            <tr className="border-t-2 border-gray-800">
-                                <td colSpan={2} className="py-2 text-sm font-bold">{t('TOTAL')}</td>
-                                <td className="py-2 text-sm text-right font-bold tabular-nums">{formatCurrency(trialBalance.total_debit)}</td>
-                                <td className="py-2 text-sm text-right font-bold tabular-nums">{formatCurrency(trialBalance.total_credit)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-12 pt-6 border-t text-center text-sm text-gray-600">
-                    <p>{t('Generated on')} {formatDate(new Date().toISOString())}</p>
-                </div>
-            </div>
-
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
-                }
-
-                @page {
-                    margin: 0.25in;
-                    size: A4;
-                }
-
-                .trial-balance-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
-
-                @media print {
-                    body {
-                        background: white;
+            <ReportLayout
+                title="Trial Balance"
+                subtitle="Closing debit and credit balance for every ledger account."
+                filename={`trial-balance-${trialBalance.from_date}-to-${trialBalance.to_date}`}
+                backUrl={route('double-entry.trial-balance.index')}
+                filters={[
+                    {
+                        label: 'Period',
+                        value: `${date(trialBalance.from_date)} — ${date(trialBalance.to_date)}`,
+                    },
+                    { label: 'Accounts', value: trialBalance.accounts.length },
+                ]}
+                summary={[
+                    { label: 'Total Debit', value: money(trialBalance.total_debit) },
+                    { label: 'Total Credit', value: money(trialBalance.total_credit) },
+                    {
+                        // The question this report exists to answer. It belongs
+                        // at the top, not left for the reader to subtract.
+                        label: balanced ? 'Balanced' : 'Out of Balance',
+                        value: balanced ? t('Yes') : money(Math.abs(difference)),
+                        emphasis: true,
+                        warn: !balanced,
+                    },
+                ]}
+            >
+                <DocumentTable
+                    columns={columns}
+                    rows={trialBalance.accounts}
+                    emptyText="No ledger accounts have activity in this period."
+                    render={(account: TrialBalanceAccount, column) => {
+                        switch (column.key) {
+                            case 'code':
+                                return <span className="tabular-nums">{account.account_code}</span>;
+                            case 'name':
+                                return account.account_name;
+                            case 'debit':
+                                // A dash rather than a zero: on a trial balance
+                                // every account has a balance on ONE side only,
+                                // and printing 0.00 in the other column doubles
+                                // the number of figures the eye has to discard.
+                                return Number(account.debit) > 0 ? money(account.debit) : '—';
+                            case 'credit':
+                                return Number(account.credit) > 0 ? money(account.credit) : '—';
+                            default:
+                                return null;
+                        }
+                    }}
+                    footer={
+                        <tr>
+                            <td colSpan={2} className="pt-3 font-bold">
+                                {t('Total')}
+                            </td>
+                            <td className="doc-num pt-3 font-bold">{money(trialBalance.total_debit)}</td>
+                            <td className="doc-num pt-3 font-bold">{money(trialBalance.total_credit)}</td>
+                        </tr>
                     }
+                />
 
-                    .trial-balance-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+                {!balanced && (
+                    <p className="doc-no-break mt-4 border border-[#ef1e1e] bg-[#fef4f4] px-3 py-2 text-[9.5pt] text-[#ef1e1e]">
+                        {t('This trial balance does not balance. Review journal entries where debits do not equal credits before relying on any report derived from this period.')}
+                    </p>
+                )}
+            </ReportLayout>
+        </>
     );
 }

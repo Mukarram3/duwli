@@ -14,19 +14,23 @@ import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer, Replace, User as UserIcon } from "lucide-react";
+import {
+    Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
+    Replace, FileSpreadsheet, Wallet, AlertCircle, CheckCircle2,
+} from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
-import { SearchInput } from "@/components/ui/search-input";
 import { ListGridToggle } from '@/components/ui/list-grid-toggle';
 import { formatCurrency, formatDate } from '@/utils/helpers';
-import { getStatusBadgeClasses } from './utils';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { PageActionBar, actionRoute, type PageAction } from '@/components/page-action-bar';
-import NoRecordsFound from '@/components/no-records-found';
-import BadgeUI from '@/components/badge-ui';
+import {
+    KpiStrip, FilterBar, EmptyState, StatusBadge,
+    MoneyCell, DateCell, EntityCell, ReferenceCell,
+    type ActiveFilter,
+} from '@/components/duwli';
+import { Label } from '@/components/ui/label';
 import { SalesInvoice, SalesFilters } from './types';
 
 interface SalesIndexProps {
@@ -43,7 +47,9 @@ interface SalesIndexProps {
 
 export default function Index() {
     const { t } = useTranslation();
-    const { invoices, customers, warehouses, auth } = usePage<SalesIndexProps>().props;
+    const pageProps = usePage<SalesIndexProps>().props;
+    const { invoices, customers, warehouses, auth, stats } = pageProps as any;
+    const can = (permission: string) => Boolean(auth.user?.permissions?.includes(permission));
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<SalesFilters>({
@@ -58,7 +64,6 @@ export default function Index() {
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
     const [sortDirection, setSortDirection] = useState(urlParams.get('direction') || 'asc');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(urlParams.get('view') as 'list' | 'grid' || 'list');
-    const [showFilters, setShowFilters] = useState(false);
 
     // Component for invoice action buttons
     const InvoiceActionButtons = ({ invoice }: { invoice: SalesInvoice }) => {
@@ -150,104 +155,135 @@ export default function Index() {
         router.get(route('sales-invoices.index'), { per_page: perPage, view: viewMode });
     };
 
+    /**
+     * One filter removed at a time from the chip row. The cleared value is
+     * passed into the visit explicitly — setState has not flushed at this point.
+     */
+    const removeFilter = (key: string) => {
+        const next = { ...filters, [key]: '' } as SalesFilters;
+        setFilters(next);
+        router.get(route('sales-invoices.index'), {
+            ...next, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode
+        }, { preserveState: true, replace: true });
+    };
+
+    const customerName = (id: string) =>
+        customers.find((c: any) => c.id.toString() === id)?.name || id;
+    const warehouseName = (id: string) =>
+        warehouses.find((w: any) => w.id.toString() === id)?.name || id;
+
+    /** Chips describing what is currently filtering the table. */
+    const activeFilters: ActiveFilter[] = ([
+        { key: 'customer_id', label: 'Customer', value: filters.customer_id ? customerName(filters.customer_id) : '' },
+        { key: 'warehouse_id', label: 'Warehouse', value: filters.warehouse_id ? warehouseName(filters.warehouse_id) : '' },
+        { key: 'status', label: 'Status', value: filters.status ? t(filters.status) : '' },
+        { key: 'date_range', label: 'Period', value: filters.date_range || '' },
+    ] as ActiveFilter[]).filter((f) => Boolean(f.value));
+
+    const hasAnyFilter = Boolean(
+        filters.search || filters.customer_id || filters.warehouse_id || filters.status || filters.date_range
+    );
+
+    /**
+     * Empty state. Split by cause: a filtered list offers a way OUT of the
+     * filter, an untouched list offers a way to create the first record.
+     * Offering "Create" on a filtered list is how duplicate invoices get made.
+     */
+    const emptyBlock = hasAnyFilter ? (
+        <EmptyState variant="filtered" onClearFilters={clearFilters} />
+    ) : (
+        <EmptyState
+            variant="empty"
+            icon={Receipt}
+            title="No sales invoices yet"
+            description="Create your first invoice to start billing customers."
+            createPermission="create-sales-invoices"
+            createLabel="New Invoice"
+            onCreate={() => router.visit(route('sales-invoices.create'))}
+        />
+    );
+
     const tableColumns = [
         {
             key: 'invoice_number',
             header: t('Invoice Number'),
             sortable: true,
-            render: (value: string, invoice: SalesInvoice) =>
-                auth.user?.permissions?.includes('view-sales-invoices') ? (
-                    <span
-                        className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-600 border border-blue-300 hover:bg-blue-100 cursor-pointer transition-colors dark:bg-blue-950 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-900"
-                        onClick={() => router.get(route('sales-invoices.show', invoice.id))}
-                    >
-                        {value}
-                    </span>
-                ) : (
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800">
-                        {value}
-                    </span>
-                )
+            render: (value: string, invoice: SalesInvoice) => (
+                <ReferenceCell
+                    value={value}
+                    href={can('view-sales-invoices') ? route('sales-invoices.show', invoice.id) : undefined}
+                />
+            )
         },
         {
             key: 'customer',
             header: t('Customer'),
             render: (value: any, invoice: SalesInvoice) => (
-                <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 border flex items-center justify-center flex-shrink-0">
-                        {invoice.customer?.avatar ? (
-                            <img src={getImagePath(invoice.customer.avatar)} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                            <UserIcon className="w-5 h-5 text-gray-400" />
-                        )}
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm">{invoice.customer?.name || '-'}</span>
-                        <span className="text-xs text-muted-foreground truncate">{invoice.customer?.email || ''}</span>
-                    </div>
-                </div>
+                <EntityCell
+                    name={invoice.customer?.name}
+                    secondary={invoice.customer?.email}
+                    image={invoice.customer?.avatar}
+                />
             )
         },
         {
             key: 'invoice_date',
             header: t('Invoice Date'),
             sortable: true,
-            render: (value: string) => <span className="text-gray-600 text-sm">{formatDate(value)}</span>
+            render: (value: string) => <DateCell value={value} />
         },
         {
             key: 'due_date',
             header: t('Due Date'),
             sortable: true,
-            render: (value: string, invoice: SalesInvoice) => {
-                const isOverdue = invoice.display_status === 'overdue';
-                return (
-                    <div>
-                        <span className={isOverdue ? 'text-red-600 font-medium text-sm' : 'text-gray-600 text-sm'}>
-                            {formatDate(value)}
-                        </span>
-                        {isOverdue && (
-                            <div className="text-xs text-red-600 font-medium mt-0.5">{t('Overdue')}</div>
-                        )}
-                    </div>
-                );
-            }
+            render: (value: string, invoice: SalesInvoice) => (
+                <DateCell
+                    value={value}
+                    overdue={invoice.display_status === 'overdue'}
+                    caption={invoice.display_status === 'overdue' ? t('Overdue') : undefined}
+                />
+            )
         },
         {
             key: 'subtotal',
             header: t('Subtotal'),
             sortable: true,
-            render: (value: number) => <span className="text-gray-700 text-sm">{formatCurrency(value)}</span>
+            render: (value: number) => <MoneyCell value={value} />
         },
         {
             key: 'tax_amount',
             header: t('Tax'),
             sortable: true,
-            render: (value: number) => <span className="text-gray-600 text-sm">{formatCurrency(value)}</span>
+            render: (value: number) => <MoneyCell value={value} />
         },
         {
             key: 'total_amount',
             header: t('Total Amount'),
             sortable: true,
-            render: (value: number) => <span className="font-semibold text-gray-900 text-sm">{formatCurrency(value)}</span>
+            render: (value: number) => <MoneyCell value={value} bold />
         },
         {
             key: 'balance_amount',
             header: t('Balance'),
             sortable: true,
             render: (value: number) => (
-                <span className={`font-semibold text-sm ${value > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                    {formatCurrency(value)}
-                </span>
+                // A balance of zero means settled, so it is muted rather than
+                // coloured — the eye should be drawn to what is still owed.
+                <MoneyCell
+                    value={value}
+                    bold={Number(value) > 0}
+                    className={Number(value) > 0 ? 'text-amber-600 dark:text-amber-400' : undefined}
+                />
             )
         },
         {
             key: 'status',
             header: t('Status'),
             sortable: true,
-            render: (value: string) => (
-                <BadgeUI className={getStatusBadgeClasses(value)}>
-                    {t(value.charAt(0).toUpperCase() + value.slice(1))}
-                </BadgeUI>
+            render: (value: string, invoice: SalesInvoice) => (
+                // display_status promotes an unpaid, past-due invoice to
+                // "overdue" — the status the user actually needs to see.
+                <StatusBadge status={invoice.display_status || value} />
             )
         },
         ...(auth.user?.permissions?.some((p: string) => ['view-sales-invoices', 'edit-sales-invoices', 'delete-sales-invoices', 'post-sales-invoices', 'print-sales-invoices'].includes(p)) ? [{
@@ -283,7 +319,12 @@ export default function Index() {
                                     icon: Printer,
                                     className: 'text-slate-600 hover:text-slate-700',
                                     permitted: auth.user?.permissions?.includes('print-sales-invoices'),
-                                    onClick: () => window.open(route('sales-invoices.print', invoice.id), '_blank'),
+                                    // ?print=1 opens the document and fires the
+                                    // browser print dialog, which yields real
+                                    // vector text. Plain ?download=pdf below
+                                    // rasterises — kept only for the legacy
+                                    // "Download PDF" action.
+                                    onClick: () => window.open(route('sales-invoices.print', invoice.id) + '?print=1', '_blank'),
                                 },
                                 {
                                     label: t('Download PDF'),
@@ -330,8 +371,10 @@ export default function Index() {
     return (
         <AuthenticatedLayout
             breadcrumbs={[{ label: t('Sales Invoices') }]}
-            pageTitle={t('Manage Sales Invoices')}
+            pageTitle={t('Sales Invoices')}
             pageDescription={t('Manage and track your sales invoices, payments, and balances.')}
+            pageIcon={FileSpreadsheet}
+            pageCount={invoices.meta?.total ?? invoices.total}
             pageActions={
                 <PageActionBar
                     actions={invoiceActions}
@@ -357,110 +400,150 @@ export default function Index() {
         >
             <Head title={t('Sales Invoices')} />
 
-            <Card className="shadow-sm">
-                {/* Search & Controls */}
-                <CardContent className="p-4 border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 max-w-md">
-                            <SearchInput
-                                value={filters.search || ''}
-                                onChange={(value) => setFilters({ ...filters, search: value })}
-                                onSearch={handleFilter}
-                                placeholder={t('Search by invoice number...')}
-                            />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <ListGridToggle
-                                currentView={viewMode}
-                                routeName="sales-invoices.index"
-                                filters={{ ...filters, per_page: perPage }}
-                            />
-                            <PerPageSelector
-                                routeName="sales-invoices.index"
-                                filters={{ ...filters, view: viewMode }}
-                            />
-                            <div className="relative">
-                                <FilterButton
-                                    showFilters={showFilters}
-                                    onToggle={() => setShowFilters(!showFilters)}
-                                />
-                                {(() => {
-                                    const activeFilters = [filters.customer_id, filters.warehouse_id, filters.status, filters.date_range].filter(Boolean).length;
-                                    return activeFilters > 0 && (
-                                        <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                            {activeFilters}
-                                        </span>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
+            {/*
+              Receivables at a glance. These describe the whole invoice book,
+              not the filtered page, so they stay stable as the user filters
+              beneath them. Overdue and Draft drill through to this same list
+              with the matching status applied.
+            */}
+            {stats && (
+                <KpiStrip
+                    items={[
+                        {
+                            label: 'Outstanding',
+                            value: formatCurrency(stats.outstanding, pageProps),
+                            caption: `${stats.outstandingCount} ${t('open invoices')}`,
+                            icon: Wallet,
+                            tone: 'gradient',
+                        },
+                        {
+                            label: 'Overdue',
+                            value: formatCurrency(stats.overdue, pageProps),
+                            caption: `${stats.overdueCount} ${t('past due')}`,
+                            icon: AlertCircle,
+                            tone: 'danger',
+                            href: route('sales-invoices.index', { status: 'overdue' }),
+                        },
+                        {
+                            label: 'Collected This Month',
+                            value: formatCurrency(stats.collectedThisMonth, pageProps),
+                            icon: CheckCircle2,
+                            tone: 'success',
+                        },
+                        {
+                            label: 'Drafts',
+                            value: String(stats.drafts),
+                            caption: 'Not yet posted',
+                            icon: FileText,
+                            tone: stats.drafts > 0 ? 'warning' : 'plain',
+                            href: route('sales-invoices.index', { status: 'draft' }),
+                        },
+                    ]}
+                />
+            )}
 
-                {/* Advanced Filters */}
-                {showFilters && (
-                    <CardContent className="p-4 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            {auth.user?.permissions?.includes('manage-users') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
-                                    <Select value={filters.customer_id} onValueChange={(value) => setFilters({ ...filters, customer_id: value })}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Filter by customer')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {customers.map((customer) => (
-                                                <SelectItem key={customer.id} value={customer.id.toString()}>{customer.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                            {auth.user?.permissions?.includes('manage-warehouses') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('Warehouse')}</label>
-                                    <Select value={filters.warehouse_id} onValueChange={(value) => setFilters({ ...filters, warehouse_id: value })}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('Filter by warehouse')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {warehouses.map((warehouse) => (
-                                                <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Status')}</label>
-                                <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('Filter by status')} />
+            <Card className="shadow-sm">
+                {/* Search, filters and the chips showing what is applied */}
+                <CardContent className="border-b bg-muted/30 p-4">
+                    <FilterBar
+                        className="mb-0"
+                        search={filters.search || ''}
+                        onSearchChange={(value) => setFilters({ ...filters, search: value })}
+                        searchPlaceholder="Search by invoice number..."
+                        activeFilters={activeFilters}
+                        onRemoveFilter={removeFilter}
+                        onClearAll={clearFilters}
+                        popoverWidth="w-96"
+                        trailing={
+                            <>
+                                <ListGridToggle
+                                    currentView={viewMode}
+                                    routeName="sales-invoices.index"
+                                    filters={{ ...filters, per_page: perPage }}
+                                />
+                                <PerPageSelector
+                                    routeName="sales-invoices.index"
+                                    filters={{ ...filters, view: viewMode }}
+                                />
+                            </>
+                        }
+                    >
+                        {can('manage-users') && (
+                            <div className="space-y-1.5">
+                                <Label>{t('Customer')}</Label>
+                                <Select
+                                    value={filters.customer_id}
+                                    onValueChange={(value) => setFilters({ ...filters, customer_id: value })}
+                                >
+                                    <SelectTrigger className="h-9">
+                                        <SelectValue placeholder={t('Filter by customer')} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="draft">{t('Draft')}</SelectItem>
-                                        <SelectItem value="posted">{t('Posted')}</SelectItem>
-                                        <SelectItem value="paid">{t('Paid')}</SelectItem>
-                                        <SelectItem value="overdue">{t('Overdue')}</SelectItem>
-                                        <SelectItem value="cancelled">{t('Cancelled')}</SelectItem>
+                                        {customers.map((customer: any) => (
+                                            <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                {customer.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Range')}</label>
-                                <DateRangePicker
-                                    value={filters.date_range}
-                                    onChange={(value) => setFilters({ ...filters, date_range: value })}
-                                    placeholder={t('Select date range')}
-                                />
+                        )}
+
+                        {can('manage-warehouses') && (
+                            <div className="space-y-1.5">
+                                <Label>{t('Warehouse')}</Label>
+                                <Select
+                                    value={filters.warehouse_id}
+                                    onValueChange={(value) => setFilters({ ...filters, warehouse_id: value })}
+                                >
+                                    <SelectTrigger className="h-9">
+                                        <SelectValue placeholder={t('Filter by warehouse')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {warehouses.map((warehouse: any) => (
+                                            <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                                                {warehouse.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="flex items-end gap-2">
-                                <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
-                                <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
-                            </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                            <Label>{t('Status')}</Label>
+                            <Select
+                                value={filters.status}
+                                onValueChange={(value) => setFilters({ ...filters, status: value })}
+                            >
+                                <SelectTrigger className="h-9">
+                                    <SelectValue placeholder={t('Filter by status')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="draft">{t('Draft')}</SelectItem>
+                                    <SelectItem value="posted">{t('Posted')}</SelectItem>
+                                    <SelectItem value="paid">{t('Paid')}</SelectItem>
+                                    <SelectItem value="overdue">{t('Overdue')}</SelectItem>
+                                    <SelectItem value="cancelled">{t('Cancelled')}</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                    </CardContent>
-                )}
+
+                        <div className="space-y-1.5">
+                            <Label>{t('Date Range')}</Label>
+                            <DateRangePicker
+                                value={filters.date_range}
+                                onChange={(value) => setFilters({ ...filters, date_range: value })}
+                                placeholder={t('Select date range')}
+                            />
+                        </div>
+
+                        <div className="flex gap-2 pt-1">
+                            <Button size="sm" className="flex-1" onClick={handleFilter}>{t('Apply')}</Button>
+                            <Button size="sm" variant="outline" className="flex-1" onClick={clearFilters}>{t('Clear')}</Button>
+                        </div>
+                    </FilterBar>
+                </CardContent>
 
                 {/* List / Grid Content */}
                 <CardContent className="p-0">
@@ -474,19 +557,7 @@ export default function Index() {
                                     sortKey={sortField}
                                     sortDirection={sortDirection as 'asc' | 'desc'}
                                     className="rounded-none"
-                                    emptyState={
-                                        <NoRecordsFound
-                                            icon={Receipt}
-                                            title={t('No sales invoices found')}
-                                            description={t('Get started by creating your first sales invoice.')}
-                                            hasFilters={!!(filters.search || filters.customer_id || filters.status)}
-                                            onClearFilters={clearFilters}
-                                            createPermission="create-sales-invoices"
-                                            onCreateClick={() => router.visit(route('sales-invoices.create'))}
-                                            createButtonText={t('Create Sales Invoice')}
-                                            className="h-auto"
-                                        />
-                                    }
+                                    emptyState={emptyBlock}
                                 />
                             </div>
                         </div>
@@ -529,9 +600,7 @@ export default function Index() {
                                                             {invoice.invoice_number}
                                                         </span>
                                                     )}
-                                                    <BadgeUI className={`${getStatusBadgeClasses(invoice.status)} flex-shrink-0 text-xs`}>
-                                                        {t(invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1))}
-                                                    </BadgeUI>
+                                                    <StatusBadge status={invoice.display_status || invoice.status} />
                                                 </div>
                                                 {/* Dates */}
                                                 <div className="grid grid-cols-2 gap-3 h-[52px]">
@@ -651,16 +720,7 @@ export default function Index() {
                                     ))}
                                 </div>
                             ) : (
-                                <NoRecordsFound
-                                    icon={Receipt}
-                                    title={t('No sales invoices found')}
-                                    description={t('Get started by creating your first sales invoice.')}
-                                    hasFilters={!!(filters.search || filters.customer_id || filters.status)}
-                                    onClearFilters={clearFilters}
-                                    createPermission="create-sales-invoices"
-                                    onCreateClick={() => router.visit(route('sales-invoices.create'))}
-                                    createButtonText={t('Create Sales Invoice')}
-                                />
+                                emptyBlock
                             )}
                         </div>
                     )}

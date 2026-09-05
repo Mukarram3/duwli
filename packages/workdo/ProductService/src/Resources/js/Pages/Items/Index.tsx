@@ -17,7 +17,10 @@ import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { ListGridToggle } from '@/components/ui/list-grid-toggle';
-import NoRecordsFound from '@/components/no-records-found';
+import {
+    KpiStrip, EmptyState, StatusBadge,
+    MoneyCell, NumberCell, EntityCell, TextCell,
+} from '@/components/duwli';
 import { formatCurrency, getImagePath } from '@/utils/helpers';
 import { Item, ItemsIndexProps, ItemFilters } from './types';
 import { usePageButtons } from '@/hooks/usePageButtons';
@@ -152,28 +155,18 @@ export default function Index() {
             key: 'sale_price',
             header: t('Sale Price'),
             sortable: true,
-            render: (value: number) => (
-                <span className="font-semibold text-sm text-green-700 dark:text-green-400">
-                    {value ? formatCurrency(value) : <span className="text-gray-400">—</span>}
-                </span>
-            )
+            render: (value: number) => <MoneyCell value={value} />
         },
         {
             key: 'purchase_price',
             header: t('Purchase Price'),
             sortable: true,
-            render: (value: number) => (
-                <span className="font-semibold text-sm text-orange-600 dark:text-orange-400">
-                    {value ? formatCurrency(value) : <span className="text-gray-400">—</span>}
-                </span>
-            )
+            render: (value: number) => <MoneyCell value={value} />
         },
         {
             key: 'category_id',
             header: t('Category'),
-            render: (value: number, item: Item) => (
-                <span className="text-sm text-gray-600 dark:text-gray-400">{item.category?.name || '-'}</span>
-            )
+            render: (value: number, item: Item) => <TextCell value={item.category?.name} />
         },
         {
             key: 'unit',
@@ -192,12 +185,33 @@ export default function Index() {
             key: 'total_quantity',
             header: t('Quantity'),
             sortable: false,
-            render: (value: number) => (
-                <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950/30 dark:text-blue-400 dark:ring-blue-500/30">
-                    <ShoppingCart className="h-3 w-3" />
-                    {Math.floor(value) || 0}
-                </span>
-            )
+            className: 'text-end',
+            render: (value: number, item: Item) => {
+                // Services have no stock, so a quantity of 0 is normal for them
+                // and must not be flagged as a shortage.
+                if (item.type !== 'product') {
+                    return <span className="block text-end text-muted-foreground">—</span>;
+                }
+                const qty = Math.floor(value) || 0;
+
+                // NOTE: `product_service_items` has no reorder_level column, so
+                // a true "low stock" threshold cannot be evaluated here yet.
+                // Only the unambiguous case — nothing left — is flagged. Add
+                // `reorder_level` to the table and restore the low_stock branch
+                // to get the alerts the brief asks for under Inventory.
+                const reorder = Number((item as any).reorder_level ?? 0);
+                const stockStatus =
+                    qty <= 0 ? 'out_of_stock'
+                    : (reorder > 0 && qty <= reorder) ? 'low_stock'
+                    : 'in_stock';
+
+                return (
+                    <span className="flex flex-col items-end gap-1">
+                        <NumberCell value={qty} lowThreshold={reorder > 0 ? reorder : undefined} />
+                        <StatusBadge status={stockStatus} dot={false} />
+                    </span>
+                );
+            }
         },
         {
             key: 'type',

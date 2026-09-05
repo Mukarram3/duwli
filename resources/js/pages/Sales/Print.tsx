@@ -1,10 +1,42 @@
-import React, { useEffect, useState } from 'react';
+// resources/js/pages/Sales/Print.tsx
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
 import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
+import {
+    DocumentLayout,
+    DocumentTable,
+    type DocumentColumn,
+    type DocumentStamp,
+} from '@/components/duwli/document';
 import { SalesInvoice } from './types';
 import { usePageButtons } from '@/hooks/usePageButtons';
+
+/**
+ * SALES INVOICE — PRINT
+ * ----------------------------------------------------------------------------
+ * Rebuilt on DocumentLayout. This is the reference implementation for every
+ * other printed document in the system; the remaining print screens follow the
+ * same shape.
+ *
+ * WHAT THE SHELL FIXED HERE, versus the previous hand-rolled version:
+ *
+ *   - Column headings now REPEAT on page 2+ of a long invoice. Previously a
+ *     40-line invoice printed page two as unlabelled numbers.
+ *   - Line items and the totals block can no longer be split across a page
+ *     break.
+ *   - Print is now the primary action instead of the rasterised PDF download,
+ *     so the default output is selectable vector text rather than a photograph
+ *     of the invoice. See use-document-print.ts.
+ *   - The company logo appears on the letterhead. It never did before, on any
+ *     printed document.
+ *   - A PAID / OVERDUE / CANCELLED stamp is printed on the face of the
+ *     document, so status survives photocopying and forwarding.
+ *   - Currency and date formatting now go through the company's configured
+ *     settings. The old version called formatCurrency/formatDate without
+ *     pageProps, which silently fell back to defaults — so a company using a
+ *     comma decimal separator or a d/m/Y date got the wrong format on every
+ *     printed invoice while the on-screen version was correct.
+ */
 
 interface PrintProps {
     invoice: SalesInvoice;
@@ -13,253 +45,213 @@ interface PrintProps {
 
 export default function Print() {
     const { t } = useTranslation();
-    const { invoice } = usePage<PrintProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
+    const pageProps = usePage<PrintProps>().props;
+    const { invoice } = pageProps;
 
     const signaturePrintButtons = usePageButtons('signaturePrintBtn', {
         invoice: invoice,
-        invoiceType: 'sales'
+        invoiceType: 'sales',
     });
 
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf') {
-            downloadPDF();
-        }
-    }, []);
+    const money = (value: any) => formatCurrency(value ?? 0, pageProps);
+    const date = (value: any) => (value ? formatDate(value, pageProps) : '—');
 
-    const downloadPDF = async () => {
-        setIsDownloading(true);
+    // Products need a quantity column; a service invoice does not, and an empty
+    // Qty column down the page reads as missing data rather than N/A.
+    const isProduct = invoice.type === 'product';
 
-        const printContent = document.querySelector('.invoice-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `sales-invoice-${invoice.invoice_number}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
+    const columns: DocumentColumn[] = [
+        { key: 'item', header: 'Description' },
+        ...(isProduct
+            ? [{ key: 'qty', header: 'Qty', align: 'end' as const, width: '16mm' }]
+            : []),
+        { key: 'price', header: 'Unit Price', align: 'end', width: '26mm' },
+        { key: 'discount', header: 'Discount', align: 'end', width: '24mm' },
+        { key: 'tax', header: 'Tax', align: 'end', width: '26mm' },
+        { key: 'total', header: 'Amount', align: 'end', width: '28mm' },
+    ];
 
-            try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
-        }
+    /**
+     * The stamp reflects what the reader needs to know at a glance when the
+     * document arrives detached from the system.
+     */
+    const stamp: DocumentStamp | null =
+        invoice.status === 'paid'
+            ? 'paid'
+            : invoice.status === 'cancelled'
+              ? 'cancelled'
+              : invoice.status === 'draft'
+                ? 'draft'
+                : invoice.display_status === 'overdue'
+                  ? 'overdue'
+                  : null;
 
-        setIsDownloading(false);
-    };
+    const billing = (invoice as any).customer_details?.billing_address;
+    const shipping = (invoice as any).customer_details?.shipping_address;
+
+    const totals = [
+        { label: 'Subtotal', value: money(invoice.subtotal) },
+        ...(Number(invoice.discount_amount) > 0
+            ? [{ label: 'Discount', value: `-${money(invoice.discount_amount)}`, muted: true }]
+            : []),
+        ...(Number(invoice.tax_amount) > 0
+            ? [{ label: 'Tax', value: money(invoice.tax_amount) }]
+            : []),
+        { label: 'Total', value: money(invoice.total_amount), grand: true },
+        // Amount paid and balance only appear once something has been paid —
+        // on an untouched invoice they would just restate the total twice.
+        ...(Number((invoice as any).paid_amount) > 0
+            ? [
+                  { label: 'Amount Paid', value: `-${money((invoice as any).paid_amount)}`, muted: true },
+                  { label: 'Balance Due', value: money((invoice as any).balance_amount), grand: true },
+              ]
+            : []),
+    ];
 
     return (
-        <div className="min-h-screen bg-white">
-            <Head title={t('Sales Invoice')} />
+        <>
+            <Head title={`${t('Invoice')} ${invoice.invoice_number}`} />
 
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="invoice-container bg-white max-w-4xl mx-auto p-8">
-                <div className="flex justify-between items-start mb-8">
-                    <div className="w-1/2">
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                            {getCompanySetting('registration_number') && <p>{t('Registration')}: {getCompanySetting('registration_number')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right w-1/2">
-                        <h2 className="text-2xl font-bold mb-2">{t('SALES INVOICE')}</h2>
-                        <p className="text-lg font-semibold">#{invoice.invoice_number}</p>
-                        <div className="text-sm mt-2 space-y-1">
-                            <p>{t('Date')}: {formatDate(invoice.invoice_date)}</p>
-                            <p>{t('Due')}: {formatDate(invoice.due_date)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-between mb-8">
-                    <div className="w-1/2">
-                        <h3 className="font-bold mb-3">{t('BILL TO')}</h3>
-                        <div className="text-sm space-y-1">
-                            <p className="font-semibold">{invoice.customer?.name}</p>
-                            <p>{invoice.customer?.email}</p>
-                            {invoice.customer_details?.billing_address && (
-                                <>
-                                    <p>{invoice.customer_details.billing_address.name}</p>
-                                    <p>{invoice.customer_details.billing_address.address_line_1}</p>
-                                    <p>{invoice.customer_details.billing_address.city}, {invoice.customer_details.billing_address.state} {invoice.customer_details.billing_address.zip_code}</p>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-right w-1/2">
-                        <h3 className="font-bold mb-3">{t('SHIP TO')}</h3>
-                        <div className="text-sm space-y-1">
-                            {invoice.customer_details?.shipping_address ? (
-                                <>
-                                    <p className="font-semibold">{invoice.customer_details.shipping_address.name}</p>
-                                    <p>{invoice.customer_details.shipping_address.address_line_1}</p>
-                                    <p>{invoice.customer_details.shipping_address.city}, {invoice.customer_details.shipping_address.state} {invoice.customer_details.shipping_address.zip_code}</p>
-                                </>
-                            ) : (
-                                <p className="text-gray-500">{t('Same as billing address')}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-8">
-                    <table className="w-full table-fixed">
-                        <thead>
-                            <tr className="border-b border-gray-300">
-                                <th className="text-left py-3 font-bold">{t('ITEM')}</th>
-                                {invoice.type === 'product' && (
-                                    <th className="text-center py-3 font-bold">{t('QTY')}</th>
-                                )}
-                                <th className="text-right py-3 font-bold">{t('PRICE')}</th>
-                                <th className="text-right py-3 font-bold">{t('DISCOUNT')}</th>
-                                <th className="text-right py-3 font-bold">{t('TAX')}</th>
-                                <th className="text-right py-3 font-bold">{t('TOTAL')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {invoice.items?.map((item, index) => (
-                                <tr key={index} className="page-break-inside-avoid">
-                                    <td className="py-4">
-                                        <div className="font-semibold">{item.product?.name}</div>
-                                        {item.product?.sku && (
-                                            <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
-                                        )}
-                                    </td>
-                                    {invoice.type === 'product' && (
-                                        <td className="text-center py-4">{item.quantity}</td>
-                                    )}
-                                    <td className="text-right py-4">{formatCurrency(item.unit_price)}</td>
-                                    <td className="text-right py-4">
-                                        {item.discount_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.discount_percentage}%</div>
-                                                <div className="text-sm font-medium">-{formatCurrency(item.discount_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4">
-                                        {item.taxes && item.taxes.length > 0 ? (
-                                            <>
-                                                {item.taxes.map((tax, taxIndex) => (
-                                                    <div key={taxIndex} className="text-sm">{tax.tax_name} ({tax.tax_rate}%)</div>
-                                                ))}
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : item.tax_percentage > 0 ? (
-                                            <>
-                                                <div className="text-sm">{item.tax_percentage}%</div>
-                                                <div className="text-sm font-medium">{formatCurrency(item.tax_amount)}</div>
-                                            </>
-                                        ) : (
-                                            <div className="text-sm">0%</div>
-                                        )}
-                                    </td>
-                                    <td className="text-right py-4 font-semibold">{formatCurrency(item.total_amount)}</td>
-                                </tr>
+            <DocumentLayout
+                title="Tax Invoice"
+                number={invoice.invoice_number}
+                filename={`invoice-${invoice.invoice_number}`}
+                theme="classic"
+                stamp={stamp}
+                backUrl={route('sales-invoices.show', invoice.id)}
+                meta={[
+                    { label: 'Invoice Date', value: date(invoice.invoice_date) },
+                    { label: 'Due Date', value: date(invoice.due_date) },
+                    ...(invoice.payment_terms
+                        ? [{ label: 'Terms', value: invoice.payment_terms }]
+                        : []),
+                ]}
+                parties={[
+                    {
+                        label: 'Bill To',
+                        name: invoice.customer?.name,
+                        email: invoice.customer?.email,
+                        taxNumber: (invoice as any).customer_details?.tax_number,
+                        address: billing,
+                    },
+                    {
+                        label: 'Ship To',
+                        name: shipping?.name || invoice.customer?.name,
+                        address: shipping || billing,
+                        fallback: 'Same as billing address',
+                    },
+                ]}
+                totals={totals}
+                notes={
+                    <>
+                        {invoice.payment_terms && (
+                            <p>
+                                <span className="font-semibold">{t('Payment Terms')}:</span>{' '}
+                                {invoice.payment_terms}
+                            </p>
+                        )}
+                        {(invoice as any).notes && (
+                            <p className="mt-1 whitespace-pre-line">{(invoice as any).notes}</p>
+                        )}
+                        {getCompanySetting('registration_number', pageProps) && (
+                            <p className="mt-2 text-[8.5pt] text-[#5d6772]">
+                                {t('Please quote the invoice number on all correspondence.')}
+                            </p>
+                        )}
+                    </>
+                }
+                signature={
+                    signaturePrintButtons.length > 0 ? (
+                        <>
+                            {signaturePrintButtons.map((button) => (
+                                <div key={button.id}>{button.component}</div>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="flex justify-end mb-4 page-break-inside-avoid">
-                    <div className="w-80 page-break-inside-avoid">
-                        <div className="border border-gray-400 p-4 page-break-inside-avoid">
-                            <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span>{t('Subtotal')}:</span>
-                                    <span>{formatCurrency(invoice.subtotal)}</span>
-                                </div>
-                                {invoice.discount_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>{t('Discount')}:</span>
-                                        <span>-{formatCurrency(invoice.discount_amount)}</span>
-                                    </div>
-                                )}
-                                {invoice.tax_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>{t('Tax')}:</span>
-                                        <span>{formatCurrency(invoice.tax_amount)}</span>
-                                    </div>
-                                )}
-                                <div className="border-t border-gray-400 pt-2 mt-2">
-                                    <div className="flex justify-between font-bold text-lg">
-                                        <span>{t('TOTAL')}:</span>
-                                        <span>{formatCurrency(invoice.total_amount)}</span>
-                                    </div>
-                                </div>
+                        </>
+                    ) : (
+                        <div className="w-56 text-center">
+                            <div className="h-14" />
+                            <div className="border-t border-[#aab0b6] pt-1 text-[9pt] text-[#5d6772]">
+                                {t('Authorised Signature')}
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-400 pt-4 text-center">
-                     {/* Signature Print Display */}
-                    {signaturePrintButtons.length > 0 && signaturePrintButtons.map((button) => (
-                        <div key={button.id}>{button.component}</div>
-                    ))}
-                    <p className="font-semibold">{t('PAYMENT TERMS')}: {invoice.payment_terms || t('Net 30 Days')}</p>
-                    <p className="text-sm mt-2">{t('Thank you for your business!')}</p>
-                </div>
-            </div>
-
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
+                    )
                 }
+            >
+                <DocumentTable
+                    numbered
+                    columns={columns}
+                    rows={invoice.items || []}
+                    emptyText="This invoice has no line items."
+                    render={(item: any, column) => {
+                        switch (column.key) {
+                            case 'item':
+                                return (
+                                    <>
+                                        <div className="font-medium">{item.product?.name}</div>
+                                        {item.product?.sku && (
+                                            <div className="text-[8.5pt] text-[#5d6772]">
+                                                {t('SKU')}: {item.product.sku}
+                                            </div>
+                                        )}
+                                        {item.description && (
+                                            <div className="text-[8.5pt] text-[#5d6772]">
+                                                {item.description}
+                                            </div>
+                                        )}
+                                    </>
+                                );
 
-                @page {
-                    margin: 0.5in;
-                    size: A4;
-                }
+                            case 'qty':
+                                return item.quantity;
 
-                .invoice-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
+                            case 'price':
+                                return money(item.unit_price);
 
-                .page-break-inside-avoid {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
+                            case 'discount':
+                                return Number(item.discount_percentage) > 0 ? (
+                                    <>
+                                        <div>{item.discount_percentage}%</div>
+                                        <div className="text-[8.5pt] text-[#5d6772]">
+                                            -{money(item.discount_amount)}
+                                        </div>
+                                    </>
+                                ) : (
+                                    '—'
+                                );
 
-                @media print {
-                    body {
-                        background: white;
-                    }
+                            case 'tax':
+                                if (item.taxes && item.taxes.length > 0) {
+                                    return (
+                                        <>
+                                            {item.taxes.map((tax: any, i: number) => (
+                                                <div key={i} className="text-[8.5pt] text-[#5d6772]">
+                                                    {tax.tax_name} {tax.tax_rate}%
+                                                </div>
+                                            ))}
+                                            <div>{money(item.tax_amount)}</div>
+                                        </>
+                                    );
+                                }
+                                return Number(item.tax_percentage) > 0 ? (
+                                    <>
+                                        <div className="text-[8.5pt] text-[#5d6772]">
+                                            {item.tax_percentage}%
+                                        </div>
+                                        <div>{money(item.tax_amount)}</div>
+                                    </>
+                                ) : (
+                                    '—'
+                                );
 
-                    .invoice-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+                            case 'total':
+                                return <span className="font-semibold">{money(item.total_amount)}</span>;
+
+                            default:
+                                return null;
+                        }
+                    }}
+                />
+            </DocumentLayout>
+        </>
     );
 }

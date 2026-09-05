@@ -101,12 +101,59 @@ class SalesInvoiceController extends Controller
                 'invoices' => $invoices,
                 'customers' => $customers,
                 'warehouses' => $warehouses,
-                'filters' => $request->only(['customer_id', 'warehouse_id', 'status', 'search', 'date_range'])
+                'filters' => $request->only(['customer_id', 'warehouse_id', 'status', 'search', 'date_range']),
+                'stats' => $this->indexStats(),
             ]);
         }
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Summary figures for the KPI strip above the invoice list.
+     *
+     * Deliberately NOT filtered by the request's search/filter parameters: the
+     * strip describes the receivables book as a whole, so the totals stay
+     * stable while the user filters the table beneath them. A KPI that moves
+     * with every filter change cannot be used as a reference point.
+     *
+     * Scoped by the same ownership rules as the list itself, so a user limited
+     * to their own invoices does not see company-wide receivables.
+     */
+    private function indexStats(): array
+    {
+        $base = function () {
+            return SalesInvoice::query()->where(function ($q) {
+                if (Auth::user()->can('manage-any-sales-invoices')) {
+                    $q->where('created_by', creatorId());
+                } elseif (Auth::user()->can('manage-own-sales-invoices')) {
+                    $q->where('creator_id', Auth::id())->orWhere('customer_id', Auth::id());
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+            });
+        };
+
+        // "Open" excludes draft and cancelled: neither is money anyone owes yet.
+        $open = $base()->whereNotIn('status', ['draft', 'cancelled', 'paid'])
+                       ->where('balance_amount', '>', 0);
+
+        $overdue = $base()->whereNotIn('status', ['draft', 'cancelled', 'paid'])
+                          ->where('balance_amount', '>', 0)
+                          ->whereDate('due_date', '<', now());
+
+        return [
+            'outstanding'      => (float) (clone $open)->sum('balance_amount'),
+            'outstandingCount' => (clone $open)->count(),
+            'overdue'          => (float) (clone $overdue)->sum('balance_amount'),
+            'overdueCount'     => (clone $overdue)->count(),
+            'collectedThisMonth' => (float) $base()
+                                        ->whereYear('invoice_date', now()->year)
+                                        ->whereMonth('invoice_date', now()->month)
+                                        ->sum('paid_amount'),
+            'drafts'           => $base()->where('status', 'draft')->count(),
+        ];
     }
 
     public function create()

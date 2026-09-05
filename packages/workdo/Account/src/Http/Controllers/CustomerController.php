@@ -14,6 +14,8 @@ use Workdo\Account\Events\UpdateCustomer;
 use Workdo\Account\Events\DestroyCustomer;
 use Workdo\Account\Services\CustomerImportExportService;
 use Illuminate\Http\Request;
+use App\Models\SalesInvoice;
+use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
@@ -47,9 +49,60 @@ class CustomerController extends Controller
             return Inertia::render('Account/Customers/Index', [
                 'customers' => $customers,
                 'users' => $users,
+                'stats' => $this->indexStats(),
             ]);
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    /**
+     * Summary figures for the KPI strip above the customer list.
+     *
+     * Deliberately NOT filtered by the request's search/filter parameters: the
+     * strip describes the customer book as a whole, so the totals stay stable
+     * while the user filters the table beneath them. A KPI that moves every
+     * time a filter changes cannot be used as a reference point.
+     *
+     * Scoped by the same ownership rules as the list itself, so a user who may
+     * only see their own customers does not see company-wide receivables.
+     */
+    private function indexStats(): array
+    {
+        $scope = function ($query, string $column = 'created_by') {
+            if (Auth::user()->can('manage-any-customers')) {
+                return $query->where($column, creatorId());
+            }
+            if (Auth::user()->can('manage-own-customers')) {
+                return $query->where('creator_id', Auth::id());
+            }
+            return $query->whereRaw('1 = 0');
+        };
+
+        $customerIds = $scope(Customer::query())->pluck('user_id')->filter();
+
+        $invoices = SalesInvoice::query()
+            ->where('created_by', creatorId())
+            ->whereIn('customer_id', $customerIds);
+
+        $receivable = (clone $invoices)
+            ->whereNotIn('status', ['paid', 'cancelled', 'draft'])
+            ->sum(DB::raw('COALESCE(total_amount, 0) - COALESCE(paid_amount, 0)'));
+
+        $overdueQuery = (clone $invoices)
+            ->whereNotIn('status', ['paid', 'cancelled', 'draft'])
+            ->whereDate('due_date', '<', now());
+
+        return [
+            'total'       => $scope(Customer::query())->count(),
+            'receivable'  => (float) $receivable,
+            'overdue'     => (float) (clone $overdueQuery)
+                                ->sum(DB::raw('COALESCE(total_amount, 0) - COALESCE(paid_amount, 0)')),
+            'overdueCount'=> (clone $overdueQuery)->count(),
+            'newThisMonth'=> $scope(Customer::query())
+                                ->whereYear('created_at', now()->year)
+                                ->whereMonth('created_at', now()->month)
+                                ->count(),
+        ];
     }
 
     public function store(StoreCustomerRequest $request)

@@ -7,20 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/stat-card';
 import {
-    ResponsiveContainer,
-    AreaChart,
-    Area,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip as ReTooltip,
-    PieChart,
-    Pie,
-    Cell,
-    Legend,
-} from 'recharts';
+    TrackedBarChart,
+    GradientAreaChart,
+    RingChart,
+} from '@/components/charts/kanakku-charts';
 import {
     Wallet,
     TrendingDown,
@@ -160,47 +150,16 @@ export default function DashboardErp({
                         </CardHeader>
                         <CardContent className="pt-6">
                             {hasSeries ? (
-                                <ResponsiveContainer width="100%" height={280}>
-                                    <AreaChart data={revenueExpenses}>
-                                        <defs>
-                                            <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                                            </linearGradient>
-                                            <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#E2B93B" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#E2B93B" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
-                                        <YAxis tickLine={false} axisLine={false} fontSize={12} width={70} />
-                                        <ReTooltip
-                                            contentStyle={{
-                                                borderRadius: 'var(--radius)',
-                                                border: '1px solid hsl(var(--border))',
-                                                fontSize: 12,
-                                            }}
-                                        />
-                                        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="revenue"
-                                            name={t('Revenue')}
-                                            stroke="hsl(var(--primary))"
-                                            fill="url(#gRev)"
-                                            strokeWidth={2}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="expenses"
-                                            name={t('Expenses')}
-                                            stroke="#E2B93B"
-                                            fill="url(#gExp)"
-                                            strokeWidth={2}
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <GradientAreaChart
+                                    data={revenueExpenses}
+                                    xKey="name"
+                                    height={280}
+                                    format={(v) => formatCurrency(v)}
+                                    series={[
+                                        { key: 'revenue', label: t('Revenue') },
+                                        { key: 'expenses', label: t('Expenses'), color: '#E2B93B' },
+                                    ]}
+                                />
                             ) : (
                                 <EmptyPanel text={t('No revenue or expense data for this period.')} />
                             )}
@@ -213,30 +172,12 @@ export default function DashboardErp({
                         </CardHeader>
                         <CardContent className="pt-6">
                             {donut.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={280}>
-                                    <PieChart>
-                                        <Pie
-                                            data={donut}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            innerRadius={60}
-                                            outerRadius={95}
-                                            paddingAngle={2}
-                                        >
-                                            {donut.map((slice) => (
-                                                <Cell key={slice.name} fill={slice.color} />
-                                            ))}
-                                        </Pie>
-                                        <ReTooltip
-                                            contentStyle={{
-                                                borderRadius: 'var(--radius)',
-                                                border: '1px solid hsl(var(--border))',
-                                                fontSize: 12,
-                                            }}
-                                        />
-                                        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <RingChart
+                                    slices={donut}
+                                    height={280}
+                                    centerValue={String(donut.reduce((n, d) => n + d.value, 0))}
+                                    centerLabel={t('Invoices')}
+                                />
                             ) : (
                                 <EmptyPanel text={t('No invoices yet.')} />
                             )}
@@ -252,28 +193,13 @@ export default function DashboardErp({
                         </CardHeader>
                         <CardContent className="pt-6">
                             {hasWeekly ? (
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <BarChart data={weeklySales}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} />
-                                        <YAxis tickLine={false} axisLine={false} fontSize={12} width={60} />
-                                        <ReTooltip
-                                            cursor={{ fill: 'hsl(var(--muted))' }}
-                                            contentStyle={{
-                                                borderRadius: 'var(--radius)',
-                                                border: '1px solid hsl(var(--border))',
-                                                fontSize: 12,
-                                            }}
-                                        />
-                                        <Bar
-                                            dataKey="sales"
-                                            name={t('Sales')}
-                                            fill="hsl(var(--primary))"
-                                            radius={[6, 6, 0, 0]}
-                                            maxBarSize={28}
-                                        />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                <TrackedBarChart
+                                    data={weeklySales}
+                                    xKey="day"
+                                    yKey="sales"
+                                    height={260}
+                                    format={(v) => formatCurrency(v)}
+                                />
                             ) : (
                                 <EmptyPanel text={t('No sales recorded this week.')} />
                             )}

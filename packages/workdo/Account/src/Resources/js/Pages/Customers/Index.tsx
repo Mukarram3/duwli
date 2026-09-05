@@ -9,23 +9,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit as EditIcon, Trash2, Building2, User as UserIcon, Lock, FileText, Eye, Upload, Download } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+    Plus, Edit as EditIcon, Trash2, Building2, Lock, FileText, Eye, Upload,
+    Users, Wallet, Receipt, TrendingUp,
+} from "lucide-react";
 import ImportDialog from '@/components/import-dialog';
-import { getImagePath } from '@/utils/helpers';
+import { formatCurrency } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable } from "@/components/ui/data-table";
-import { SearchInput } from "@/components/ui/search-input";
 import { ListGridToggle } from "@/components/ui/list-grid-toggle";
 import { PerPageSelector } from "@/components/ui/per-page-selector";
-import { FilterButton } from "@/components/ui/filter-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import NoRecordsFound from '@/components/no-records-found';
 import { Pagination } from "@/components/ui/pagination";
+import {
+    KpiStrip, FilterBar, EmptyState, EntityCell, TextCell,
+    type ActiveFilter,
+} from '@/components/duwli';
+import { RowActions } from '@/components/row-actions';
 import Create from './Create';
 import Edit from './Edit';
 import View from './View';
 import { Customer, User } from './types';
 import { usePageButtons } from '@/hooks/usePageButtons';
+
 interface CustomerFilters {
     company_name: string;
     customer_code: string;
@@ -38,24 +45,9 @@ interface CustomerModalState {
     data: Customer | null;
 }
 
-interface CustomersIndexProps {
-    customers: {
-        data: Customer[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-    };
-    users: User[];
-    auth: {
-        user: {
-            permissions: string[];
-        };
-    };
-}
-
 export default function Index() {
-    const { customers, users, auth, is_demo } = usePage<any>().props;
+    const pageProps = usePage<any>().props;
+    const { customers, users, auth, is_demo, stats } = pageProps;
     const { t } = useTranslation();
     const urlParams = new URLSearchParams(window.location.search);
 
@@ -69,13 +61,9 @@ export default function Index() {
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
     const [sortDirection, setSortDirection] = useState(urlParams.get('direction') || 'asc');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(urlParams.get('view') as 'list' | 'grid' || 'list');
-    const [modalState, setModalState] = useState<CustomerModalState>({
-        isOpen: false,
-        mode: '',
-        data: null
-    });
+    const [modalState, setModalState] = useState<CustomerModalState>({ isOpen: false, mode: '', data: null });
     const [viewingItem, setViewingItem] = useState<Customer | null>(null);
-    const [showFilters, setShowFilters] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
 
     const googleDriveButtons = usePageButtons('googleDriveBtn', { module: 'Customer', settingKey: 'GoogleDrive Customer' });
     const oneDriveButtons = usePageButtons('oneDriveBtn', { module: 'Customer', settingKey: 'OneDrive Customer' });
@@ -85,501 +73,418 @@ export default function Index() {
         defaultMessage: 'Are you sure you want to delete this customer?'
     });
 
-    const handleFilter = () => {
+    const can = (permission: string) => Boolean(auth.user?.permissions?.includes(permission));
+
+    const visit = (next: Partial<CustomerFilters> = {}) => {
         router.get(route('account.customers.index'), {
-            ...filters,
-            per_page: perPage,
-            sort: sortField,
-            direction: sortDirection,
-            view: viewMode
-        }, {
-            preserveState: true,
-            replace: true
-        });
+            ...filters, ...next, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode
+        }, { preserveState: true, replace: true });
     };
+
+    const handleFilter = () => visit();
 
     const handleSort = (field: string) => {
         const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
         setSortField(field);
         setSortDirection(direction);
         router.get(route('account.customers.index'), {
-            ...filters,
-            per_page: perPage,
-            sort: field,
-            direction,
-            view: viewMode
-        }, {
-            preserveState: true,
-            replace: true
-        });
+            ...filters, per_page: perPage, sort: field, direction, view: viewMode
+        }, { preserveState: true, replace: true });
     };
 
     const clearFilters = () => {
         setFilters({ company_name: '', customer_code: '', tax_number: '' });
-        router.get(route('account.customers.index'), {per_page: perPage, view: viewMode});
+        router.get(route('account.customers.index'), { per_page: perPage, view: viewMode });
     };
 
-    const [importOpen, setImportOpen] = useState(false);
+    /**
+     * One filter is removed at a time from the chip row. The cleared value is
+     * passed into the visit explicitly rather than relying on setState, which
+     * has not flushed yet at this point.
+     */
+    const removeFilter = (key: string) => {
+        const next = { ...filters, [key]: '' } as CustomerFilters;
+        setFilters(next);
+        router.get(route('account.customers.index'), {
+            ...next, per_page: perPage, sort: sortField, direction: sortDirection, view: viewMode
+        }, { preserveState: true, replace: true });
+    };
+
+    /** Chips describing what is currently filtering the table. */
+    const activeFilters: ActiveFilter[] = ([
+        { key: 'customer_code', label: 'Customer Code', value: filters.customer_code },
+        { key: 'tax_number', label: 'Tax Number', value: filters.tax_number },
+    ] as ActiveFilter[]).filter((f) => Boolean(f.value));
+
+    const hasAnyFilter = Boolean(filters.company_name || filters.customer_code || filters.tax_number);
 
     const openModal = (mode: 'add' | 'edit', data: Customer | null = null) => {
         setModalState({ isOpen: true, mode, data });
     };
+    const closeModal = () => setModalState({ isOpen: false, mode: '', data: null });
 
-    const closeModal = () => {
-        setModalState({ isOpen: false, mode: '', data: null });
+    const openCustomerReport = (customer: Customer) => {
+        const params: any = { customer: customer.user_id };
+        if (is_demo) {
+            const year = new Date().getFullYear();
+            params.start_date = `${year}-01-01`;
+            params.end_date = `${year}-12-31`;
+        }
+        router.visit(route('account.reports.customer-detail', params));
     };
+
+    /**
+     * Row actions are identical on every row. A permission the user lacks
+     * removes the icon; a state that blocks the action (a disabled portal user)
+     * greys it out with the reason. A ragged action column where one row shows
+     * two icons and the next shows four is unreadable.
+     */
+    const rowActionsFor = (customer: Customer) => {
+        const userDisabled = (customer as any).user?.is_disable === 1;
+        return [
+            {
+                label: t('View Report'),
+                icon: FileText,
+                onClick: () => openCustomerReport(customer),
+                className: 'text-orange-600 hover:text-orange-700',
+                permitted: can('view-customer-detail-report'),
+                available: !userDisabled,
+                disabledReason: t('User is disabled'),
+            },
+            {
+                label: t('View'),
+                icon: Eye,
+                onClick: () => setViewingItem(customer),
+                className: 'text-green-600 hover:text-green-700',
+                permitted: can('view-customers'),
+                available: !userDisabled,
+                disabledReason: t('User is disabled'),
+            },
+            {
+                label: t('Edit'),
+                icon: EditIcon,
+                onClick: () => openModal('edit', customer),
+                className: 'text-blue-600 hover:text-blue-700',
+                permitted: can('edit-customers'),
+                available: !userDisabled,
+                disabledReason: t('User is disabled'),
+            },
+            {
+                label: t('Delete'),
+                icon: Trash2,
+                onClick: () => openDeleteDialog(customer.id),
+                className: 'text-destructive hover:text-destructive',
+                permitted: can('delete-customers'),
+                available: !userDisabled,
+                disabledReason: t('User is disabled'),
+            },
+        ];
+    };
+
+    const showActions = ['view-customers', 'edit-customers', 'delete-customers', 'view-customer-detail-report']
+        .some((p) => can(p));
 
     const tableColumns = [
         {
-            key: 'user',
-            header: t('User'),
-            render: (value: any, customer: any) => {
-                if (!customer.user) return null;
-                return (
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 border flex items-center justify-center">
-                            {customer.user.avatar ? (
-                                <img
-                                    src={getImagePath(customer.user.avatar)}
-                                    alt="Avatar"
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <UserIcon className="w-4 h-4 text-gray-400" />
-                            )}
-                        </div>
-                        <span className="text-sm">{customer.user.name}</span>
-                    </div>
-                );
-            }
-        },
-        {
-            key: 'customer_code',
-            header: t('Customer Code'),
-            sortable: true
-        },
-        {
             key: 'company_name',
-            header: t('Company Name'),
-            sortable: true
+            header: t('Customer'),
+            sortable: true,
+            render: (_: any, customer: any) => (
+                <EntityCell
+                    name={customer.company_name}
+                    secondary={customer.customer_code}
+                    image={customer.user?.avatar}
+                    initialsFrom={customer.company_name}
+                />
+            ),
         },
         {
             key: 'contact_person_name',
             header: t('Contact Person'),
-            sortable: true
-        },
-        {
-            key: 'contact_person_email',
-            header: t('Email'),
-            sortable: false
+            sortable: true,
+            render: (_: any, customer: any) => (
+                <span className="flex flex-col leading-tight">
+                    <TextCell value={customer.contact_person_name} />
+                    {customer.contact_person_email && (
+                        <span className="truncate text-xs text-muted-foreground">
+                            {customer.contact_person_email}
+                        </span>
+                    )}
+                </span>
+            ),
         },
         {
             key: 'tax_number',
             header: t('Tax Number'),
-            sortable: false
+            render: (value: any) => <TextCell value={value} />,
         },
-        ...(auth.user?.permissions?.some((p: string) => ['view-customers', 'edit-customers', 'delete-customers', 'view-customer-detail-report'].includes(p)) ? [{
+        {
+            key: 'payment_terms',
+            header: t('Payment Terms'),
+            render: (value: any) => <TextCell value={value} />,
+        },
+        {
+            key: 'portal',
+            header: t('Portal Access'),
+            render: (_: any, customer: any) => {
+                if (!customer.user) {
+                    return <span className="text-xs text-muted-foreground">{t('No login')}</span>;
+                }
+                if (customer.user.is_disable === 1) {
+                    return (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Lock className="h-3 w-3" /> {t('Disabled')}
+                        </span>
+                    );
+                }
+                return <span className="truncate text-sm">{customer.user.name}</span>;
+            },
+        },
+        ...(showActions ? [{
             key: 'actions',
             header: t('Actions'),
+            className: 'text-end',
             render: (_: any, customer: Customer) => (
-                <div className="flex gap-1">
-                    {customer.user?.is_disable === 1 ? (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <div className="h-8 w-8 p-0 flex items-center justify-center text-gray-400">
-                                    <Lock className="h-4 w-4" />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{t('User is disabled')}</p></TooltipContent>
-                        </Tooltip>
-                    ) : (
-                        <TooltipProvider>
-                            {auth.user?.permissions?.includes('view-customer-detail-report') && (
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" onClick={() => {
-                                            const params: any = { customer: customer.user_id };
-                                            if (is_demo) {
-                                                const year = new Date().getFullYear();
-                                                params.start_date = `${year}-01-01`;
-                                                params.end_date = `${year}-12-31`;
-                                            }
-                                            router.visit(route('account.reports.customer-detail', params));
-                                        }} className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700">
-                                            <FileText className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{t('View Report')}</p></TooltipContent>
-                                </Tooltip>
-                            )}
-                            {auth.user?.permissions?.includes('view-customers') && (
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" onClick={() => setViewingItem(customer)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
-                                            <Eye className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{t('View')}</p></TooltipContent>
-                                </Tooltip>
-                            )}
-                            {auth.user?.permissions?.includes('edit-customers') && (
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" onClick={() => openModal('edit', customer)} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
-                                            <EditIcon className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{t('Edit')}</p></TooltipContent>
-                                </Tooltip>
-                            )}
-                            {auth.user?.permissions?.includes('delete-customers') && (
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => openDeleteDialog(customer.id)}
-                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{t('Delete')}</p></TooltipContent>
-                                </Tooltip>
-                            )}
-                        </TooltipProvider>
-                    )}
-                </div>
-            )
-        }] : [])
+                <RowActions className="justify-end" actions={rowActionsFor(customer)} />
+            ),
+        }] : []),
     ];
+
+    const emptyBlock = (
+        hasAnyFilter ? (
+            <EmptyState variant="filtered" onClearFilters={clearFilters} />
+        ) : (
+            <EmptyState
+                variant="empty"
+                icon={Building2}
+                title="No customers yet"
+                description="Add your first customer to start issuing invoices."
+                createPermission="create-customers"
+                createLabel="New Customer"
+                onCreate={() => openModal('add')}
+            />
+        )
+    );
 
     return (
         <AuthenticatedLayout
-            breadcrumbs={[{label: 'Accounting', url:route('account.index')},{label: 'Customers'}]}
-            pageTitle="Manage Customers"
+            breadcrumbs={[{ label: 'Accounting', url: route('account.index') }, { label: 'Customers' }]}
+            pageTitle={t('Customers')}
+            pageDescription={t('Your customer book and what each of them owes.')}
+            pageIcon={Users}
+            pageCount={customers.total}
+            onExportExcel={
+                can('manage-customers') && actionRoute('account.customers.export')
+                    ? () => { window.location.href = actionRoute('account.customers.export') as string; }
+                    : undefined
+            }
             pageActions={
-                <div className="flex gap-2">
-                      {googleDriveButtons.map((button) => (
-                            <div key={button.id}>{button.component}</div>
-                        ))}
-                        {oneDriveButtons.map((button) => (
-                            <div key={button.id}>{button.component}</div>
-                        ))}
-                        {dropboxBtn.map((button) => (
-                            <div key={button.id}>{button.component}</div>
-                        ))}
-                    {auth.user?.permissions?.includes('create-customers') && (
-                        <Button
-                            size="sm"
-                            onClick={() => openModal('add')}
-                            className="h-9 px-3.5 text-[13px] font-semibold"
-                        >
+                <>
+                    {googleDriveButtons.map((button) => <div key={button.id}>{button.component}</div>)}
+                    {oneDriveButtons.map((button) => <div key={button.id}>{button.component}</div>)}
+                    {dropboxBtn.map((button) => <div key={button.id}>{button.component}</div>)}
+                    {can('create-customers') && (
+                        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}
+                            className="h-9 px-3.5 text-[13px] font-semibold">
+                            <Upload className="mr-1.5 h-4 w-4" />
+                            {t('Import')}
+                        </Button>
+                    )}
+                    {can('create-customers') && (
+                        <Button size="sm" onClick={() => openModal('add')}
+                            className="h-9 px-3.5 text-[13px] font-semibold">
                             <Plus className="mr-1.5 h-4 w-4" />
                             {t('New Customer')}
                         </Button>
                     )}
-                    {auth.user?.permissions?.includes('manage-customers') && actionRoute('account.customers.export') && (
-                        <a href={actionRoute('account.customers.export') || '#'} download>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-9 px-3.5 text-[13px] font-semibold"
-                            >
-                                <Download className="mr-1.5 h-4 w-4" />
-                                {t('Export Customers')}
-                            </Button>
-                        </a>
-                    )}
-                    {auth.user?.permissions?.includes('create-customers') && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setImportOpen(true)}
-                            className="h-9 px-3.5 text-[13px] font-semibold"
-                        >
-                            <Upload className="mr-1.5 h-4 w-4" />
-                            {t('Import Customers')}
-                        </Button>
-                    )}
-                </div>
+                </>
             }
         >
             <Head title="Customers" />
 
-            <Card className="shadow-sm">
-                <CardContent className="p-6 border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 max-w-md">
-                            <SearchInput
-                                value={filters.company_name}
-                                onChange={(value) => setFilters({...filters, company_name: value})}
-                                onSearch={handleFilter}
-                                placeholder="Search customers..."
-                            />
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <ListGridToggle
-                                currentView={viewMode}
-                                routeName="account.customers.index"
-                                filters={{...filters, per_page: perPage}}
-                            />
-                            <PerPageSelector
-                                routeName="account.customers.index"
-                                filters={{...filters, view: viewMode}}
-                            />
-                            <div className="relative">
-                                <FilterButton
-                                    showFilters={showFilters}
-                                    onToggle={() => setShowFilters(!showFilters)}
-                                />
-                                {(() => {
-                                    const activeFilters = [filters.customer_code, filters.tax_number].filter(Boolean).length;
-                                    return activeFilters > 0 && (
-                                        <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                            {activeFilters}
-                                        </span>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
+            {/*
+              KPI strip. The figures describe the whole customer book, not the
+              filtered page, so they stay stable as the user filters below.
+              Overdue drills through to the receivables report rather than
+              filtering this list, because "overdue" is a property of invoices,
+              not of customers.
+            */}
+            {stats && (
+                <KpiStrip
+                    items={[
+                        {
+                            label: 'Total Receivable',
+                            value: formatCurrency(stats.receivable, pageProps),
+                            caption: 'Across all open invoices',
+                            icon: Wallet,
+                            tone: 'gradient',
+                        },
+                        {
+                            label: 'Overdue',
+                            value: formatCurrency(stats.overdue, pageProps),
+                            caption: `${stats.overdueCount} ${t('invoices past due')}`,
+                            icon: Receipt,
+                            tone: 'danger',
+                            href: can('view-invoice-aging')
+                                ? route('account.reports.invoice-aging')
+                                : undefined,
+                        },
+                        {
+                            label: 'Total Customers',
+                            value: String(stats.total),
+                            icon: Users,
+                            tone: 'plain',
+                        },
+                        {
+                            label: 'Added This Month',
+                            value: String(stats.newThisMonth),
+                            icon: TrendingUp,
+                            tone: 'info',
+                        },
+                    ]}
+                />
+            )}
 
-                {/* Advanced Filters */}
-                {showFilters && (
-                    <CardContent className="p-6 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer Code')}</label>
-                                <Input
-                                    value={filters.customer_code}
-                                    onChange={(e) => setFilters({...filters, customer_code: e.target.value})}
-                                    placeholder={t('Filter by customer code')}
+            <Card className="shadow-sm">
+                <CardContent className="border-b bg-muted/30 p-4">
+                    <FilterBar
+                        className="mb-0"
+                        search={filters.company_name}
+                        onSearchChange={(value) => setFilters({ ...filters, company_name: value })}
+                        searchPlaceholder="Search customers..."
+                        activeFilters={activeFilters}
+                        onRemoveFilter={removeFilter}
+                        onClearAll={clearFilters}
+                        trailing={
+                            <>
+                                <ListGridToggle
+                                    currentView={viewMode}
+                                    routeName="account.customers.index"
+                                    filters={{ ...filters, per_page: perPage }}
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Company Name')}</label>
-                                <Input
-                                    value={filters.company_name}
-                                    onChange={(e) => setFilters({...filters, company_name: e.target.value})}
-                                    placeholder={t('Filter by company name')}
+                                <PerPageSelector
+                                    routeName="account.customers.index"
+                                    filters={{ ...filters, view: viewMode }}
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Tax Number')}</label>
-                                <Input
-                                    value={filters.tax_number}
-                                    onChange={(e) => setFilters({...filters, tax_number: e.target.value})}
-                                    placeholder={t('Filter by tax number')}
-                                />
-                            </div>
-                            <div className="flex items-end gap-2">
-                                <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>
-                                <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
-                            </div>
+                            </>
+                        }
+                    >
+                        <div className="space-y-1.5">
+                            <Label>{t('Customer Code')}</Label>
+                            <Input
+                                value={filters.customer_code}
+                                onChange={(e) => setFilters({ ...filters, customer_code: e.target.value })}
+                                placeholder={t('Filter by customer code')}
+                                className="h-9"
+                            />
                         </div>
-                    </CardContent>
-                )}
+                        <div className="space-y-1.5">
+                            <Label>{t('Tax Number')}</Label>
+                            <Input
+                                value={filters.tax_number}
+                                onChange={(e) => setFilters({ ...filters, tax_number: e.target.value })}
+                                placeholder={t('Filter by tax number')}
+                                className="h-9"
+                            />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                            <Button size="sm" className="flex-1" onClick={handleFilter}>{t('Apply')}</Button>
+                            <Button size="sm" variant="outline" className="flex-1" onClick={clearFilters}>{t('Clear')}</Button>
+                        </div>
+                    </FilterBar>
+                </CardContent>
 
                 <CardContent className="p-0">
                     {viewMode === 'list' ? (
-                        <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[70vh] rounded-none w-full">
+                        <div className="w-full max-h-[70vh] overflow-y-auto rounded-none">
                             <div className="min-w-[800px]">
-                            <DataTable
-                                data={customers.data}
-                                columns={tableColumns}
-                                onSort={handleSort}
-                                sortKey={sortField}
-                                sortDirection={sortDirection as 'asc' | 'desc'}
-                                className="rounded-none"
-                                emptyState={
-                                    <NoRecordsFound
-                                        icon={Building2}
-                                        title="No customers found"
-                                        description="Get started by creating your first customer."
-                                        hasFilters={!!(filters.company_name || filters.customer_code || filters.tax_number)}
-                                        onClearFilters={clearFilters}
-                                        createPermission="create-customers"
-                                        onCreateClick={() => openModal('add')}
-                                        createButtonText="Create Customer"
-                                        className="h-auto"
-                                    />
-                                }
-                            />
+                                <DataTable
+                                    data={customers.data}
+                                    columns={tableColumns}
+                                    onSort={handleSort}
+                                    sortKey={sortField}
+                                    sortDirection={sortDirection as 'asc' | 'desc'}
+                                    className="rounded-none"
+                                    emptyState={emptyBlock}
+                                />
                             </div>
                         </div>
                     ) : (
-                        <div className="overflow-auto max-h-[70vh] p-6">
+                        <div className="max-h-[70vh] overflow-auto p-5">
                             {customers.data.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                    {customers.data.map((customer) => (
-                                        <Card key={customer.id} className="border border-gray-200 hover:shadow-lg transition-all duration-200">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                                    {customers.data.map((customer: any) => (
+                                        <Card key={customer.id} className="transition-shadow hover:shadow-md">
                                             <div className="p-4">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="flex-1">
-                                                        <h3 className="font-semibold text-base text-gray-900 truncate">{customer.company_name}</h3>
-                                                        {auth.user?.permissions?.includes('view-customers') ? (
-                                                            <p className="text-xs text-blue-600 font-medium mt-1 cursor-pointer" onClick={() => setViewingItem(customer)}>{customer.customer_code}</p>
-                                                        ) : (
-                                                            <p className="text-xs font-medium mt-1">{customer.customer_code}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                                <EntityCell
+                                                    name={customer.company_name}
+                                                    secondary={customer.customer_code}
+                                                    image={customer.user?.avatar}
+                                                    className="mb-3"
+                                                />
 
-                                                <div className="space-y-2 mb-3">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-xs text-gray-500">{t('Contact')}</span>
-                                                        <span className="text-xs font-medium text-gray-900 truncate ml-2">{customer.contact_person_name}</span>
+                                                <dl className="mb-3 space-y-1.5 text-xs">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <dt className="text-muted-foreground">{t('Contact')}</dt>
+                                                        <dd className="truncate font-medium">{customer.contact_person_name}</dd>
                                                     </div>
                                                     {customer.contact_person_email && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xs text-gray-500">{t('Email')}</span>
-                                                            <span className="text-xs text-gray-900 truncate ml-2">{customer.contact_person_email}</span>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <dt className="text-muted-foreground">{t('Email')}</dt>
+                                                            <dd className="truncate">{customer.contact_person_email}</dd>
                                                         </div>
                                                     )}
                                                     {customer.tax_number && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xs text-gray-500">{t('Tax Number')}</span>
-                                                            <span className="text-xs font-medium text-gray-900">{customer.tax_number}</span>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <dt className="text-muted-foreground">{t('Tax Number')}</dt>
+                                                            <dd className="truncate font-medium">{customer.tax_number}</dd>
                                                         </div>
                                                     )}
                                                     {customer.payment_terms && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xs text-gray-500">{t('Payment Terms')}</span>
-                                                            <span className="text-xs text-green-600 font-medium">{customer.payment_terms}</span>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <dt className="text-muted-foreground">{t('Payment Terms')}</dt>
+                                                            <dd className="truncate font-medium">{customer.payment_terms}</dd>
                                                         </div>
                                                     )}
-                                                </div>
+                                                </dl>
 
-                                                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                                                    {customer.user && (
-                                                        <Tooltip delayDuration={300}>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-flex items-center py-1">
-                                                                    <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
-                                                                        {customer.user.avatar ? (
-                                                                            <img
-                                                                                src={getImagePath(customer.user.avatar)}
-                                                                                alt="Avatar"
-                                                                                className="w-full h-full object-cover"
-                                                                            />
-                                                                        ) : (
-                                                                            <UserIcon className="w-3 h-3 text-gray-400" />
-                                                                        )}
-                                                                    </div>
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>{customer.user.name}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    )}
-                                                    <div className="flex gap-1">
-                                                        {customer.user?.is_disable === 1 ? (
-                                                            <Tooltip delayDuration={0}>
+                                                <div className="flex items-center justify-between border-t pt-3">
+                                                    {customer.user?.is_disable === 1 ? (
+                                                        <TooltipProvider>
+                                                            <Tooltip delayDuration={300}>
                                                                 <TooltipTrigger asChild>
-                                                                    <div className="h-8 w-8 p-0 flex items-center justify-center text-gray-400">
-                                                                        <Lock className="h-4 w-4" />
-                                                                    </div>
+                                                                    <span className="inline-flex items-center text-muted-foreground">
+                                                                        <Lock className="h-3.5 w-3.5" />
+                                                                    </span>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
                                                                     <p>{t('User is disabled')}</p>
                                                                 </TooltipContent>
                                                             </Tooltip>
-                                                        ) : (
-                                                            <TooltipProvider>
-                                                                {auth.user?.permissions?.includes('view-customer-detail-report') && (
-                                                                    <Tooltip delayDuration={0}>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button variant="ghost" size="sm" onClick={() => {
-                                                                                const params: any = { customer: customer.user_id };
-                                                                                if (is_demo) {
-                                                                                    const year = new Date().getFullYear();
-                                                                                    params.start_date = `${year}-01-01`;
-                                                                                    params.end_date = `${year}-12-31`;
-                                                                                }
-                                                                                router.visit(route('account.reports.customer-detail', params));
-                                                                            }} className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700">
-                                                                                <FileText className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p>{t('View Report')}</p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                )}
-                                                                {auth.user?.permissions?.includes('view-customers') && (
-                                                                    <Tooltip delayDuration={0}>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button variant="ghost" size="sm" onClick={() => setViewingItem(customer)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
-                                                                                <Eye className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p>{t('View')}</p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                )}
-                                                                {auth.user?.permissions?.includes('edit-customers') && (
-                                                                    <Tooltip delayDuration={0}>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button variant="ghost" size="sm" onClick={() => openModal('edit', customer)} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700">
-                                                                                <EditIcon className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p>{t('Edit')}</p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                )}
-                                                                {auth.user?.permissions?.includes('delete-customers') && (
-                                                                    <Tooltip delayDuration={0}>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                onClick={() => openDeleteDialog(customer.id)}
-                                                                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p>{t('Delete')}</p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                )}
-                                                            </TooltipProvider>
-                                                        )}
-                                                    </div>
+                                                        </TooltipProvider>
+                                                    ) : (
+                                                        <span className="truncate text-xs text-muted-foreground">
+                                                            {customer.user?.name || t('No login')}
+                                                        </span>
+                                                    )}
+                                                    <RowActions actions={rowActionsFor(customer)} />
                                                 </div>
                                             </div>
                                         </Card>
                                     ))}
                                 </div>
                             ) : (
-                                <NoRecordsFound
-                                    icon={Building2}
-                                    title="No customers found"
-                                    description="Get started by creating your first customer."
-                                    hasFilters={!!(filters.company_name || filters.customer_code || filters.tax_number)}
-                                    onClearFilters={clearFilters}
-                                    createPermission="create-customers"
-                                    onCreateClick={() => openModal('add')}
-                                    createButtonText="Create Customer"
-                                    className="h-auto"
-                                />
+                                emptyBlock
                             )}
                         </div>
                     )}
                 </CardContent>
 
-                <CardContent className="px-4 py-2 border-t bg-gray-50/30">
+                <CardContent className="border-t bg-muted/20 px-4 py-2">
                     <Pagination
                         data={customers}
                         routeName="account.customers.index"
-                        filters={{...filters, per_page: perPage, view: viewMode}}
+                        filters={{ ...filters, per_page: perPage, view: viewMode }}
                     />
                 </CardContent>
             </Card>
@@ -589,10 +494,7 @@ export default function Index() {
                     <Create onSuccess={closeModal} users={users} auth={auth} />
                 )}
                 {modalState.mode === 'edit' && modalState.data && (
-                    <Edit
-                        customer={modalState.data}
-                        onSuccess={closeModal}
-                    />
+                    <Edit customer={modalState.data} onSuccess={closeModal} />
                 )}
             </Dialog>
 

@@ -29,6 +29,13 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         group: 'Sales & Revenue',
         children: [
             {
+                // The overview sits first: a user opening the Sales section
+                // should land on the numbers, not on page one of a list.
+                title: t('Dashboard'),
+                href: route('sales.dashboard'),
+                permission: 'manage-sales-invoices',
+            },
+            {
                 title: t('Sales Invoice'),
                 href: route('sales-invoices.index'),
                 permission: 'manage-sales-invoices',

@@ -1,3 +1,4 @@
+import * as React from "react";
 import { PropsWithChildren, ReactNode, Fragment } from "react";
 import {AppSidebar} from "@/components/app-sidebar";
 import {SidebarInset, SidebarProvider, SidebarTrigger} from "@/components/ui/sidebar";
@@ -18,8 +19,39 @@ import CookieConsent from "@/components/cookie-consent";
 import { useFavicon } from "@/hooks/use-favicon";
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
-import { UserX, ArrowLeft } from "lucide-react";
+import { UserX } from "lucide-react";
 import { useFlashMessages } from "@/hooks/useFlashMessages";
+import { PageHeader, type ExportOption } from "@/components/duwli/page-header";
+
+/**
+ * Props shared by the layout and its inner content component.
+ *
+ * Everything from `pageIcon` down is NEW and OPTIONAL — the 295 screens that
+ * already pass only pageTitle/pageDescription/pageActions/backUrl are
+ * unaffected, and pick up the improved header automatically.
+ */
+type LayoutProps = {
+    header?: ReactNode;
+    breadcrumbs?: Array<{label: string, url?: string}>;
+    pageTitle?: string;
+    pageDescription?: ReactNode;
+    pageActions?: ReactNode;
+    backUrl?: string;
+    className?: string;
+
+    /** Tinted icon square beside the page title. */
+    pageIcon?: React.ComponentType<{ className?: string }>;
+    /** Record count chip beside the page title. */
+    pageCount?: number;
+    /** Extra entries for the header Export menu. */
+    pageExports?: ExportOption[];
+    /** Adds "Download as Excel" to the header Export menu. */
+    onExportExcel?: () => void;
+    /** Adds "Download as PDF" to the header Export menu. */
+    onExportPdf?: () => void;
+    /** Adds a Print button to the header toolbar. */
+    onPrint?: () => void;
+};
 
 function AuthenticatedLayoutContent({
     header,
@@ -29,17 +61,15 @@ function AuthenticatedLayoutContent({
     pageDescription,
     pageActions,
     backUrl,
+    pageIcon,
+    pageCount,
+    pageExports,
+    onExportExcel,
+    onExportPdf,
+    onPrint,
     className,
     ...props
-}: PropsWithChildren<{
-    header?: ReactNode;
-    breadcrumbs?: Array<{label: string, url?: string}>;
-    pageTitle?: string;
-    pageDescription?: ReactNode;
-    pageActions?: ReactNode;
-    backUrl?: string;
-    className?: string;
-}>) {
+}: PropsWithChildren<LayoutProps>) {
     const { t } = useTranslation();
     const { auth, companyAllSetting, adminAllSetting } = usePage<PageProps>().props as any;
     const { settings } = useBrand();
@@ -141,37 +171,19 @@ function AuthenticatedLayoutContent({
                 */}
                 <main className="min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-12 md:pt-0 h-full">
                     {pageTitle && (
-                        <div
-                            className="mb-4 flex flex-wrap items-start justify-between gap-3"
+                        <PageHeader
+                            title={pageTitle}
+                            description={pageDescription}
+                            icon={pageIcon}
+                            count={pageCount}
+                            exports={pageExports}
+                            onExportExcel={onExportExcel}
+                            onExportPdf={onExportPdf}
+                            onPrint={onPrint}
+                            backUrl={backUrl}
+                            actions={pageActions}
                             dir={settings.layoutDirection}
-                        >
-                            <div className="min-w-0">
-                                <h1 className="text-xl font-semibold text-foreground">{pageTitle}</h1>
-                                {pageDescription && (
-                                    <p className="text-sm text-muted-foreground mt-1">{pageDescription}</p>
-                                )}
-                            </div>
-                            {/*
-                              Was flex-shrink-0, which stopped the toolbar
-                              wrapping no matter what the page did — the cause
-                              of the horizontal scrollbar on pages with many
-                              action buttons. It now wraps onto further lines.
-                            */}
-                            <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">
-                                {backUrl && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex items-center gap-2 h-8 px-3"
-                                        onClick={() => router.visit(backUrl)}
-                                    >
-                                        <ArrowLeft className="h-4 w-4" />
-                                        {t('Back')}
-                                    </Button>
-                                )}
-                                {pageActions}
-                            </div>
-                        </div>
+                        />
                     )}
                     <div className="min-w-0 max-w-full">{children}</div>
                 </main>
@@ -191,17 +203,15 @@ export default function AuthenticatedLayout({
     pageDescription,
     pageActions,
     backUrl,
+    pageIcon,
+    pageCount,
+    pageExports,
+    onExportExcel,
+    onExportPdf,
+    onPrint,
     className,
     ...props
-}: PropsWithChildren<{
-    header?: ReactNode;
-    breadcrumbs?: Array<{label: string, url?: string}>;
-    pageTitle?: string;
-    pageDescription?: ReactNode;
-    pageActions?: ReactNode;
-    backUrl?: string;
-    className?: string;
-}>) {
+}: PropsWithChildren<LayoutProps>) {
     return (
         <BrandProvider>
             <AuthenticatedLayoutContent
@@ -211,6 +221,12 @@ export default function AuthenticatedLayout({
                 pageDescription={pageDescription}
                 pageActions={pageActions}
                 backUrl={backUrl}
+                pageIcon={pageIcon}
+                pageCount={pageCount}
+                pageExports={pageExports}
+                onExportExcel={onExportExcel}
+                onExportPdf={onExportPdf}
+                onPrint={onPrint}
                 className={className}
                 {...props}
             >

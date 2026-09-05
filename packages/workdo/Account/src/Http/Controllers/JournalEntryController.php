@@ -72,7 +72,43 @@ class JournalEntryController extends Controller
         return Inertia::render('Account/JournalEntries/Index', [
             'journalEntries' => $query->paginate($request->per_page ?? 10)->withQueryString(),
             'filters'        => $request->only(['search', 'status', 'entry_type', 'date_from', 'date_to', 'per_page']),
+            'stats'          => $this->indexStats(),
         ]);
+    }
+
+    /**
+     * Summary figures for the KPI strip above the journal list.
+     *
+     * `unbalanced` is the figure that matters here: a posted entry whose debits
+     * do not equal its credits corrupts every downstream report, so it is
+     * surfaced at the top of the screen rather than waiting to be discovered in
+     * a trial balance. It should always read zero.
+     *
+     * Not filtered by the request — the strip describes the ledger as a whole
+     * so the totals stay stable while the user filters the table below.
+     */
+    private function indexStats(): array
+    {
+        $base = fn () => JournalEntry::query()->where('created_by', creatorId());
+
+        return [
+            'total'      => $base()->count(),
+            'drafts'     => $base()->where('status', 'draft')->count(),
+            'postedThisMonth' => $base()
+                                    ->where('status', 'posted')
+                                    ->whereYear('journal_date', now()->year)
+                                    ->whereMonth('journal_date', now()->month)
+                                    ->count(),
+            'postedValue' => (float) $base()
+                                    ->where('status', 'posted')
+                                    ->whereYear('journal_date', now()->year)
+                                    ->whereMonth('journal_date', now()->month)
+                                    ->sum('total_debit'),
+            'unbalanced' => $base()
+                                ->where('status', 'posted')
+                                ->whereColumn('total_debit', '!=', 'total_credit')
+                                ->count(),
+        ];
     }
 
     public function create()
