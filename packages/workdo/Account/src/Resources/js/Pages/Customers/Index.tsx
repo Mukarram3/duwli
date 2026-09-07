@@ -223,8 +223,29 @@ export default function Index() {
      */
     const tableColumns = [
         {
+            /*
+             * Customer code as its own column, not stacked under the name.
+             *
+             * A reference number is something people SEARCH and COMPARE, and
+             * both need it in a fixed position down the page. As a second line
+             * under the name it moved with the length of each name, so scanning
+             * for CUST-0012 meant reading every row instead of running down one
+             * column. It is also sortable here, which it could not be while it
+             * was part of another column's cell.
+             *
+             * Latin-isolated so an Arabic screen does not reorder the digits.
+             */
+            key: 'customer_code',
+            header: t('Customer Code'),
+            sortable: true,
+            className: 'w-[130px]',
+            render: (value: any) => (
+                <span className="ltr-text font-medium tabular-nums">{value || '—'}</span>
+            ),
+        },
+        {
             key: 'company_name',
-            header: t('Customer'),
+            header: t('Customer Name'),
             sortable: true,
             // Wide enough for a full company name. Names were truncating at the
             // previous width, which on a list of similarly-named entities
@@ -234,7 +255,6 @@ export default function Index() {
                 <div className="flex min-w-0 items-center gap-2">
                     <EntityCell
                         name={customer.company_name}
-                        secondary={customer.customer_code}
                         image={customer.user?.avatar}
                         initialsFrom={customer.company_name}
                     />

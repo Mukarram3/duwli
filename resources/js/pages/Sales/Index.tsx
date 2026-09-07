@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
     Replace, FileSpreadsheet, Wallet, AlertCircle, CheckCircle2,
-    User as UserIcon,
+    CreditCard, User as UserIcon,
 } from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -220,12 +220,32 @@ export default function Index() {
             key: 'customer',
             header: t('Customer'),
             render: (value: any, invoice: SalesInvoice) => (
+                // Email moved out to its own column below. Stacked under the
+                // name it shifted position with the length of each name, so
+                // scanning a column of addresses meant reading every row.
                 <EntityCell
                     name={invoice.customer?.name}
-                    secondary={invoice.customer?.email}
                     image={invoice.customer?.avatar}
                 />
             )
+        },
+        {
+            key: 'customer_email',
+            header: t('Email'),
+            render: (value: any, invoice: SalesInvoice) =>
+                invoice.customer?.email ? (
+                    // Latin-isolated so an Arabic screen does not reorder the
+                    // address, and linked because the common next action on an
+                    // unpaid invoice is to email the customer about it.
+                    <a
+                        href={`mailto:${invoice.customer.email}`}
+                        className="ltr-text truncate text-primary hover:underline"
+                    >
+                        {invoice.customer.email}
+                    </a>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )
         },
         {
             key: 'invoice_date',
@@ -245,18 +265,7 @@ export default function Index() {
                 />
             )
         },
-        {
-            key: 'subtotal',
-            header: t('Subtotal'),
-            sortable: true,
-            render: (value: number) => <MoneyCell value={value} />
-        },
-        {
-            key: 'tax_amount',
-            header: t('Tax'),
-            sortable: true,
-            render: (value: number) => <MoneyCell value={value} />
-        },
+
         {
             key: 'total_amount',
             header: t('Total Amount'),
@@ -314,6 +323,38 @@ export default function Index() {
                                     className: 'text-green-600 hover:text-green-700',
                                     permitted: auth.user?.permissions?.includes('view-sales-invoices'),
                                     onClick: () => router.get(route('sales-invoices.show', invoice.id)),
+                                },
+                                {
+                                    /*
+                                     * Record Payment. Sits second because on an
+                                     * unpaid invoice it is the action the user
+                                     * most often wants, and it was previously
+                                     * only reachable by leaving this screen and
+                                     * finding the customer manually.
+                                     *
+                                     * There is no "new payment for invoice X"
+                                     * route — payments are raised from the
+                                     * payments screen — so this opens that
+                                     * screen already filtered to this customer.
+                                     *
+                                     * Hidden on a draft (nothing is owed until
+                                     * it is posted) and greyed out once the
+                                     * balance reaches zero, with the reason
+                                     * shown rather than the icon vanishing.
+                                     */
+                                    label: t('Record Payment'),
+                                    icon: CreditCard,
+                                    className: 'text-emerald-600 hover:text-emerald-700',
+                                    permitted: auth.user?.permissions?.includes('create-customer-payments'),
+                                    available: !isDraft && Number(invoice.balance_amount) > 0,
+                                    disabledReason: isDraft
+                                        ? t('Post the invoice before recording a payment')
+                                        : t('Invoice is fully paid'),
+                                    onClick: () => router.visit(
+                                        route('account.customer-payments.index', {
+                                            customer_id: invoice.customer_id,
+                                        })
+                                    ),
                                 },
                                 {
                                     label: t('Print'),
@@ -626,15 +667,10 @@ export default function Index() {
 
                                                 {/* Financials */}
                                                 <div className="space-y-1.5">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs text-muted-foreground">{t('Subtotal')}</span>
-                                                        <span className="text-xs font-medium text-gray-700">{formatCurrency(invoice.subtotal)}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs text-muted-foreground">{t('Tax')}</span>
-                                                        <span className="text-xs font-medium text-gray-700">{formatCurrency(invoice.tax_amount)}</span>
-                                                    </div>
-                                                    <Separator />
+                                                    {/* Subtotal and Tax removed here too, to match
+                                                        the table. Both remain on the invoice detail
+                                                        and on the printed document, where the
+                                                        breakdown is what the reader needs. */}
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-sm font-semibold text-gray-900">{t('Total')}</span>
                                                         <span className="text-sm font-bold text-gray-900">{formatCurrency(invoice.total_amount)}</span>
