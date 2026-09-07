@@ -136,7 +136,7 @@ export default function Edit() {
                                                         else if (step.id === 'pricing' && validateDetailsTab()) setActiveTab('pricing');
                                                         else if (step.id === 'media' && validateDetailsTab() && validatePricingTab()) setActiveTab('media');
                                                     }}
-                                                    className={`flex items-center gap-3 text-left focus:outline-none transition-all duration-200 group rtl:text-right ${isActive ? 'text-primary' : isCompleted ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}
+                                                    className={`flex items-center gap-3 text-start focus:outline-none transition-all duration-200 group rtl:text-end ${isActive ? 'text-primary' : isCompleted ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}
                                                 >
                                                     <span className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all duration-200 ${isActive ? 'border-primary bg-primary/10 text-primary scale-105 shadow-sm shadow-primary/10' : isCompleted ? 'border-green-600 bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400' : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900 text-gray-400 group-hover:border-gray-300 dark:group-hover:border-gray-700'}`}>
                                                         {isCompleted ? <Check className="h-5 w-5 animate-in fade-in zoom-in duration-250" /> : <Icon className="h-5 w-5" />}

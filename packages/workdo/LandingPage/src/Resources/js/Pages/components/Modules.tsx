@@ -124,7 +124,7 @@ export default function Modules({ settings }: ModulesProps) {
                 <div key={index} className="bg-white border border-gray-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
                     <button
                         onClick={() => setOpenAccordion(openAccordion === index ? -1 : index)}
-                        className="w-full px-8 py-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                        className="w-full px-8 py-6 text-start flex items-center justify-between hover:bg-gray-50 transition-colors"
                         style={{ backgroundColor: openAccordion === index ? `${colors.primary}08` : 'transparent' }}
                     >
                         <div className="flex items-center space-x-4">

@@ -1,8 +1,16 @@
-import React, { useEffect, useState } from 'react';
+// packages/workdo/DoubleEntry/src/Resources/js/Pages/LedgerSummary/Print.tsx
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
-import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
+import { formatCurrency, formatDate } from '@/utils/helpers';
+import { ReportLayout, DocumentTable, type DocumentColumn } from '@/components/duwli/document';
+
+/**
+ * LEDGER SUMMARY — PRINT
+ * ----------------------------------------------------------------------------
+ * Tabular, on the shared report shell. Landscape, because the row carries an
+ * account, a journal reference and a description alongside both money columns —
+ * squeezed into portrait the description truncates to uselessness.
+ */
 
 interface LedgerEntry {
     id: number;
@@ -18,162 +26,115 @@ interface LedgerEntry {
 
 interface LedgerSummaryProps {
     entries: LedgerEntry[];
-    selectedAccount: {
-        account_code: string;
-        account_name: string;
-    } | null;
-    filters: {
-        from_date: string;
-        to_date: string;
-    };
+    selectedAccount: { account_code: string; account_name: string } | null;
+    filters: { from_date: string; to_date: string };
+    [key: string]: any;
 }
 
 export default function Print() {
     const { t } = useTranslation();
-    const { entries, selectedAccount, filters } = usePage<LedgerSummaryProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
+    const pageProps = usePage<LedgerSummaryProps>().props;
+    const { entries, selectedAccount, filters } = pageProps;
 
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf') {
-            downloadPDF();
-        }
-    }, []);
+    const money = (value: any) => formatCurrency(Number(value ?? 0), pageProps);
+    const date = (value: any) => (value ? formatDate(value, pageProps) : '—');
 
-    const downloadPDF = async () => {
-        setIsDownloading(true);
+    const rows = entries || [];
+    const totalDebit = rows.reduce((sum, e) => sum + Number(e.debit_amount || 0), 0);
+    const totalCredit = rows.reduce((sum, e) => sum + Number(e.credit_amount || 0), 0);
+    const difference = totalDebit - totalCredit;
+    const balanced = Math.abs(difference) < 0.005;
 
-        const printContent = document.querySelector('.ledger-summary-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `ledger-summary-${formatDate(filters.from_date || new Date().toISOString())}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
-
-            try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
-        }
-
-        setIsDownloading(false);
-    };
+    const columns: DocumentColumn[] = [
+        { key: 'date', header: 'Date', width: '26mm' },
+        { key: 'account', header: 'Account', width: '60mm' },
+        { key: 'description', header: 'Description' },
+        { key: 'reference', header: 'Reference', width: '30mm' },
+        { key: 'debit', header: 'Debit', align: 'end', width: '30mm' },
+        { key: 'credit', header: 'Credit', align: 'end', width: '30mm' },
+    ];
 
     return (
-        <div className="min-h-screen bg-white">
+        <>
             <Head title={t('Ledger Summary')} />
 
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="ledger-summary-container bg-white max-w-4xl mx-auto p-12">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-12">
-                    <div>
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-2xl font-bold mb-2">{t('LEDGER SUMMARY')}</h2>
-                        <div className="text-sm space-y-1">
-                            {filters.from_date && filters.to_date && (
-                                <p>{t('Period')}: {formatDate(filters.from_date)} - {formatDate(filters.to_date)}</p>
-                            )}
-                            {selectedAccount && (
-                                <p>{t('Account')}: {selectedAccount.account_code} - {selectedAccount.account_name}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Ledger Table */}
-                <div className="mb-6">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b-2 border-gray-800">
-                                <th className="text-left py-2 text-sm font-bold">{t('Date')}</th>
-                                <th className="text-left py-2 text-sm font-bold">{t('Account')}</th>
-                                <th className="text-left py-2 text-sm font-bold">{t('Description')}</th>
-                                <th className="text-right py-2 text-sm font-bold">{t('Debit')}</th>
-                                <th className="text-right py-2 text-sm font-bold">{t('Credit')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {entries.map((entry) => (
-                                <tr key={entry.id} className="border-b border-gray-100">
-                                    <td className="py-1.5 text-sm">{formatDate(entry.journal_date)}</td>
-                                    <td className="py-1.5 text-sm">{entry.account_code}</td>
-                                    <td className="py-1.5 text-sm">{entry.description || entry.journal_description}</td>
-                                    <td className="py-1.5 text-sm text-right tabular-nums">
-                                        {entry.debit_amount > 0 ? formatCurrency(entry.debit_amount) : '-'}
-                                    </td>
-                                    <td className="py-1.5 text-sm text-right tabular-nums">
-                                        {entry.credit_amount > 0 ? formatCurrency(entry.credit_amount) : '-'}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-12 pt-6 border-t text-center text-sm text-gray-600">
-                    <p>{getCompanySetting('company_name')}</p>
-                    <p>{t('Generated on')} {formatDate(new Date().toISOString())}</p>
-                </div>
-            </div>
-
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
-                }
-
-                @page {
-                    margin: 0.25in;
-                    size: A4;
-                }
-
-                .ledger-summary-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
-
-                @media print {
-                    body {
-                        background: white;
+            <ReportLayout
+                title="Ledger Summary"
+                subtitle="All ledger movements for the period."
+                size="a4-landscape"
+                filename={`ledger-summary-${filters.from_date}-to-${filters.to_date}`}
+                backUrl={route('double-entry.ledger-summary.index')}
+                filters={[
+                    {
+                        label: 'Account',
+                        value: selectedAccount
+                            ? `${selectedAccount.account_code} — ${selectedAccount.account_name}`
+                            : t('All accounts'),
+                    },
+                    { label: 'Period', value: `${date(filters.from_date)} — ${date(filters.to_date)}` },
+                    { label: 'Entries', value: rows.length },
+                ]}
+                summary={[
+                    { label: 'Total Debit', value: money(totalDebit) },
+                    { label: 'Total Credit', value: money(totalCredit) },
+                    {
+                        label: balanced ? 'Balanced' : 'Out of Balance',
+                        value: balanced ? t('Yes') : money(Math.abs(difference)),
+                        emphasis: true,
+                        warn: !balanced,
+                    },
+                ]}
+            >
+                <DocumentTable
+                    columns={columns}
+                    rows={rows}
+                    emptyText="No ledger movements in this period."
+                    render={(entry: LedgerEntry, column) => {
+                        switch (column.key) {
+                            case 'date':
+                                return date(entry.journal_date);
+                            case 'account':
+                                return (
+                                    <>
+                                        <span className="tabular-nums text-[8.5pt] text-[#5d6772]">
+                                            {entry.account_code}
+                                        </span>{' '}
+                                        {entry.account_name}
+                                    </>
+                                );
+                            case 'description':
+                                return entry.description || entry.journal_description || '—';
+                            case 'reference':
+                                return (
+                                    <span className="text-[9pt] text-[#5d6772]">
+                                        {entry.reference_type || '—'}
+                                    </span>
+                                );
+                            case 'debit':
+                                return Number(entry.debit_amount) > 0 ? money(entry.debit_amount) : '—';
+                            case 'credit':
+                                return Number(entry.credit_amount) > 0 ? money(entry.credit_amount) : '—';
+                            default:
+                                return null;
+                        }
+                    }}
+                    footer={
+                        <tr>
+                            <td colSpan={4} className="pt-3 font-bold">
+                                {t('Total')}
+                            </td>
+                            <td className="doc-num pt-3 font-bold">{money(totalDebit)}</td>
+                            <td className="doc-num pt-3 font-bold">{money(totalCredit)}</td>
+                        </tr>
                     }
+                />
 
-                    .ledger-summary-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+                {!balanced && (
+                    <p className="doc-no-break mt-4 border border-[#ef1e1e] bg-[#fef4f4] px-3 py-2 text-[9.5pt] text-[#ef1e1e]">
+                        {t('Total debits do not equal total credits for this selection. Review the underlying journal entries.')}
+                    </p>
+                )}
+            </ReportLayout>
+        </>
     );
 }

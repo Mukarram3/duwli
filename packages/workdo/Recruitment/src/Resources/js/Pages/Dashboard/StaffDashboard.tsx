@@ -284,7 +284,7 @@ export default function StaffDashboard() {
                                             <p className="text-xs text-green-700">{t('Assigned interviews')}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-end">
                                         <div className="flex gap-2 mb-1">
                                             <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">{dashboardData.taskStatus.pendingInterviews} {t('Pending')}</span>
                                             <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">{dashboardData.taskStatus.completedInterviews} {t('Done')}</span>
@@ -306,7 +306,7 @@ export default function StaffDashboard() {
                                             <p className="text-xs text-blue-700">{t('Buddy assignments')}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-end">
                                         <div className="flex gap-2 mb-1">
                                             <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">{dashboardData.taskStatus.pendingOnboardings} {t('Pending')}</span>
                                             <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">{dashboardData.taskStatus.completedOnboardings} {t('Done')}</span>

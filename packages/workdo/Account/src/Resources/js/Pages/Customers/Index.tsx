@@ -24,6 +24,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import {
     KpiStrip, FilterBar, EmptyState, EntityCell, TextCell,
+    MoneyCell, StatusBadge,
     type ActiveFilter,
 } from '@/components/duwli';
 import { RowActions } from '@/components/row-actions';
@@ -184,61 +185,120 @@ export default function Index() {
     const showActions = ['view-customers', 'edit-customers', 'delete-customers', 'view-customer-detail-report']
         .some((p) => can(p));
 
+    /*
+     * COLUMNS
+     *
+     * Tax Number and Payment Terms were removed: neither is something a user
+     * scans a customer list for, and both pushed the columns that matter off
+     * the visible width. They remain on the customer detail and edit screens.
+     *
+     * Portal Access was removed because it repeated the company name verbatim
+     * in a second column. Whether the customer has a login, and whether it is
+     * disabled, is now shown as a small marker beside the name instead.
+     *
+     * Balance, Overdue and Status replace them. This is a receivables list —
+     * "what does this customer owe me, and is any of it late" is the question
+     * it exists to answer, and it previously could not be answered from the
+     * list at all.
+     */
     const tableColumns = [
         {
             key: 'company_name',
             header: t('Customer'),
             sortable: true,
+            // Wide enough for a full company name. Names were truncating at the
+            // previous width, which on a list of similarly-named entities
+            // ("Acme Trading LLC-1" vs "-11") made rows indistinguishable.
+            className: 'min-w-[220px]',
             render: (_: any, customer: any) => (
-                <EntityCell
-                    name={customer.company_name}
-                    secondary={customer.customer_code}
-                    image={customer.user?.avatar}
-                    initialsFrom={customer.company_name}
-                />
+                <div className="flex min-w-0 items-center gap-2">
+                    <EntityCell
+                        name={customer.company_name}
+                        secondary={customer.customer_code}
+                        image={customer.user?.avatar}
+                        initialsFrom={customer.company_name}
+                    />
+                    {customer.user?.is_disable === 1 && (
+                        <TooltipProvider>
+                            <Tooltip delayDuration={300}>
+                                <TooltipTrigger asChild>
+                                    <span className="shrink-0 text-muted-foreground">
+                                        <Lock className="h-3.5 w-3.5" />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{t('Portal access disabled')}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
             ),
         },
         {
             key: 'contact_person_name',
             header: t('Contact Person'),
             sortable: true,
+            render: (value: any) => <TextCell value={value} />,
+        },
+        {
+            key: 'contact_person_email',
+            header: t('Email'),
+            render: (value: any) =>
+                value ? (
+                    // Email is Latin even on an Arabic screen, so it is isolated
+                    // to stop the bidi algorithm reordering it.
+                    <a
+                        href={`mailto:${value}`}
+                        className="ltr-text truncate text-primary hover:underline"
+                    >
+                        {value}
+                    </a>
+                ) : (
+                    <TextCell value={null} />
+                ),
+        },
+        {
+            key: 'balance',
+            header: t('Balance'),
+            className: 'text-end',
             render: (_: any, customer: any) => (
-                <span className="flex flex-col leading-tight">
-                    <TextCell value={customer.contact_person_name} />
-                    {customer.contact_person_email && (
-                        <span className="truncate text-xs text-muted-foreground">
-                            {customer.contact_person_email}
-                        </span>
-                    )}
-                </span>
+                <MoneyCell
+                    value={customer.balance}
+                    bold={Number(customer.balance) > 0}
+                />
             ),
         },
         {
-            key: 'tax_number',
-            header: t('Tax Number'),
-            render: (value: any) => <TextCell value={value} />,
+            key: 'overdue',
+            header: t('Overdue'),
+            className: 'text-end',
+            render: (_: any, customer: any) => (
+                <MoneyCell
+                    value={customer.overdue}
+                    className={
+                        Number(customer.overdue) > 0
+                            ? 'font-semibold text-red-600 dark:text-red-400'
+                            : undefined
+                    }
+                />
+            ),
         },
         {
-            key: 'payment_terms',
-            header: t('Payment Terms'),
-            render: (value: any) => <TextCell value={value} />,
-        },
-        {
-            key: 'portal',
-            header: t('Portal Access'),
-            render: (_: any, customer: any) => {
-                if (!customer.user) {
-                    return <span className="text-xs text-muted-foreground">{t('No login')}</span>;
-                }
-                if (customer.user.is_disable === 1) {
-                    return (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Lock className="h-3 w-3" /> {t('Disabled')}
-                        </span>
-                    );
-                }
-                return <span className="truncate text-sm">{customer.user.name}</span>;
-            },
+            key: 'account_status',
+            header: t('Status'),
+            render: (_: any, customer: any) => (
+                <StatusBadge
+                    status={customer.account_status}
+                    label={
+                        customer.account_status === 'paid'
+                            ? 'Settled'
+                            : customer.account_status === 'overdue'
+                              ? 'Overdue'
+                              : 'Outstanding'
+                    }
+                />
+            ),
         },
         ...(showActions ? [{
             key: 'actions',
@@ -434,19 +494,36 @@ export default function Index() {
                                                             <dd className="truncate">{customer.contact_person_email}</dd>
                                                         </div>
                                                     )}
-                                                    {customer.tax_number && (
+                                                    {/* Same swap as the table: what they owe,
+                                                        not their reference data. */}
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <dt className="text-muted-foreground">{t('Balance')}</dt>
+                                                        <dd className="font-medium">
+                                                            <MoneyCell value={customer.balance} />
+                                                        </dd>
+                                                    </div>
+                                                    {Number(customer.overdue) > 0 && (
                                                         <div className="flex items-center justify-between gap-2">
-                                                            <dt className="text-muted-foreground">{t('Tax Number')}</dt>
-                                                            <dd className="truncate font-medium">{customer.tax_number}</dd>
-                                                        </div>
-                                                    )}
-                                                    {customer.payment_terms && (
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <dt className="text-muted-foreground">{t('Payment Terms')}</dt>
-                                                            <dd className="truncate font-medium">{customer.payment_terms}</dd>
+                                                            <dt className="text-muted-foreground">{t('Overdue')}</dt>
+                                                            <dd className="font-semibold text-red-600 dark:text-red-400">
+                                                                <MoneyCell value={customer.overdue} />
+                                                            </dd>
                                                         </div>
                                                     )}
                                                 </dl>
+
+                                                <div className="mb-3">
+                                                    <StatusBadge
+                                                        status={customer.account_status}
+                                                        label={
+                                                            customer.account_status === 'paid'
+                                                                ? 'Settled'
+                                                                : customer.account_status === 'overdue'
+                                                                  ? 'Overdue'
+                                                                  : 'Outstanding'
+                                                        }
+                                                    />
+                                                </div>
 
                                                 <div className="flex items-center justify-between border-t pt-3">
                                                     {customer.user?.is_disable === 1 ? (

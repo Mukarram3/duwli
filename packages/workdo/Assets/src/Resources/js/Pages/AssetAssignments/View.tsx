@@ -101,15 +101,15 @@ export default function View({ assignment }: ViewProps) {
                             <div className="space-y-3">
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Asset Name')}</span>
-                                    <span className="text-sm font-semibold text-gray-900 text-right">{assignment.asset.name}</span>
+                                    <span className="text-sm font-semibold text-gray-900 text-end">{assignment.asset.name}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Serial Code')}</span>
-                                    <span className="text-sm text-gray-900 text-right">{assignment.asset.serial_code || '-'}</span>
+                                    <span className="text-sm text-gray-900 text-end">{assignment.asset.serial_code || '-'}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Category')}</span>
-                                    <span className="text-sm text-gray-900 text-right">{assignment.asset.category?.name || '-'}</span>
+                                    <span className="text-sm text-gray-900 text-end">{assignment.asset.category?.name || '-'}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -126,20 +126,20 @@ export default function View({ assignment }: ViewProps) {
                             <div className="space-y-3">
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Assigned To')}</span>
-                                    <span className="text-sm font-semibold text-gray-900 text-right">{assignment.user.name}</span>
+                                    <span className="text-sm font-semibold text-gray-900 text-end">{assignment.user.name}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Email')}</span>
-                                    <span className="text-sm text-gray-900 text-right">{assignment.user.email}</span>
+                                    <span className="text-sm text-gray-900 text-end">{assignment.user.email}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Assigned By')}</span>
-                                    <span className="text-sm text-gray-900 text-right">{assignment.assigned_by.name}</span>
+                                    <span className="text-sm text-gray-900 text-end">{assignment.assigned_by.name}</span>
                                 </div>
                                 {assignment.returned_by && (
                                     <div className="flex justify-between items-start">
                                         <span className="text-sm text-gray-600 font-medium">{t('Returned By')}</span>
-                                        <span className="text-sm text-gray-900 text-right">{assignment.returned_by.name}</span>
+                                        <span className="text-sm text-gray-900 text-end">{assignment.returned_by.name}</span>
                                     </div>
                                 )}
                             </div>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Printer, FileText } from 'lucide-react';
+import { Printer, FileText, Download } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/utils/helpers';
 import NoRecordsFound from '@/components/no-records-found';
 import axios from 'axios';
@@ -87,6 +87,18 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
         loadData();
     }, []);
 
+    /*
+     * Opens the print dialog, which produces selectable vector text and
+     * honours the repeating table headers in print.css. The rasterised
+     * download is kept as handleDownloadPDF below for anyone who needs a
+     * file without a dialog.
+     */
+    const handlePrint = () => {
+        const printUrl = route('double-entry.reports.account-statement.print') +
+            `?account_id=${accountId}&from_date=${fromDate}&to_date=${toDate}&print=1`;
+        window.open(printUrl, '_blank');
+    };
+
     const handleDownloadPDF = () => {
         const printUrl = route('double-entry.reports.account-statement.print') +
             `?account_id=${accountId}&from_date=${fromDate}&to_date=${toDate}&download=pdf`;
@@ -145,10 +157,18 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
                         </Button>
                         <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
                         {data && auth.user?.permissions?.includes('print-account-statement') && (
-                            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
-                                <Printer className="h-4 w-4" />
-                                {t('Download PDF')}
-                            </Button>
+                            <>
+                                <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
+                                    <Download className="h-4 w-4" />
+                                    {t('Download PDF')}
+                                </Button>
+                                {/* Print is listed second but is the better path: the browser
+                                    dialog offers "Save as PDF" and produces real vector text. */}
+                                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                                    <Printer className="h-4 w-4" />
+                                    {t('Print')}
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -174,12 +194,12 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
                             <table className="w-full">
                                 <thead className="bg-gray-100 sticky top-0">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Date')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Description')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Reference')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Debit')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Credit')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Balance')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Date')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Description')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Reference')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Debit')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Credit')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Balance')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -188,7 +208,7 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
                                             <td className="px-4 py-3 text-sm font-semibold" colSpan={5}>
                                                 {t('Opening Balance')}
                                             </td>
-                                            <td className="px-4 py-3 text-sm text-right font-semibold">
+                                            <td className="px-4 py-3 text-sm text-end font-semibold">
                                                 {formatCurrency(data.opening_balance)}
                                             </td>
                                         </tr>
@@ -199,13 +219,13 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
                                                 <td className="px-4 py-3 text-sm">{formatDate(transaction.date)}</td>
                                                 <td className="px-4 py-3 text-sm">{transaction.description}</td>
                                                 <td className="px-4 py-3 text-sm">{transaction.reference_type}</td>
-                                                <td className="px-4 py-3 text-sm text-right">
+                                                <td className="px-4 py-3 text-sm text-end">
                                                     {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-right">
+                                                <td className="px-4 py-3 text-sm text-end">
                                                     {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-right font-medium">
+                                                <td className="px-4 py-3 text-sm text-end font-medium">
                                                     {formatCurrency(transaction.balance)}
                                                 </td>
                                             </tr>
@@ -228,10 +248,10 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
                                                 <td className="px-4 py-3 text-sm font-semibold" colSpan={3}>
                                                     {t('Total')}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-right font-semibold">
+                                                <td className="px-4 py-3 text-sm text-end font-semibold">
                                                     {formatCurrency(totalDebit)}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-right font-semibold">
+                                                <td className="px-4 py-3 text-sm text-end font-semibold">
                                                     {formatCurrency(totalCredit)}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm"></td>
@@ -240,7 +260,7 @@ export default function AccountStatement({ financialYear }: AccountStatementProp
                                                 <td className="px-4 py-3 text-sm" colSpan={5}>
                                                     {t('Closing Balance')}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-right">
+                                                <td className="px-4 py-3 text-sm text-end">
                                                     {formatCurrency(data.closing_balance)}
                                                 </td>
                                             </tr>

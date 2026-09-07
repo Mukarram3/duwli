@@ -59,7 +59,7 @@ export default function Print() {
                                 {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
                             </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-end">
                             <h2 className="text-2xl font-bold text-gray-900 mb-3">{t('VENDOR DETAIL REPORT')}</h2>
                             <p className="text-sm text-gray-600">{t('Vendor')}: {data.vendor.name}</p>
                             {filters.start_date && <p className="text-sm text-gray-600">{t('Period')}: {formatDate(filters.start_date)} - {formatDate(filters.end_date)}</p>}
@@ -72,13 +72,13 @@ export default function Print() {
                     <table className="w-full border-collapse mb-4">
                         <thead>
                             <tr className="border-b-2 border-black">
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Invoice Number')}</th>
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Date')}</th>
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Due Date')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Subtotal')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Tax')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Total')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Balance')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Invoice Number')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Date')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Due Date')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Subtotal')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Tax')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Total')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Balance')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -87,10 +87,10 @@ export default function Print() {
                                     <td className="py-2 px-2 text-sm">{invoice.invoice_number}</td>
                                     <td className="py-2 px-2 text-sm">{formatDate(invoice.date)}</td>
                                     <td className="py-2 px-2 text-sm">{formatDate(invoice.due_date)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(invoice.subtotal)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(invoice.tax_amount)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(invoice.total_amount)}</td>
-                                    <td className="py-2 px-2 text-sm text-right font-semibold">{formatCurrency(invoice.balance_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(invoice.subtotal)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(invoice.tax_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(invoice.total_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end font-semibold">{formatCurrency(invoice.balance_amount)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -102,11 +102,11 @@ export default function Print() {
                     <table className="w-full border-collapse mb-4">
                         <thead>
                             <tr className="border-b-2 border-black">
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Return Number')}</th>
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Date')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Subtotal')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Tax')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Total')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Return Number')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Date')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Subtotal')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Tax')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Total')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -114,9 +114,9 @@ export default function Print() {
                                 <tr key={idx} className="border-b border-gray-200">
                                     <td className="py-2 px-2 text-sm">{ret.return_number}</td>
                                     <td className="py-2 px-2 text-sm">{formatDate(ret.date)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(ret.subtotal)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(ret.tax_amount)}</td>
-                                    <td className="py-2 px-2 text-sm text-right font-semibold">{formatCurrency(ret.total_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(ret.subtotal)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(ret.tax_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end font-semibold">{formatCurrency(ret.total_amount)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -128,11 +128,11 @@ export default function Print() {
                     <table className="w-full border-collapse mb-4">
                         <thead>
                             <tr className="border-b-2 border-black">
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Debit Note Number')}</th>
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Date')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Total')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Applied')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Balance')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Debit Note Number')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Date')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Total')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Applied')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Balance')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -140,9 +140,9 @@ export default function Print() {
                                 <tr key={idx} className="border-b border-gray-200">
                                     <td className="py-2 px-2 text-sm">{note.debit_note_number}</td>
                                     <td className="py-2 px-2 text-sm">{formatDate(note.date)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(note.total_amount)}</td>
-                                    <td className="py-2 px-2 text-sm text-right">{formatCurrency(note.applied_amount)}</td>
-                                    <td className="py-2 px-2 text-sm text-right font-semibold">{formatCurrency(note.balance_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(note.total_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end">{formatCurrency(note.applied_amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end font-semibold">{formatCurrency(note.balance_amount)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -154,10 +154,10 @@ export default function Print() {
                     <table className="w-full border-collapse mb-4">
                         <thead>
                             <tr className="border-b-2 border-black">
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Payment Number')}</th>
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Date')}</th>
-                                <th className="text-left py-2 px-2 text-sm font-semibold">{t('Bank Account')}</th>
-                                <th className="text-right py-2 px-2 text-sm font-semibold">{t('Amount')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Payment Number')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Date')}</th>
+                                <th className="text-start py-2 px-2 text-sm font-semibold">{t('Bank Account')}</th>
+                                <th className="text-end py-2 px-2 text-sm font-semibold">{t('Amount')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -166,7 +166,7 @@ export default function Print() {
                                     <td className="py-2 px-2 text-sm">{payment.payment_number}</td>
                                     <td className="py-2 px-2 text-sm">{formatDate(payment.date)}</td>
                                     <td className="py-2 px-2 text-sm">{payment.bank_account || '-'}</td>
-                                    <td className="py-2 px-2 text-sm text-right font-semibold">{formatCurrency(payment.amount)}</td>
+                                    <td className="py-2 px-2 text-sm text-end font-semibold">{formatCurrency(payment.amount)}</td>
                                 </tr>
                             ))}
                         </tbody>

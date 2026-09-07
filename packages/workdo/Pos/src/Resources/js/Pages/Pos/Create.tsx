@@ -761,7 +761,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                                     </div>
 
                                                     {/* Price / Subtotal */}
-                                                    <div className="text-right">
+                                                    <div className="text-end">
                                                         <span className="text-sm font-extrabold text-slate-900 dark:text-zinc-150">
                                                             {formatCurrency(item.price * item.quantity)}
                                                         </span>
@@ -795,7 +795,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                                 type="number"
                                                 value={discountAmount || ''}
                                                 onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
-                                                className="h-8 text-right text-xs border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded-lg pr-2"
+                                                className="h-8 text-end text-xs border-slate-200 dark:border-zinc-800 dark:bg-zinc-950 rounded-lg pr-2"
                                                 min="0"
                                                 max={getSubtotal() + getTaxAmount()}
                                             />
@@ -896,7 +896,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                             </div>
 
                             {/* Right Side - Company Details */}
-                            <div className="text-right space-y-1 text-sm">
+                            <div className="text-end space-y-1 text-sm">
                                 <h2 className="text-lg font-bold">{globalSettings?.company_name || 'Company Name'}</h2>
                                 <p>{globalSettings?.company_address || 'Company Address'}</p>
                                 <p>{globalSettings?.company_city || 'City'}, {globalSettings?.company_state || 'State'}</p>
@@ -910,12 +910,12 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                 <table className="w-full min-w-[600px]">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('Product')}</th>
+                                            <th className="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t('Product')}</th>
                                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('Qty')}</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Price')}</th>
+                                            <th className="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase">{t('Price')}</th>
                                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('Taxes')}</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Tax Amount')}</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Total')}</th>
+                                            <th className="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase">{t('Tax Amount')}</th>
+                                            <th className="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase">{t('Total')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -941,12 +941,12 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-sm">{item.quantity}</td>
-                                                    <td className="px-4 py-3 text-right text-sm">{formatCurrency(item.price)}</td>
+                                                    <td className="px-4 py-3 text-end text-sm">{formatCurrency(item.price)}</td>
                                                     <td className="px-4 py-3 text-center text-sm">
                                                         <div className="text-xs">{taxDisplay}</div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-right text-sm">{formatCurrency(itemTaxAmount)}</td>
-                                                    <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(itemSubtotal + itemTaxAmount)}</td>
+                                                    <td className="px-4 py-3 text-end text-sm">{formatCurrency(itemTaxAmount)}</td>
+                                                    <td className="px-4 py-3 text-end text-sm font-medium">{formatCurrency(itemSubtotal + itemTaxAmount)}</td>
                                                 </tr>
                                             );
                                         })}

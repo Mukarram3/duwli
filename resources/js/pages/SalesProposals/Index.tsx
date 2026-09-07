@@ -539,7 +539,7 @@ export default function Index() {
                                                             <p className="text-xs text-muted-foreground mb-1">{t('Proposal Date')}</p>
                                                             <p className="text-xs font-medium text-gray-800">{formatDate(proposal.proposal_date)}</p>
                                                         </div>
-                                                        <div className="flex flex-col items-end text-right">
+                                                        <div className="flex flex-col items-end text-end">
                                                             <p className="text-xs text-muted-foreground mb-1">{t('Due Date')}</p>
                                                             <p className={`text-xs font-medium ${proposal.display_status === 'overdue' ? 'text-red-600' : 'text-gray-800'}`}>
                                                                 {formatDate(proposal.due_date)}

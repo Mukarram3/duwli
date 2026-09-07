@@ -266,7 +266,7 @@ export default function CompanyDashboard() {
                                     <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div className="bg-blue-600 h-2 rounded-full" style={{width: `${member.completion_rate}%`}}></div>
                                     </div>
-                                    <div className="text-xs text-muted-foreground text-right">
+                                    <div className="text-xs text-muted-foreground text-end">
                                         {member.completion_rate}% {t('completed')}
                                     </div>
                                 </div>

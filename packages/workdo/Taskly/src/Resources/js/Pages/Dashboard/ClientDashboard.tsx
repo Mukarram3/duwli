@@ -169,7 +169,7 @@ export default function ClientDashboard() {
                                                 style={{width: `${project.progress}%`}}
                                             ></div>
                                         </div>
-                                        <div className="text-xs text-muted-foreground text-right">
+                                        <div className="text-xs text-muted-foreground text-end">
                                             {project.progress}% {t('completed')}
                                         </div>
                                     </div>

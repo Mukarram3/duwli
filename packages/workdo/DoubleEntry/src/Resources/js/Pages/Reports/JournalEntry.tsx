@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Printer, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { Printer, FileText, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/utils/helpers';
 
 import NoRecordsFound from '@/components/no-records-found';
@@ -77,6 +77,18 @@ export default function JournalEntry({ financialYear }: JournalEntryProps) {
         setExpandedRows(newExpanded);
     };
 
+    /*
+     * Opens the print dialog, which produces selectable vector text and
+     * honours the repeating table headers in print.css. The rasterised
+     * download is kept as handleDownloadPDF below for anyone who needs a
+     * file without a dialog.
+     */
+    const handlePrint = () => {
+        const printUrl = route('double-entry.reports.journal-entry.print') +
+            `?from_date=${fromDate}&to_date=${toDate}&status=${status}&print=1`;
+        window.open(printUrl, '_blank');
+    };
+
     const handleDownloadPDF = () => {
         const printUrl = route('double-entry.reports.journal-entry.print') +
             `?from_date=${fromDate}&to_date=${toDate}&status=${status}&download=pdf`;
@@ -129,10 +141,18 @@ export default function JournalEntry({ financialYear }: JournalEntryProps) {
                         </Button>
                         <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
                         {data.length > 0 && auth.user?.permissions?.includes('print-journal-entry') && (
-                            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
-                                <Printer className="h-4 w-4" />
-                                {t('Download PDF')}
-                            </Button>
+                            <>
+                                <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
+                                    <Download className="h-4 w-4" />
+                                    {t('Download PDF')}
+                                </Button>
+                                {/* Print is listed second but is the better path: the browser
+                                    dialog offers "Save as PDF" and produces real vector text. */}
+                                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                                    <Printer className="h-4 w-4" />
+                                    {t('Print')}
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -145,13 +165,13 @@ export default function JournalEntry({ financialYear }: JournalEntryProps) {
                             <table className="w-full">
                                 <thead className="bg-gray-100 sticky top-0">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold w-12"></th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Journal #')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Date')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Reference')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Description')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Total Debit')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Total Credit')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold w-12"></th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Journal #')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Date')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Reference')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Description')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Total Debit')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Total Credit')}</th>
                                         <th className="px-4 py-3 text-center text-sm font-semibold">{t('Status')}</th>
                                     </tr>
                                 </thead>
@@ -166,8 +186,8 @@ export default function JournalEntry({ financialYear }: JournalEntryProps) {
                                                 <td className="px-4 py-3 text-sm">{formatDate(entry.date)}</td>
                                                 <td className="px-4 py-3 text-sm">{entry.reference_type}</td>
                                                 <td className="px-4 py-3 text-sm">{entry.description}</td>
-                                                <td className="px-4 py-3 text-sm text-right">{formatCurrency(entry.total_debit)}</td>
-                                                <td className="px-4 py-3 text-sm text-right">{formatCurrency(entry.total_credit)}</td>
+                                                <td className="px-4 py-3 text-sm text-end">{formatCurrency(entry.total_debit)}</td>
+                                                <td className="px-4 py-3 text-sm text-end">{formatCurrency(entry.total_credit)}</td>
                                                 <td className="px-4 py-3 text-sm text-center">
                                                     <span className={`px-2 py-1 rounded-full text-sm ${
                                                         entry.status === 'posted' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -185,11 +205,11 @@ export default function JournalEntry({ financialYear }: JournalEntryProps) {
                                                         <table className="w-full">
                                                             <thead>
                                                                 <tr className="text-xs text-gray-600">
-                                                                    <th className="px-4 py-2 text-left">{t('Account Code')}</th>
-                                                                    <th className="px-4 py-2 text-left">{t('Account Name')}</th>
-                                                                    <th className="px-4 py-2 text-left">{t('Description')}</th>
-                                                                    <th className="px-4 py-2 text-right">{t('Debit')}</th>
-                                                                    <th className="px-4 py-2 text-right">{t('Credit')}</th>
+                                                                    <th className="px-4 py-2 text-start">{t('Account Code')}</th>
+                                                                    <th className="px-4 py-2 text-start">{t('Account Name')}</th>
+                                                                    <th className="px-4 py-2 text-start">{t('Description')}</th>
+                                                                    <th className="px-4 py-2 text-end">{t('Debit')}</th>
+                                                                    <th className="px-4 py-2 text-end">{t('Credit')}</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
@@ -198,8 +218,8 @@ export default function JournalEntry({ financialYear }: JournalEntryProps) {
                                                                         <td className="px-4 py-2">{item.account_code}</td>
                                                                         <td className="px-4 py-2">{item.account_name}</td>
                                                                         <td className="px-4 py-2">{item.description}</td>
-                                                                        <td className="px-4 py-2 text-right">{item.debit > 0 ? formatCurrency(item.debit) : '-'}</td>
-                                                                        <td className="px-4 py-2 text-right">{item.credit > 0 ? formatCurrency(item.credit) : '-'}</td>
+                                                                        <td className="px-4 py-2 text-end">{item.debit > 0 ? formatCurrency(item.debit) : '-'}</td>
+                                                                        <td className="px-4 py-2 text-end">{item.credit > 0 ? formatCurrency(item.credit) : '-'}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>

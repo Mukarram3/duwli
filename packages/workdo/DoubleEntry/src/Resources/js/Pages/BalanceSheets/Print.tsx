@@ -1,210 +1,173 @@
-import React, { useEffect, useState } from 'react';
+// packages/workdo/DoubleEntry/src/Resources/js/Pages/BalanceSheets/Print.tsx
+import React from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
-import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
+import { formatCurrency, formatDate } from '@/utils/helpers';
+import { ReportLayout } from '@/components/duwli/document';
+import {
+    Statement,
+    StatementSection,
+    StatementRow,
+    StatementTotal,
+    StatementResult,
+    StatementEmpty,
+    StatementSpacer,
+} from '@/components/duwli';
 import { BalanceSheetViewProps } from './types';
+
+/**
+ * BALANCE SHEET — PRINT
+ * ----------------------------------------------------------------------------
+ * Rebuilt as a vertical statement on the shared ReportLayout.
+ *
+ * The previous print laid Equity and Liabilities down one side and Assets down
+ * the other. Beyond being the wrong presentation for a published statement,
+ * that layout could not show the thing a balance sheet exists to demonstrate:
+ * that assets equal liabilities plus equity. The two columns had separate
+ * totals with nothing tying them together, so the reader had to add two
+ * numbers by hand to check the sheet balanced.
+ *
+ * The vertical form ends with that comparison explicitly, and flags it when it
+ * fails.
+ */
 
 export default function Print() {
     const { t } = useTranslation();
-    const { balanceSheet, groupedItems } = usePage<BalanceSheetViewProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
+    const pageProps = usePage<BalanceSheetViewProps>().props;
+    const { balanceSheet, groupedItems } = pageProps;
 
-    // Calculate totals from actual items
-    const totalEquity = groupedItems.equity ? Object.values(groupedItems.equity).flat().reduce((sum, item) => sum + parseFloat(item.amount.toString()), 0) : 0;
-    const totalLiabilities = groupedItems.liabilities ? Object.values(groupedItems.liabilities).flat().reduce((sum, item) => sum + parseFloat(item.amount.toString()), 0) : 0;
-    const totalAssets = groupedItems.assets ? Object.values(groupedItems.assets).flat().reduce((sum, item) => sum + parseFloat(item.amount.toString()), 0) : 0;
+    const money = (value: any) => formatCurrency(Number(value ?? 0), pageProps);
+    const date = (value: any) => (value ? formatDate(value, pageProps) : '—');
 
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf') {
-            downloadPDF();
-        }
-    }, []);
+    const sectionTotal = (section: any) =>
+        section
+            ? Object.values(section)
+                  .flat()
+                  .reduce((sum: number, item: any) => sum + parseFloat(item.amount.toString()), 0)
+            : 0;
 
-    const downloadPDF = async () => {
-        setIsDownloading(true);
+    const totalAssets = sectionTotal(groupedItems.assets);
+    const totalLiabilities = sectionTotal(groupedItems.liabilities);
+    const totalEquity = sectionTotal(groupedItems.equity);
 
-        const printContent = document.querySelector('.balance-sheet-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `balance-sheet-${formatDate(balanceSheet.balance_sheet_date)}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
+    const difference = totalAssets - (totalLiabilities + totalEquity);
+    const balanced = Math.abs(difference) < 0.005;
 
-            try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
-        }
-
-        setIsDownloading(false);
-    };
+    /** One section rendered as an indented, subtotalled statement block. */
+    const renderSection = (section: any, heading: string, total: number, emptyText: string) => (
+        <>
+            <StatementSection label={heading} />
+            {section && Object.keys(section).length > 0 ? (
+                Object.entries(section).map(([subSection, items]: [string, any]) => {
+                    const subTotal = items.reduce(
+                        (sum: number, item: any) => sum + parseFloat(item.amount.toString()),
+                        0,
+                    );
+                    return (
+                        <React.Fragment key={subSection}>
+                            <tr>
+                                <td colSpan={2} className="pb-1 pt-3 ps-4 text-[10pt] font-semibold capitalize">
+                                    {t(subSection.replace(/_/g, ' '))}
+                                </td>
+                            </tr>
+                            {items.map((item: any) => (
+                                <StatementRow
+                                    key={item.id}
+                                    depth={2}
+                                    code={item.account?.account_code}
+                                    label={item.account?.account_name || t('Unnamed account')}
+                                    value={item.amount}
+                                />
+                            ))}
+                            <StatementTotal
+                                label={`${t('Total')} ${t(subSection.replace(/_/g, ' '))}`}
+                                value={subTotal}
+                            />
+                        </React.Fragment>
+                    );
+                })
+            ) : (
+                <StatementEmpty label={emptyText} />
+            )}
+            <StatementResult label={`${t('Total')} ${t(heading)}`} value={total} />
+        </>
+    );
 
     return (
-        <div className="min-h-screen bg-white">
+        <>
             <Head title={t('Balance Sheet')} />
 
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ReportLayout
+                title="Statement of Financial Position"
+                subtitle="Assets, liabilities and equity as at the reporting date."
+                filename={`balance-sheet-${balanceSheet.balance_sheet_date}`}
+                backUrl={route('double-entry.balance-sheets.show', balanceSheet.id)}
+                filters={[
+                    { label: 'As at', value: date(balanceSheet.balance_sheet_date) },
+                    { label: 'Financial Year', value: balanceSheet.financial_year },
+                ]}
+                summary={[
+                    { label: 'Total Assets', value: money(totalAssets) },
+                    { label: 'Total Liabilities', value: money(totalLiabilities) },
+                    { label: 'Total Equity', value: money(totalEquity) },
+                    {
+                        // The question a balance sheet exists to answer.
+                        label: balanced ? 'Balanced' : 'Out of Balance',
+                        value: balanced ? t('Yes') : money(Math.abs(difference)),
+                        emphasis: true,
+                        warn: !balanced,
+                    },
+                ]}
+            >
+                <Statement className="max-w-none">
+                    {renderSection(
+                        groupedItems.assets,
+                        'Assets',
+                        totalAssets,
+                        'No asset accounts on this balance sheet.',
+                    )}
 
-            <div className="balance-sheet-container bg-white max-w-4xl mx-auto p-12">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-12">
-                    <div>
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-2xl font-bold mb-2">{t('BALANCE SHEET')}</h2>
-                        <div className="text-sm space-y-1">
-                            <p>{t('As of')}: {formatDate(balanceSheet.balance_sheet_date)}</p>
-                            <p>{t('Financial Year')}: {balanceSheet.financial_year}</p>
-                        </div>
-                    </div>
-                </div>
+                    <StatementSpacer />
 
-                {/* Two Column Layout */}
-                <div className="grid grid-cols-2 gap-8 mb-6">
-                    {/* Left Column - Liabilities & Equity */}
-                    <div>
-                        <h3 className="text-base font-bold border-b-2 border-gray-800 pb-2 mb-3">{t('Liabilities & Equity')}</h3>
-                        
-                        {/* Equity */}
-                        {groupedItems.equity && (
-                            <div className="mb-4">
-                                <h4 className="font-semibold text-sm mb-2">{t('Equity')}</h4>
-                                {Object.entries(groupedItems.equity).map(([subSection, items]) => (
-                                    <div key={subSection}>
-                                        {items.map((item) => (
-                                            <div key={item.id} className="flex justify-between py-1.5 text-sm">
-                                                <span>{item.account?.account_name}</span>
-                                                <span className="tabular-nums">{formatCurrency(item.amount)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                                <div className="flex justify-between py-2 font-semibold text-sm border-t mt-2">
-                                    <span>{t('Total Equity')}</span>
-                                    <span className="tabular-nums">{formatCurrency(totalEquity)}</span>
-                                </div>
-                            </div>
-                        )}
+                    {renderSection(
+                        groupedItems.liabilities,
+                        'Liabilities',
+                        totalLiabilities,
+                        'No liability accounts on this balance sheet.',
+                    )}
 
-                        {/* Liabilities */}
-                        {groupedItems.liabilities && (
-                            <div className="mb-4">
-                                <h4 className="font-semibold text-sm mb-2">{t('Liabilities')}</h4>
-                                {Object.entries(groupedItems.liabilities).map(([subSection, items]) => (
-                                    <div key={subSection} className="mb-3">
-                                        <h5 className="font-medium text-xs capitalize mb-1">{subSection.replace('_', ' ')}</h5>
-                                        {items.map((item) => (
-                                            <div key={item.id} className="flex justify-between py-1.5 text-sm ml-3">
-                                                <span>{item.account?.account_name}</span>
-                                                <span className="tabular-nums">{formatCurrency(item.amount)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                                <div className="flex justify-between py-2 font-semibold text-sm border-t mt-2">
-                                    <span>{t('Total Liabilities')}</span>
-                                    <span className="tabular-nums">{formatCurrency(totalLiabilities)}</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <StatementSpacer />
 
-                    {/* Right Column - Assets */}
-                    <div>
-                        <h3 className="text-base font-bold border-b-2 border-gray-800 pb-2 mb-3">{t('Assets')}</h3>
-                        
-                        {groupedItems.assets && (
-                            <div>
-                                {Object.entries(groupedItems.assets).map(([subSection, items]) => (
-                                    <div key={subSection} className="mb-3">
-                                        <h4 className="font-medium text-xs capitalize mb-1">{subSection.replace('_', ' ')}</h4>
-                                        {items.map((item) => (
-                                            <div key={item.id} className="flex justify-between py-1.5 text-sm ml-3">
-                                                <span>{item.account?.account_name}</span>
-                                                <span className="tabular-nums">{formatCurrency(item.amount)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                    {renderSection(
+                        groupedItems.equity,
+                        'Equity',
+                        totalEquity,
+                        'No equity accounts on this balance sheet.',
+                    )}
 
-                {/* Totals Row */}
-                <div className="grid grid-cols-2 gap-8 border-t-2 border-gray-800 pt-4">
-                    <div className="flex justify-between font-bold text-base">
-                        <span>{t('Total Liabilities & Equity')}</span>
-                        <span className="tabular-nums">{formatCurrency(totalLiabilities + totalEquity)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-base">
-                        <span>{t('Total Assets')}</span>
-                        <span className="tabular-nums">{formatCurrency(totalAssets)}</span>
-                    </div>
-                </div>
+                    <StatementSpacer />
 
-                {/* Footer */}
-                <div className="mt-8 pt-4 border-t text-center text-xs text-gray-600">
-                    <p>{t('Generated on')} {formatDate(new Date().toISOString())}</p>
-                </div>
-            </div>
+                    {/*
+                      The closing proof. A balance sheet that does not state
+                      Assets = Liabilities + Equity has not finished its job —
+                      the previous two-column print left the reader to add the
+                      two sides together themselves.
+                    */}
+                    <StatementTotal
+                        label="Total Liabilities and Equity"
+                        value={totalLiabilities + totalEquity}
+                    />
+                    <StatementResult label="Total Assets" value={totalAssets} />
+                </Statement>
 
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
-                }
-
-                @page {
-                    margin: 0.25in;
-                    size: A4;
-                }
-
-                .balance-sheet-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
-
-                @media print {
-                    body {
-                        background: white;
-                    }
-
-                    .balance-sheet-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+                {!balanced && (
+                    <p className="doc-no-break mt-4 border border-[#ef1e1e] bg-[#fef4f4] px-3 py-2 text-[9.5pt] text-[#ef1e1e]">
+                        {t('This balance sheet does not balance. Assets differ from liabilities plus equity by')}{' '}
+                        {money(Math.abs(difference))}.{' '}
+                        {t('Review the underlying journal entries before relying on this statement.')}
+                    </p>
+                )}
+            </ReportLayout>
+        </>
     );
 }

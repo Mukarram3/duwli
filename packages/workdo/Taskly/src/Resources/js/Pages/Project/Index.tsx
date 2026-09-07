@@ -469,7 +469,7 @@ export default function Index() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-end">
                                             <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('Deadline')}</p>
                                             <div className={`flex items-center gap-1 text-xs font-medium ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
                                                 <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />

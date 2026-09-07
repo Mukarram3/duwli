@@ -130,6 +130,27 @@ export default function Index() {
         );
     };
 
+    /*
+     * Empty state, split by cause. A filtered list offers a way OUT of the
+     * filter; an untouched list offers a way to create the first record.
+     * Offering "Create" on a filtered list is how duplicate items get made.
+     */
+    const hasAnyFilter = !!(filters.name || filters.type || filters.category_id);
+
+    const emptyBlock = hasAnyFilter ? (
+        <EmptyState variant="filtered" onClearFilters={clearFilters} />
+    ) : (
+        <EmptyState
+            variant="empty"
+            icon={Package}
+            title="No items yet"
+            description="Add your first product or service to start building the catalogue."
+            createPermission="create-product-service-item"
+            createLabel="New Item"
+            onCreate={() => router.visit(route('product-service.items.create'))}
+        />
+    );
+
     const tableColumns = [
         {
             key: 'name',
@@ -402,19 +423,7 @@ export default function Index() {
                                         sortKey={sortField}
                                         sortDirection={sortDirection as 'asc' | 'desc'}
                                         className="rounded-none"
-                                        emptyState={
-                                            <NoRecordsFound
-                                                icon={Package}
-                                                title={t('No items found')}
-                                                description={t('Get started by creating your first item.')}
-                                                hasFilters={!!(filters.name || filters.type || filters.category_id)}
-                                                onClearFilters={clearFilters}
-                                                createPermission="create-product-service-item"
-                                                onCreateClick={() => router.visit(route('product-service.items.create'))}
-                                                createButtonText={t('Create Item')}
-                                                className="h-auto"
-                                            />
-                                        }
+                                        emptyState={emptyBlock}
                                     />
                                 </div>
                             </div>
@@ -561,17 +570,7 @@ export default function Index() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <NoRecordsFound
-                                        icon={Package}
-                                        title={t('No items found')}
-                                        description={t('Get started by creating your first item.')}
-                                        hasFilters={!!(filters.name || filters.type || filters.category_id)}
-                                        onClearFilters={clearFilters}
-                                        createPermission="create-product-service-item"
-                                        onCreateClick={() => router.visit(route('product-service.items.create'))}
-                                        createButtonText={t('Create Item')}
-                                        className="h-auto"
-                                    />
+                                    emptyBlock
                                 )}
                             </div>
                         )}

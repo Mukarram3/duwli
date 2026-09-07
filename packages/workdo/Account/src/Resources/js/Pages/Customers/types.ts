@@ -18,6 +18,18 @@ export interface Customer {
   contact_person_mobile?: string;
   tax_number?: string;
   payment_terms?: string;
+
+  /*
+   * Receivables position, attached by CustomerController@index for the rows on
+   * the current page only. Optional because the customer create/edit payloads
+   * do not carry them.
+   */
+  balance?: number;
+  overdue?: number;
+  open_count?: number;
+  /** Derived, not stored: 'overdue' | 'due' | 'paid'. */
+  account_status?: 'overdue' | 'due' | 'paid';
+
   billing_address: Address;
   shipping_address: Address;
   same_as_billing: boolean;

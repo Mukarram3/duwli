@@ -116,7 +116,7 @@ export default function Settings() {
                           key={item.href}
                           onClick={() => handleNavClick(item.href)}
                           className={cn(
-                            "w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 ltr:text-left rtl:text-right outline-none ltr:border-l-[3px] rtl:border-r-[3px] ltr:border-r-0 rtl:border-l-0 rounded-lg",
+                            "w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 ltr:text-start rtl:text-end outline-none ltr:border-l-[3px] rtl:border-r-[3px] ltr:border-r-0 rtl:border-l-0 rounded-lg",
                             isActive
                               ? "bg-primary/10 text-primary border-primary ltr:rounded-r-lg ltr:rounded-l-none rtl:rounded-l-lg rtl:rounded-r-none"
                               : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"

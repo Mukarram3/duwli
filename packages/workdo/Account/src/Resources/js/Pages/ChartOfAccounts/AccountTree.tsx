@@ -182,16 +182,16 @@ export default function AccountTree({
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left">
+                <thead className="bg-muted/50 text-start">
                     <tr>
                         <th className="px-4 py-3 font-medium">{t('Account Name')}</th>
                         <th className="px-4 py-3 font-medium">{t('Account Code')}</th>
                         <th className="px-4 py-3 font-medium">{t('Account Type Name')}</th>
                         <th className="px-4 py-3 font-medium">{t('Normal Balance')}</th>
-                        <th className="px-4 py-3 text-right font-medium">{t('Opening Balance')}</th>
-                        <th className="px-4 py-3 text-right font-medium">{t('Current Balance')}</th>
+                        <th className="px-4 py-3 text-end font-medium">{t('Opening Balance')}</th>
+                        <th className="px-4 py-3 text-end font-medium">{t('Current Balance')}</th>
                         <th className="px-4 py-3 font-medium">{t('Status')}</th>
-                        {showActions && <th className="px-4 py-3 text-right font-medium">{t('Actions')}</th>}
+                        {showActions && <th className="px-4 py-3 text-end font-medium">{t('Actions')}</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -328,10 +328,10 @@ export default function AccountTree({
                                         )}
                                     </span>
                                 </td>
-                                <td className="px-4 py-2.5 text-right">
+                                <td className="px-4 py-2.5 text-end">
                                     {node.opening_balance ? formatCurrency(node.opening_balance) : '-'}
                                 </td>
-                                <td className="px-4 py-2.5 text-right">
+                                <td className="px-4 py-2.5 text-end">
                                     {node.current_balance ? formatCurrency(node.current_balance) : '-'}
                                 </td>
                                 <td className="px-4 py-2.5">

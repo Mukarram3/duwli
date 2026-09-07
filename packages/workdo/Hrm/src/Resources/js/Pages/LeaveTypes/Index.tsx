@@ -210,7 +210,7 @@ export default function Index() {
         ...(auth.user?.permissions?.some((p: string) => ['edit-leave-types', 'delete-leave-types'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
-            className: 'text-right',
+            className: 'text-end',
             render: (_: any, item: LeaveType) => (
                 <div className="flex justify-end gap-1">
                     <TooltipProvider>

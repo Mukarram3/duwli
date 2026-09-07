@@ -107,7 +107,7 @@ export default function FormsIndex({ forms, statistics, auth }: FormsIndexProps)
       key: 'name',
       header: t('Name'),
       sortable: true,
-      className: 'pl-6 pr-4 py-3 text-left',
+      className: 'pl-6 pr-4 py-3 text-start',
       render: (value: string, form: Form) => (
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
@@ -130,7 +130,7 @@ export default function FormsIndex({ forms, statistics, auth }: FormsIndexProps)
       key: 'fields_count',
       header: t('Fields'),
       sortable: true,
-      className: 'px-4 py-3 text-left',
+      className: 'px-4 py-3 text-start',
       render: (value: number) => (
         <span className="text-gray-900 dark:text-gray-100 text-sm font-medium">{value}</span>
       )
@@ -139,7 +139,7 @@ export default function FormsIndex({ forms, statistics, auth }: FormsIndexProps)
       key: 'responses_count',
       header: t('Responses'),
       sortable: true,
-      className: 'px-4 py-3 text-left',
+      className: 'px-4 py-3 text-start',
       render: (value: number) => (
         <span className="text-gray-900 dark:text-gray-100 text-sm font-medium">{value}</span>
       )
@@ -148,7 +148,7 @@ export default function FormsIndex({ forms, statistics, auth }: FormsIndexProps)
       key: 'is_active',
       header: t('Status'),
       sortable: true,
-      className: 'px-4 py-3 text-left',
+      className: 'px-4 py-3 text-start',
       render: (value: boolean) => (
         <BadgeUI className={`${value
           ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
@@ -162,7 +162,7 @@ export default function FormsIndex({ forms, statistics, auth }: FormsIndexProps)
       key: 'created_at',
       header: t('Created At'),
       sortable: true,
-      className: 'px-4 py-3 text-left',
+      className: 'px-4 py-3 text-start',
       render: (value: string) => <span className="text-gray-500 text-sm">{formatDateTime(value)}</span>
     },
     {

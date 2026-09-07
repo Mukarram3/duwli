@@ -278,7 +278,7 @@ export default function Index() {
 
                 return (
                     <div className="flex items-center gap-2 w-full">
-                        <span className="text-sm font-medium text-foreground w-8 text-right">{percentage}%</span>
+                        <span className="text-sm font-medium text-foreground w-8 text-end">{percentage}%</span>
                         <div className="flex-1 bg-gray-100 rounded-full h-2">
                             <div 
                                 className={`${progressColor} h-2 rounded-full transition-all`}

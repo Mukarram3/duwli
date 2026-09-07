@@ -320,7 +320,7 @@ export default function View() {
                                     <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="bg-gray-50 dark:bg-gray-800/60">
-                                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600">{t('Name')}</th>
+                                                <th className="text-start px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600">{t('Name')}</th>
                                                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600 w-28">{t('Assigned')}</th>
                                                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-600 w-28">{t('Done')}</th>
                                             </tr>
@@ -414,7 +414,7 @@ export default function View() {
                                     <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="bg-gray-50 dark:bg-gray-800/60">
-                                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600">{t('Name')}</th>
+                                                <th className="text-start px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600">{t('Name')}</th>
                                                 <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600 w-28">{t('Progress')}</th>
                                                 <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600 w-28">{t('Cost')}</th>
                                                 <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-600 w-28">{t('Status')}</th>

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '@/components/ui/date-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Printer, FileText } from 'lucide-react';
+import { Printer, FileText, Download } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/utils/helpers';
 import NoRecordsFound from '@/components/no-records-found';
 import axios from 'axios';
@@ -71,6 +71,18 @@ export default function AccountBalance({ financialYear }: AccountBalanceProps) {
     useEffect(() => {
         fetchData();
     }, []);
+
+    /*
+     * Opens the print dialog, which produces selectable vector text and
+     * honours the repeating table headers in print.css. The rasterised
+     * download is kept as handleDownloadPDF below for anyone who needs a
+     * file without a dialog.
+     */
+    const handlePrint = () => {
+        const printUrl = route('double-entry.reports.account-balance.print') +
+            `?as_of_date=${asOfDate}&account_type=${accountType}&show_zero_balances=${showZeroBalances}&print=1`;
+        window.open(printUrl, '_blank');
+    };
 
     const handleDownloadPDF = () => {
         const printUrl = route('double-entry.reports.account-balance.print') +
@@ -136,10 +148,18 @@ export default function AccountBalance({ financialYear }: AccountBalanceProps) {
                         </Button>
                         <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
                         {data && auth.user?.permissions?.includes('print-account-balance') && (
-                            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
-                                <Printer className="h-4 w-4" />
-                                {t('Download PDF')}
-                            </Button>
+                            <>
+                                <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
+                                    <Download className="h-4 w-4" />
+                                    {t('Download PDF')}
+                                </Button>
+                                {/* Print is listed second but is the better path: the browser
+                                    dialog offers "Save as PDF" and produces real vector text. */}
+                                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                                    <Printer className="h-4 w-4" />
+                                    {t('Print')}
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -163,12 +183,12 @@ export default function AccountBalance({ financialYear }: AccountBalanceProps) {
                             <table className="w-full">
                                 <thead className="bg-gray-100 sticky top-0">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Account Code')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Account Name')}</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Type')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Debit')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Credit')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Net Balance')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Account Code')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Account Name')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Type')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Debit')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Credit')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Net Balance')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -182,22 +202,22 @@ export default function AccountBalance({ financialYear }: AccountBalanceProps) {
                                                     <td className="px-4 py-2 text-sm">{account.account_code}</td>
                                                     <td className="px-4 py-2 text-sm">{account.account_name}</td>
                                                     <td className="px-4 py-2 text-sm">{t(type)}</td>
-                                                    <td className="px-4 py-2 text-sm text-right">
+                                                    <td className="px-4 py-2 text-sm text-end">
                                                         {account.debit > 0 ? formatCurrency(account.debit) : '-'}
                                                     </td>
-                                                    <td className="px-4 py-2 text-sm text-right">
+                                                    <td className="px-4 py-2 text-sm text-end">
                                                         {account.credit > 0 ? formatCurrency(account.credit) : '-'}
                                                     </td>
-                                                    <td className="px-4 py-2 text-sm text-right font-medium">
+                                                    <td className="px-4 py-2 text-sm text-end font-medium">
                                                         {formatCurrency(account.net_balance)}
                                                     </td>
                                                 </tr>
                                             ))}
                                             <tr key={`subtotal-${type}`} className="bg-gray-100 font-semibold border-t-2">
                                                 <td colSpan={3} className="px-4 py-3 text-sm">{t('Subtotal')} - {t(type)}</td>
-                                                <td className="px-4 py-3 text-sm text-right">{formatCurrency(group.subtotal_debit)}</td>
-                                                <td className="px-4 py-3 text-sm text-right">{formatCurrency(group.subtotal_credit)}</td>
-                                                <td className="px-4 py-3 text-sm text-right">{formatCurrency(group.subtotal_net)}</td>
+                                                <td className="px-4 py-3 text-sm text-end">{formatCurrency(group.subtotal_debit)}</td>
+                                                <td className="px-4 py-3 text-sm text-end">{formatCurrency(group.subtotal_credit)}</td>
+                                                <td className="px-4 py-3 text-sm text-end">{formatCurrency(group.subtotal_net)}</td>
                                             </tr>
                                             <tr key={`space-${type}`} className="h-2">
                                                 <td colSpan={6}></td>
@@ -206,9 +226,9 @@ export default function AccountBalance({ financialYear }: AccountBalanceProps) {
                                     ))}
                                     <tr className="bg-gray-200 font-bold border-t-4 border-gray-800 sticky bottom-0">
                                         <td colSpan={3} className="px-4 py-3 text-sm">{t('Grand Total')}</td>
-                                        <td className="px-4 py-3 text-sm text-right">{formatCurrency(data.totals.debit)}</td>
-                                        <td className="px-4 py-3 text-sm text-right">{formatCurrency(data.totals.credit)}</td>
-                                        <td className="px-4 py-3 text-sm text-right">{formatCurrency(data.totals.net)}</td>
+                                        <td className="px-4 py-3 text-sm text-end">{formatCurrency(data.totals.debit)}</td>
+                                        <td className="px-4 py-3 text-sm text-end">{formatCurrency(data.totals.credit)}</td>
+                                        <td className="px-4 py-3 text-sm text-end">{formatCurrency(data.totals.net)}</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -334,7 +334,7 @@ export default function MediaLibrary() {
                   onClick={() => setCurrentDirectory(null)}
                 >
                   <Home className="h-4 w-4 mr-2 flex-shrink-0 text-primary" />
-                  <span className="truncate flex-1 text-left font-medium">{t('All Files')}</span>
+                  <span className="truncate flex-1 text-start font-medium">{t('All Files')}</span>
                   <Badge variant="outline" className="ml-2 bg-primary/5 text-primary border-primary/20 min-w-[2rem] justify-center">
                     {allMedia.length}
                   </Badge>
@@ -404,7 +404,7 @@ export default function MediaLibrary() {
                               {currentDirectory === dir.id
                                 ? <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0 text-primary" />
                                 : <Folder className="h-4 w-4 mr-2 flex-shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />}
-                              <span className="truncate flex-1 text-left font-medium">{dir.name}</span>
+                              <span className="truncate flex-1 text-start font-medium">{dir.name}</span>
                               <Badge variant="outline" className="ml-2 bg-muted/50 min-w-[1.5rem] justify-center flex-shrink-0">{count}</Badge>
                             </Button>
                             <DropdownMenu>
@@ -653,13 +653,13 @@ export default function MediaLibrary() {
                     <div className="bg-card border rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col min-h-0">
                       {/* Fixed Header Table */}
                       <div className="bg-muted/80 border-b border-border shadow-sm z-10 flex-shrink-0">
-                        <table className="w-full text-left text-sm table-fixed">
+                        <table className="w-full text-start text-sm table-fixed">
                           <thead className="text-muted-foreground font-semibold">
                             <tr>
                               <th className="px-5 py-4 w-[45%]">{t('File Details')}</th>
                               <th className="px-5 py-4 w-[15%]">{t('Size')}</th>
                               <th className="px-5 py-4 w-[20%]">{t('Uploaded Date')}</th>
-                              <th className="px-5 py-4 w-[20%] text-right">{t('Actions')}</th>
+                              <th className="px-5 py-4 w-[20%] text-end">{t('Actions')}</th>
                             </tr>
                           </thead>
                         </table>
@@ -667,7 +667,7 @@ export default function MediaLibrary() {
 
                       {/* Scrollable Body Table */}
                       <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-muted">
-                        <table className="w-full text-left text-sm table-fixed">
+                        <table className="w-full text-start text-sm table-fixed">
                           <tbody className="divide-y divide-border">
                             {currentMedia.map(item => (
                               <tr key={item.id} className="hover:bg-muted/10 transition-colors cursor-default group">
@@ -684,7 +684,7 @@ export default function MediaLibrary() {
                                 </td>
                                 <td className="px-5 py-3 w-[15%] text-muted-foreground">{formatFileSize(item.size)}</td>
                                 <td className="px-5 py-3 w-[20%] text-muted-foreground">{formatDate(item.created_at)}</td>
-                                <td className="px-5 py-3 w-[20%] text-right">
+                                <td className="px-5 py-3 w-[20%] text-end">
                                   <div className="flex justify-end gap-1">
                                     <TooltipProvider>
                                       <Tooltip delayDuration={300}>

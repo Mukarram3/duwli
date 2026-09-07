@@ -40,6 +40,33 @@ class CustomerController extends Controller
                 ->paginate(request('per_page', 10))
                 ->withQueryString();
 
+            /*
+             * Attach each customer's receivable position to the rows on this
+             * page. Computed with ONE grouped query over the page's customer
+             * ids rather than a subquery per row — with a per-row subquery a
+             * 100-row page would fire 200 extra queries.
+             */
+            $balances = $this->balancesFor($customers->getCollection()->pluck('user_id')->filter()->all());
+
+            $customers->getCollection()->transform(function ($customer) use ($balances) {
+                $row = $balances[$customer->user_id] ?? null;
+
+                $customer->balance      = (float) ($row->balance ?? 0);
+                $customer->overdue      = (float) ($row->overdue ?? 0);
+                $customer->open_count   = (int) ($row->open_count ?? 0);
+
+                /*
+                 * A customer's status is derived, not stored. The order matters:
+                 * overdue outranks owing, because money past due is the thing
+                 * the user needs to act on.
+                 */
+                $customer->account_status = $customer->overdue > 0
+                    ? 'overdue'
+                    : ($customer->balance > 0 ? 'due' : 'paid');
+
+                return $customer;
+            });
+
             $users = User::where('type', 'client')
                 ->where('created_by', creatorId())
                 ->whereNotIn('id', Customer::pluck('user_id')->filter())
@@ -53,6 +80,37 @@ class CustomerController extends Controller
             ]);
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    /**
+     * Outstanding balance and overdue amount per customer, for the given
+     * customer user ids.
+     *
+     * Draft and cancelled invoices are excluded: neither is money anyone owes.
+     * "Overdue" is computed from due_date rather than read from the invoice
+     * status, because an invoice only becomes overdue by the passage of time
+     * and nothing rewrites its stored status when the date passes.
+     *
+     * @param  array<int>  $customerIds
+     */
+    private function balancesFor(array $customerIds)
+    {
+        if (empty($customerIds)) {
+            return collect();
+        }
+
+        return SalesInvoice::query()
+            ->where('created_by', creatorId())
+            ->whereIn('customer_id', $customerIds)
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->where('balance_amount', '>', 0)
+            ->selectRaw('customer_id')
+            ->selectRaw('SUM(balance_amount) as balance')
+            ->selectRaw('SUM(CASE WHEN due_date < CURDATE() THEN balance_amount ELSE 0 END) as overdue')
+            ->selectRaw('COUNT(*) as open_count')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
     }
 
     /**

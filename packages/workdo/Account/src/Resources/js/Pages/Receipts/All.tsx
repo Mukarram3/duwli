@@ -134,14 +134,14 @@ export default function AllReceipts() {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-muted/50 text-left">
+                                <thead className="bg-muted/50 text-start">
                                     <tr>
                                         <th className="px-4 py-3 font-medium">{t('Receipt Number')}</th>
                                         <th className="px-4 py-3 font-medium">{t('Date')}</th>
                                         <th className="px-4 py-3 font-medium">{t('Direction')}</th>
                                         <th className="px-4 py-3 font-medium">{t('Customer / Vendor')}</th>
                                         <th className="px-4 py-3 font-medium">{t('Bank Account')}</th>
-                                        <th className="px-4 py-3 text-right font-medium">{t('Amount')}</th>
+                                        <th className="px-4 py-3 text-end font-medium">{t('Amount')}</th>
                                         <th className="px-4 py-3 font-medium">{t('Status')}</th>
                                     </tr>
                                 </thead>
@@ -182,7 +182,7 @@ export default function AllReceipts() {
                                                 </td>
                                                 <td
                                                     className={cn(
-                                                        'px-4 py-3 text-right font-medium',
+                                                        'px-4 py-3 text-end font-medium',
                                                         isIn ? 'text-emerald-700' : 'text-red-700',
                                                     )}
                                                 >

@@ -242,7 +242,7 @@ export default function WeeklyCalendar({ calendarData, employees }: WeeklyCalend
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="border-b bg-gray-50/50 dark:bg-gray-800/50">
-                                    <th className="text-left p-3 font-semibold text-sm w-[180px] min-w-[180px] sticky left-0 bg-gray-50/50 dark:bg-gray-800/50 z-10 border-r">
+                                    <th className="text-start p-3 font-semibold text-sm w-[180px] min-w-[180px] sticky left-0 bg-gray-50/50 dark:bg-gray-800/50 z-10 border-r">
                                         {t('Employee')}
                                     </th>
                                     {week_dates.map((date: CalendarDate, index: number) => (

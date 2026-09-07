@@ -91,7 +91,7 @@ export default function Index() {
                             <CardContent className="p-4 space-y-2">
                                 {/* Table Header */}
                                 <div className="grid grid-cols-[1fr_42px_42px_64px] gap-2 pl-2 pr-3 pb-2 border-b border-gray-200 dark:border-zinc-700/80 text-xs font-semibold text-muted-foreground">
-                                    <div className="text-left">{t('Leave Type')}</div>
+                                    <div className="text-start">{t('Leave Type')}</div>
                                     <div className="text-center">{t('Total')}</div>
                                     <div className="text-center">{t('Used')}</div>
                                     <div className="text-center">{t('Available')}</div>

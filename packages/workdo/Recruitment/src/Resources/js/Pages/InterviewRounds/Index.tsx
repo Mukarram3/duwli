@@ -201,7 +201,7 @@ export default function Index() {
         ...(auth.user?.permissions?.some((p: string) => ['view-interview-rounds', 'edit-interview-rounds', 'delete-interview-rounds'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
-            className: 'text-right',
+            className: 'text-end',
             render: (_: any, item: InterviewRound) => (
                 <div className="flex justify-end gap-1">
                     <TooltipProvider>

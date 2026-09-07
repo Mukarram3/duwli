@@ -149,8 +149,8 @@ export default function Index() {
                                     <div className="grid grid-cols-12 gap-4 py-2 border-b-2 border-gray-300 font-bold">
                                         <div className="col-span-2">{t('Account Code')}</div>
                                         <div className="col-span-6">{t('Account Name')}</div>
-                                        <div className="col-span-2 text-right">{t('Debit')}</div>
-                                        <div className="col-span-2 text-right">{t('Credit')}</div>
+                                        <div className="col-span-2 text-end">{t('Debit')}</div>
+                                        <div className="col-span-2 text-end">{t('Credit')}</div>
                                     </div>
                                     {trialBalance.accounts.map((account) => (
                                         <div key={account.id} className="grid grid-cols-12 gap-4 py-1.5 border-b border-gray-100">
@@ -158,10 +158,10 @@ export default function Index() {
                                                 <span className="text-green-600">{account.account_code}</span>
                                             </div>
                                             <div className="col-span-6 text-sm font-medium">{account.account_name}</div>
-                                            <div className="col-span-2 text-right text-sm font-semibold tabular-nums">
+                                            <div className="col-span-2 text-end text-sm font-semibold tabular-nums">
                                                 {account.debit > 0 ? formatCurrency(account.debit) : '-'}
                                             </div>
-                                            <div className="col-span-2 text-right text-sm font-semibold tabular-nums">
+                                            <div className="col-span-2 text-end text-sm font-semibold tabular-nums">
                                                 {account.credit > 0 ? formatCurrency(account.credit) : '-'}
                                             </div>
                                         </div>
@@ -170,8 +170,8 @@ export default function Index() {
 
                                 <div className="grid grid-cols-12 gap-4 pt-3 mt-3 border-t-2 border-gray-400 font-bold">
                                     <div className="col-span-8">{t('TOTAL')}</div>
-                                    <div className="col-span-2 text-right tabular-nums">{formatCurrency(trialBalance.total_debit)}</div>
-                                    <div className="col-span-2 text-right tabular-nums">{formatCurrency(trialBalance.total_credit)}</div>
+                                    <div className="col-span-2 text-end tabular-nums">{formatCurrency(trialBalance.total_debit)}</div>
+                                    <div className="col-span-2 text-end tabular-nums">{formatCurrency(trialBalance.total_credit)}</div>
                                 </div>
                             </>
                         ) : (

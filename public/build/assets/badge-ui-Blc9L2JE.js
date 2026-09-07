@@ -1,1 +1,0 @@
-import{a0 as i}from"./ui-CUd_MbMF.js";import{c as t}from"./utils-CmeZxMYV.js";function m({children:n,className:e}){return i.jsx("span",{className:t("inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-zinc-50 text-zinc-700 ring-zinc-600/20",e),children:n})}export{m as B};

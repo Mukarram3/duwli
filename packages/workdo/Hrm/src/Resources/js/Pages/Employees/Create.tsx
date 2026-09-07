@@ -219,7 +219,7 @@ export default function Create() {
                                                     else if (step.id === 'hours' && validatePersonalTab() && validateEmploymentTab() && validateContactTab() && validateBankingTab()) setActiveTab('hours');
                                                     else if (step.id === 'documents' && validatePersonalTab() && validateEmploymentTab() && validateContactTab() && validateBankingTab() && validateHoursTab()) setActiveTab('documents');
                                                 }}
-                                                className={`flex items-center gap-2 focus:outline-none transition-all duration-200 text-left rtl:text-right ${isActive ? 'text-primary' : isCompleted ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}
+                                                className={`flex items-center gap-2 focus:outline-none transition-all duration-200 text-start rtl:text-end ${isActive ? 'text-primary' : isCompleted ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}
                                             >
                                                 <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all duration-200 ${isActive ? 'border-primary bg-primary text-primary-foreground' : isCompleted ? 'border-green-600 bg-green-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900 text-gray-400'}`}>
                                                     {isCompleted ? <Check className="h-4 w-4" /> : index + 1}

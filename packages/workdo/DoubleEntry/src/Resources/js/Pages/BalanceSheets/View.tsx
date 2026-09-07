@@ -16,6 +16,13 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { BalanceSheetViewProps } from './types';
 import { formatDate, formatCurrency } from '@/utils/helpers';
+import {
+    Statement,
+    StatementSection,
+    StatementRow,
+    StatementTotal,
+    StatementResult,
+} from '@/components/duwli';
 import Note from './Note';
 import Compare from './Compare';
 import Generate from './Generate';
@@ -23,12 +30,33 @@ import YearEndClose from './YearEndClose';
 
 export default function View() {
     const { t } = useTranslation();
-    const { balanceSheet, groupedItems, allBalanceSheets, otherBalanceSheets, auth } = usePage<BalanceSheetViewProps>().props;
+    const pageProps = usePage<BalanceSheetViewProps>().props;
+    const { balanceSheet, groupedItems, allBalanceSheets, otherBalanceSheets, auth } = pageProps;
+
+    /*
+     * formatCurrency and formatDate were called throughout this file WITHOUT
+     * pageProps, so they fell back to library defaults and ignored the
+     * company's configured currency symbol and decimal separator. The balance
+     * sheet displayed different formatting from the rest of the system. These
+     * wrappers pass the settings through.
+     */
+    const money = (value: any) => formatCurrency(Number(value ?? 0), pageProps);
+    const date = (value: any) => (value ? formatDate(value, pageProps) : '—');
     const [showNoteModal, setShowNoteModal] = useState(false);
     const [showCompareModal, setShowCompareModal] = useState(false);
     const [showGenerateModal, setShowGenerateModal] = useState(false);
     const [showYearEndModal, setShowYearEndModal] = useState(false);
-    const [viewType, setViewType] = useState<'vertical' | 'horizontal'>('horizontal');
+    /*
+     * VERTICAL IS NOW THE DEFAULT.
+     *
+     * The horizontal option renders the T-account form — liabilities and equity
+     * on the left, assets on the right. That is a ledger presentation, not a
+     * published statement: IFRS and Saudi/UAE practice both present the balance
+     * sheet as a single vertical column, and it is the only form that prints
+     * correctly on A4. The horizontal view is kept for anyone who prefers it,
+     * but it is no longer what a user sees first.
+     */
+    const [viewType, setViewType] = useState<'vertical' | 'horizontal'>('vertical');
 
     const { deleteState, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteHandler({
         routeName: 'double-entry.balance-sheets.delete-note',
@@ -54,79 +82,67 @@ export default function View() {
         openDeleteDialog([balanceSheet.id, noteId]);
     };
 
+    /**
+     * Renders one balance-sheet section (Assets / Liabilities / Equity) as a
+     * vertical statement block, using the shared Statement components so it
+     * matches the Profit & Loss and every other financial statement.
+     *
+     * Sub-sections (current assets, fixed assets, ...) become indented groups
+     * with their own subtotal, and the section closes with a single-ruled
+     * total. Indentation carries the hierarchy — the reader uses it to know
+     * what rolls up into what.
+     *
+     * Account names were previously rendered in GREEN across every section,
+     * including liabilities and equity. Colour meant nothing here and made a
+     * liability look like income; account names are now plain text.
+     */
     const renderSection = (sectionType: string, sectionTitle: string) => {
         const sectionItems = groupedItems[sectionType];
         if (!sectionItems) return null;
 
         let sectionTotal = 0;
-        const sectionColors = {
-            assets: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-            liabilities: 'bg-rose-50 border-rose-200 text-rose-800',
-            equity: 'bg-blue-50 border-blue-200 text-blue-800'
-        };
+
+        const blocks = Object.entries(sectionItems).map(([subSection, items]) => {
+            const subSectionTotal = items.reduce(
+                (sum, item) => sum + parseFloat(item.amount.toString()),
+                0,
+            );
+            sectionTotal += subSectionTotal;
+            return { subSection, items, subSectionTotal };
+        });
 
         return (
-            <div className="mb-8">
-                <h3 className="text-xl font-bold text-gray-800 mb-6">
-                    {sectionTitle}
-                </h3>
+            <div className="mb-8" key={sectionType}>
+                <Statement className="max-w-none">
+                    <StatementSection label={sectionTitle} />
 
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[60%]">{t('Account')}</TableHead>
-                            <TableHead className="w-[20%] text-center">{t('Code')}</TableHead>
-                            <TableHead className="w-[20%] text-right">{t('Amount')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {Object.entries(sectionItems).map(([subSection, items]) => {
-                            const subSectionTotal = items.reduce((sum, item) => sum + parseFloat(item.amount.toString()), 0);
-                            sectionTotal += subSectionTotal;
+                    {blocks.map(({ subSection, items, subSectionTotal }) => (
+                        <React.Fragment key={subSection}>
+                            <tr>
+                                <td colSpan={2} className="pb-1 pt-3 ps-4 text-sm font-semibold capitalize">
+                                    {t(subSection.replace(/_/g, ' '))}
+                                </td>
+                            </tr>
 
-                            return (
-                                <React.Fragment key={subSection}>
-                                    <TableRow key={`${subSection}-header`}>
-                                        <TableCell colSpan={3} className="font-semibold text-gray-700 capitalize">
-                                            {subSection.replace('_', ' ')}
-                                        </TableCell>
-                                    </TableRow>
-                                    {items.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell className="font-medium text-green-600">
-                                                {item.account?.account_name}
-                                            </TableCell>
-                                            <TableCell className="text-center text-green-600">
-                                                {item.account?.account_code}
-                                            </TableCell>
-                                            <TableCell className="text-right font-semibold text-green-600 tabular-nums">
-                                                {formatCurrency(item.amount)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    <TableRow key={`${subSection}-total`} className="border-b-2">
-                                        <TableCell className="font-semibold">
-                                            {t('Total')} {subSection.replace('_', ' ')}
-                                        </TableCell>
-                                        <TableCell></TableCell>
-                                        <TableCell className="text-right font-bold tabular-nums">
-                                            {formatCurrency(subSectionTotal)}
-                                        </TableCell>
-                                    </TableRow>
-                                </React.Fragment>
-                            );
-                        })}
-                        <TableRow className="border-t-2 border-gray-400">
-                            <TableCell className="font-bold text-lg">
-                                {t('TOTAL')} {sectionTitle.toUpperCase()}
-                            </TableCell>
-                            <TableCell></TableCell>
-                            <TableCell className="text-right font-bold text-lg tabular-nums">
-                                {formatCurrency(sectionTotal)}
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                            {items.map((item) => (
+                                <StatementRow
+                                    key={item.id}
+                                    depth={2}
+                                    code={item.account?.account_code}
+                                    label={item.account?.account_name || t('Unnamed account')}
+                                    value={item.amount}
+                                />
+                            ))}
+
+                            <StatementTotal
+                                label={`${t('Total')} ${t(subSection.replace(/_/g, ' '))}`}
+                                value={subSectionTotal}
+                            />
+                        </React.Fragment>
+                    ))}
+
+                    <StatementResult label={`${t('Total')} ${sectionTitle}`} value={sectionTotal} />
+                </Statement>
             </div>
         );
     };
@@ -136,9 +152,9 @@ export default function View() {
             breadcrumbs={[
                 {label: t('Double Entry')},
                 {label: t('Balance Sheets'), url: route('double-entry.balance-sheets.list')},
-                {label: `${t('Balance Sheet')} - ${formatDate(balanceSheet.balance_sheet_date)}`}
+                {label: `${t('Balance Sheet')} - ${date(balanceSheet.balance_sheet_date)}`}
             ]}
-            pageTitle={`${t('Balance Sheet')} - ${formatDate(balanceSheet.balance_sheet_date)}`}
+            pageTitle={`${t('Balance Sheet')} - ${date(balanceSheet.balance_sheet_date)}`}
             pageActions={
                 <div className="flex items-center gap-2">
                     <TooltipProvider>
@@ -226,7 +242,7 @@ export default function View() {
                 </div>
             }
         >
-            <Head title={`${t('Balance Sheet')} - ${formatDate(balanceSheet.balance_sheet_date)}`} />
+            <Head title={`${t('Balance Sheet')} - ${date(balanceSheet.balance_sheet_date)}`} />
 
             <div className="max-w-7xl mx-auto space-y-6">
                 <Note
@@ -264,7 +280,7 @@ export default function View() {
                                         {t('Balance Sheet')}
                                     </CardTitle>
                                     <p className="text-sm text-gray-600">
-                                        {t('As of')} {formatDate(balanceSheet.balance_sheet_date)} | {t('Financial Year')}: {balanceSheet.financial_year}
+                                        {t('As of')} {date(balanceSheet.balance_sheet_date)} | {t('Financial Year')}: {balanceSheet.financial_year}
                                     </p>
                                 </div>
                             </div>
@@ -280,7 +296,7 @@ export default function View() {
                                         <SelectContent>
                                             {allBalanceSheets.map((sheet) => (
                                                 <SelectItem key={sheet.id} value={sheet.id.toString()}>
-                                                    {formatDate(sheet.balance_sheet_date)}
+                                                    {date(sheet.balance_sheet_date)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -336,19 +352,19 @@ export default function View() {
                             <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
                                 <h4 className="font-semibold text-emerald-700 mb-2">{t('Total Assets')}</h4>
                                 <p className="text-3xl font-bold text-emerald-900 tabular-nums">
-                                    {formatCurrency(balanceSheet.total_assets)}
+                                    {money(balanceSheet.total_assets)}
                                 </p>
                             </div>
                             <div className="text-center p-6 bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl border border-rose-200 shadow-sm hover:shadow-md transition-shadow">
                                 <h4 className="font-semibold text-rose-700 mb-2">{t('Total Liabilities')}</h4>
                                 <p className="text-3xl font-bold text-rose-900 tabular-nums">
-                                    {formatCurrency(balanceSheet.total_liabilities)}
+                                    {money(balanceSheet.total_liabilities)}
                                 </p>
                             </div>
                             <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
                                 <h4 className="font-semibold text-blue-700 mb-2">{t('Total Equity')}</h4>
                                 <p className="text-3xl font-bold text-blue-900 tabular-nums">
-                                    {formatCurrency(balanceSheet.total_equity)}
+                                    {money(balanceSheet.total_equity)}
                                 </p>
                             </div>
                         </div>
@@ -371,7 +387,7 @@ export default function View() {
                     <CardContent className="p-8">
                         <div className="mb-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                                {t('Balance Sheet of')} {formatDate(balanceSheet.balance_sheet_date)}
+                                {t('Balance Sheet of')} {date(balanceSheet.balance_sheet_date)}
                             </h2>
                         </div>
 
@@ -397,15 +413,15 @@ export default function View() {
                                                 <div key={subSection} className="mb-4">
                                                     {items.map((item) => (
                                                         <div key={item.id} className="flex justify-between py-1 text-sm">
-                                                            <span className="text-green-600">{item.account?.account_name}</span>
-                                                            <span className="text-green-600 tabular-nums">{formatCurrency(item.amount)}</span>
+                                                            <span>{item.account?.account_name}</span>
+                                                            <span className="tabular-nums">{money(item.amount)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ))}
                                             <div className="flex justify-between py-2 font-semibold border-b">
                                                 <span>{t('Total for Equity')}</span>
-                                                <span className="tabular-nums">{formatCurrency(balanceSheet.total_equity)}</span>
+                                                <span className="tabular-nums">{money(balanceSheet.total_equity)}</span>
                                             </div>
                                         </div>
                                     )}
@@ -422,24 +438,24 @@ export default function View() {
                                                         {items.map((item) => (
                                                             <div key={item.id} className="flex justify-between items-center py-1 text-sm ml-4">
                                                                 <div className="flex justify-between w-full">
-                                                                    <span className="text-green-600">{item.account?.account_name}</span>
+                                                                    <span>{item.account?.account_name}</span>
                                                                     <div className="flex gap-8">
                                                                         <span className="text-gray-600">{item.account?.account_code}</span>
-                                                                        <span className="text-green-600 tabular-nums">{formatCurrency(item.amount)}</span>
+                                                                        <span className="tabular-nums">{money(item.amount)}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         ))}
                                                         <div className="flex justify-between py-2 font-medium border-b ml-4">
                                                             <span>Total {subSection.replace('_', ' ')}</span>
-                                                            <span className="tabular-nums">{formatCurrency(subTotal)}</span>
+                                                            <span className="tabular-nums">{money(subTotal)}</span>
                                                         </div>
                                                     </div>
                                                 );
                                             })}
                                             <div className="flex justify-between py-2 font-semibold border-b">
                                                 <span>{t('Total for Liabilities')}</span>
-                                                <span className="tabular-nums">{formatCurrency(balanceSheet.total_liabilities)}</span>
+                                                <span className="tabular-nums">{money(balanceSheet.total_liabilities)}</span>
                                             </div>
                                         </div>
                                     )}
@@ -462,17 +478,17 @@ export default function View() {
                                                         {items.map((item) => (
                                                             <div key={item.id} className="flex justify-between items-center py-1 text-sm ml-4">
                                                                 <div className="flex justify-between w-full">
-                                                                    <span className="text-green-600">{item.account?.account_name}</span>
+                                                                    <span>{item.account?.account_name}</span>
                                                                     <div className="flex gap-8">
                                                                         <span className="text-gray-600">{item.account?.account_code}</span>
-                                                                        <span className="text-green-600 tabular-nums">{formatCurrency(item.amount)}</span>
+                                                                        <span className="tabular-nums">{money(item.amount)}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         ))}
                                                         <div className="flex justify-between py-2 font-medium border-b ml-4">
                                                             <span>Total {subSection.replace('_', ' ')}</span>
-                                                            <span className="tabular-nums">{formatCurrency(subTotal)}</span>
+                                                            <span className="tabular-nums">{money(subTotal)}</span>
                                                         </div>
                                                     </div>
                                                 );
@@ -490,7 +506,7 @@ export default function View() {
                                 <div className="flex justify-between py-3 font-bold text-lg">
                                     <span>{t('Total for Liabilities & Equity')}</span>
                                     <span className="tabular-nums">
-                                        {formatCurrency(
+                                        {money(
                                             (groupedItems.liabilities ?
                                                 Object.values(groupedItems.liabilities).flat().reduce((sum, item) => sum + parseFloat(item.amount.toString()), 0) : 0) +
                                             (groupedItems.equity ?
@@ -501,7 +517,7 @@ export default function View() {
                                 <div className="flex justify-between py-3 font-bold text-lg">
                                     <span>{t('Total for Assets')}</span>
                                     <span className="tabular-nums">
-                                        {formatCurrency(
+                                        {money(
                                             groupedItems.assets ?
                                                 Object.values(groupedItems.assets).flat().reduce((sum, item) => sum + parseFloat(item.amount.toString()), 0) : 0
                                         )}

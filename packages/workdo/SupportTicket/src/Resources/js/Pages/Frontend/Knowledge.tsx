@@ -179,7 +179,7 @@ export default function Knowledge({ knowledgeItems, categories, settings, brandS
                     </div>
                     
                     <CardContent className="flex flex-col md:flex-row items-center px-4 py-6 md:p-8 lg:p-12 relative">
-                        <div className="w-full md:w-2/3 text-white mb-6 md:mb-0 md:pr-12 text-center md:text-left">
+                        <div className="w-full md:w-2/3 text-white mb-6 md:mb-0 md:pr-12 text-center md:text-start">
                             <h2 className="lg:text-3xl md:text-2xl text-xl font-bold mb-3 md:mb-4">{bottomTitle}</h2>
                             <p className="text-white mb-4 md:mb-6">
                                 {bottomDescription || "Can't find the answer you're looking for? Our support team is ready to help you with any issues or concerns you might have."}

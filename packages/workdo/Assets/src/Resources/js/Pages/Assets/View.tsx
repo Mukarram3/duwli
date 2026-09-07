@@ -85,21 +85,21 @@ export default function View({ asset }: ViewProps) {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Asset Name')}</span>
-                                    <span className="text-sm font-semibold text-gray-900 text-right max-w-[60%]">{asset.name}</span>
+                                    <span className="text-sm font-semibold text-gray-900 text-end max-w-[60%]">{asset.name}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium flex items-center gap-1">
                                         <Tag className="w-3 h-3" />
                                         {t('Category')}
                                     </span>
-                                    <span className="text-sm text-gray-900 text-right">{asset.category?.name || '-'}</span>
+                                    <span className="text-sm text-gray-900 text-end">{asset.category?.name || '-'}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium flex items-center gap-1">
                                         <MapPin className="w-3 h-3" />
                                         {t('Location')}
                                     </span>
-                                    <span className="text-sm text-gray-900 text-right">{asset.location?.name || '-'}</span>
+                                    <span className="text-sm text-gray-900 text-end">{asset.location?.name || '-'}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm text-gray-600 font-medium">{t('Quantity')}</span>

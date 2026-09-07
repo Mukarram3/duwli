@@ -17,7 +17,7 @@ export default function Welcome() {
                                 {t('This installer will guide you through the setup process for your application.')}
                             </p>
                             <div className="space-y-4">
-                                <div className="text-left">
+                                <div className="text-start">
                                     <h3 className="font-semibold text-gray-900 mb-2">{t('Installation Steps')}:</h3>
                                     <ul className="text-sm text-gray-600 space-y-1">
                                         <li>• {t('Check server requirements')}</li>

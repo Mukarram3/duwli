@@ -175,7 +175,7 @@ export default function WhyChoose({ settings, title: propTitle, subtitle: propSu
                     <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
                         <button
                             onClick={() => setOpenAccordion(openAccordion === index ? -1 : index)}
-                            className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                            className="w-full px-6 py-4 text-start flex items-center justify-between hover:bg-gray-50 transition-colors"
                         >
                             <div className="flex items-center space-x-4">
                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClass}`}>

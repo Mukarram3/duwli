@@ -1,8 +1,31 @@
-import React, { useEffect, useState } from 'react';
+// packages/workdo/DoubleEntry/src/Resources/js/Pages/ProfitLoss/Print.tsx
 import { Head, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import html2pdf from 'html2pdf.js';
-import { formatCurrency, formatDate, getCompanySetting } from '@/utils/helpers';
+import { formatCurrency, formatDate } from '@/utils/helpers';
+import { ReportLayout } from '@/components/duwli/document';
+import {
+    Statement,
+    StatementSection,
+    StatementRow,
+    StatementTotal,
+    StatementResult,
+    StatementEmpty,
+    StatementSpacer,
+} from '@/components/duwli';
+
+/**
+ * PROFIT & LOSS — PRINT
+ * ----------------------------------------------------------------------------
+ * Same vertical statement as the screen, on the shared ReportLayout.
+ *
+ * The vertical form is what makes this print correctly. The previous
+ * two-column layout had to be squeezed to fit A4 portrait, and when the account
+ * list grew past a page the two columns broke independently — revenue
+ * continuing on page 2 while expenses had already finished, with no way to tell
+ * which total belonged to which. A single column flows down and across pages
+ * with its section headings repeating, and every subtotal stays with the lines
+ * it sums.
+ */
 
 interface Account {
     id: number;
@@ -21,171 +44,98 @@ interface ProfitLossData {
     to_date: string;
 }
 
-interface ProfitLossProps {
+interface Props {
     profitLoss: ProfitLossData;
+    [key: string]: any;
 }
 
 export default function Print() {
     const { t } = useTranslation();
-    const { profitLoss } = usePage<ProfitLossProps>().props;
-    const [isDownloading, setIsDownloading] = useState(false);
+    const pageProps = usePage<Props>().props;
+    const { profitLoss } = pageProps;
 
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('download') === 'pdf') {
-            downloadPDF();
-        }
-    }, []);
+    const money = (value: any) => formatCurrency(Number(value ?? 0), pageProps);
+    const date = (value: any) => (value ? formatDate(value, pageProps) : '—');
 
-    const downloadPDF = async () => {
-        setIsDownloading(true);
-
-        const printContent = document.querySelector('.profit-loss-container');
-        if (printContent) {
-            const opt = {
-                margin: 0.25,
-                filename: `profit-loss-${formatDate(profitLoss.from_date)}-to-${formatDate(profitLoss.to_date)}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-            };
-
-            try {
-                await html2pdf().set(opt).from(printContent as HTMLElement).save();
-                setTimeout(() => window.close(), 1000);
-            } catch (error) {
-                console.error('PDF generation failed:', error);
-            }
-        }
-
-        setIsDownloading(false);
-    };
+    const margin =
+        profitLoss.total_revenue > 0
+            ? (profitLoss.net_profit / profitLoss.total_revenue) * 100
+            : null;
 
     return (
-        <div className="min-h-screen bg-white">
-            <Head title={t('Profit & Loss Statement')} />
+        <>
+            <Head title={t('Profit & Loss')} />
 
-            {isDownloading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <p className="text-lg font-semibold text-gray-700">{t('Generating PDF...')}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ReportLayout
+                title="Statement of Profit or Loss"
+                subtitle="Revenue and expenses for the period."
+                filename={`profit-loss-${profitLoss.from_date}-to-${profitLoss.to_date}`}
+                backUrl={route('double-entry.profit-loss.index')}
+                filters={[
+                    {
+                        label: 'Period',
+                        value: `${date(profitLoss.from_date)} — ${date(profitLoss.to_date)}`,
+                    },
+                ]}
+                summary={[
+                    { label: 'Total Revenue', value: money(profitLoss.total_revenue) },
+                    { label: 'Total Expenses', value: money(profitLoss.total_expenses) },
+                    {
+                        label: profitLoss.net_profit >= 0 ? 'Net Profit' : 'Net Loss',
+                        value: money(Math.abs(profitLoss.net_profit)),
+                        emphasis: true,
+                        // A loss is flagged, not just coloured — on a printed
+                        // statement colour may not survive a black-and-white
+                        // printer or a photocopy.
+                        warn: profitLoss.net_profit < 0,
+                    },
+                    ...(margin !== null
+                        ? [{ label: 'Net Margin', value: `${margin.toFixed(1)}%` }]
+                        : []),
+                ]}
+            >
+                <Statement className="max-w-none">
+                    <StatementSection label="Revenue" />
+                    {profitLoss.revenue.length > 0 ? (
+                        profitLoss.revenue.map((account) => (
+                            <StatementRow
+                                key={account.id}
+                                code={account.account_code}
+                                label={account.account_name}
+                                value={account.balance}
+                            />
+                        ))
+                    ) : (
+                        <StatementEmpty label="No revenue recorded in this period." />
+                    )}
+                    <StatementTotal label="Total Revenue" value={profitLoss.total_revenue} />
 
-            <div className="profit-loss-container bg-white max-w-4xl mx-auto p-12">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-12">
-                    <div>
-                        <h1 className="text-2xl font-bold mb-4">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
-                        <div className="text-sm space-y-1">
-                            {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
-                            {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (
-                                <p>
-                                    {getCompanySetting('company_city')}{getCompanySetting('company_state') && `, ${getCompanySetting('company_state')}`} {getCompanySetting('company_zipcode')}
-                                </p>
-                            )}
-                            {getCompanySetting('company_country') && <p>{getCompanySetting('company_country')}</p>}
-                            {getCompanySetting('company_telephone') && <p>{t('Phone')}: {getCompanySetting('company_telephone')}</p>}
-                            {getCompanySetting('company_email') && <p>{t('Email')}: {getCompanySetting('company_email')}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-2xl font-bold mb-2">{t('PROFIT & LOSS STATEMENT')}</h2>
-                        <div className="text-sm space-y-1">
-                            <p>{t('Period')}: {formatDate(profitLoss.from_date)} - {formatDate(profitLoss.to_date)}</p>
-                        </div>
-                    </div>
-                </div>
+                    <StatementSpacer />
 
-                {/* Two Column Layout */}
-                <div className="grid grid-cols-2 gap-8 mb-6">
-                    {/* Left Column - Revenue */}
-                    <div>
-                        <h3 className="text-base font-bold border-b-2 border-gray-800 pb-2 mb-3">{t('Revenue')}</h3>
-                        {profitLoss.revenue.length > 0 ? (
-                            profitLoss.revenue.map((account) => (
-                                <div key={account.id} className="flex justify-between py-1.5 text-sm">
-                                    <span>{account.account_code} - {account.account_name}</span>
-                                    <span className="tabular-nums">{formatCurrency(account.balance)}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm py-2">{t('No revenue accounts')}</p>
-                        )}
-                        <div className="flex justify-between py-2 font-semibold text-sm border-t mt-2">
-                            <span>{t('Total Revenue')}</span>
-                            <span className="tabular-nums">{formatCurrency(profitLoss.total_revenue)}</span>
-                        </div>
-                    </div>
+                    <StatementSection label="Expenses" />
+                    {profitLoss.expenses.length > 0 ? (
+                        profitLoss.expenses.map((account) => (
+                            <StatementRow
+                                key={account.id}
+                                code={account.account_code}
+                                label={account.account_name}
+                                value={account.balance}
+                            />
+                        ))
+                    ) : (
+                        <StatementEmpty label="No expenses recorded in this period." />
+                    )}
+                    <StatementTotal label="Total Expenses" value={profitLoss.total_expenses} />
 
-                    {/* Right Column - Expenses */}
-                    <div>
-                        <h3 className="text-base font-bold border-b-2 border-gray-800 pb-2 mb-3">{t('Expenses')}</h3>
-                        {profitLoss.expenses.length > 0 ? (
-                            profitLoss.expenses.map((account) => (
-                                <div key={account.id} className="flex justify-between py-1.5 text-sm">
-                                    <span>{account.account_code} - {account.account_name}</span>
-                                    <span className="tabular-nums">{formatCurrency(account.balance)}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm py-2">{t('No expense accounts')}</p>
-                        )}
-                        <div className="flex justify-between py-2 font-semibold text-sm border-t mt-2">
-                            <span>{t('Total Expenses')}</span>
-                            <span className="tabular-nums">{formatCurrency(profitLoss.total_expenses)}</span>
-                        </div>
-                    </div>
-                </div>
+                    <StatementSpacer />
 
-                {/* Net Profit/Loss */}
-                <div className="mt-8 pt-4 border-t-2 border-gray-800">
-                    <div className="flex justify-between py-2 font-bold text-base">
-                        <span>{profitLoss.net_profit >= 0 ? t('Net Profit') : t('Net Loss')}</span>
-                        <span className="tabular-nums">
-                            {formatCurrency(Math.abs(profitLoss.net_profit))}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-12 pt-6 border-t text-center text-sm text-gray-600">
-                    <p>{t('Generated on')} {formatDate(new Date().toISOString())}</p>
-                </div>
-            </div>
-
-            <style>{`
-                body {
-                    -webkit-print-color-adjust: exact;
-                    color-adjust: exact;
-                    font-family: Arial, sans-serif;
-                }
-
-                @page {
-                    margin: 0.25in;
-                    size: A4;
-                }
-
-                .profit-loss-container {
-                    max-width: 100%;
-                    margin: 0;
-                    box-shadow: none;
-                }
-
-                @media print {
-                    body {
-                        background: white;
-                    }
-
-                    .profit-loss-container {
-                        box-shadow: none;
-                    }
-                }
-            `}</style>
-        </div>
+                    <StatementResult
+                        label={profitLoss.net_profit >= 0 ? 'Net Profit' : 'Net Loss'}
+                        value={profitLoss.net_profit}
+                        signed
+                    />
+                </Statement>
+            </ReportLayout>
+        </>
     );
 }

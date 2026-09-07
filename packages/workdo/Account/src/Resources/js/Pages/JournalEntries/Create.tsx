@@ -217,11 +217,11 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                     <div className="overflow-x-auto rounded-md border">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
-                                <tr className="text-left">
+                                <tr className="text-start">
                                     <th className="px-3 py-2 font-medium">{t('Account')}</th>
                                     <th className="px-3 py-2 font-medium">{t('Line Description')}</th>
-                                    <th className="w-40 px-3 py-2 text-right font-medium">{t('Debit')}</th>
-                                    <th className="w-40 px-3 py-2 text-right font-medium">{t('Credit')}</th>
+                                    <th className="w-40 px-3 py-2 text-end font-medium">{t('Debit')}</th>
+                                    <th className="w-40 px-3 py-2 text-end font-medium">{t('Credit')}</th>
                                     <th className="w-12 px-3 py-2" />
                                 </tr>
                             </thead>
@@ -258,7 +258,7 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                                         </td>
                                         <td className="px-3 py-2">
                                             <Input
-                                                className="h-9 text-right"
+                                                className="h-9 text-end"
                                                 type="number"
                                                 step="0.01"
                                                 min="0"
@@ -270,7 +270,7 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                                         </td>
                                         <td className="px-3 py-2">
                                             <Input
-                                                className="h-9 text-right"
+                                                className="h-9 text-end"
                                                 type="number"
                                                 step="0.01"
                                                 min="0"
@@ -300,8 +300,8 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                                     <td className="px-3 py-2" colSpan={2}>
                                         {t('Totals')}
                                     </td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.debit)}</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.credit)}</td>
+                                    <td className="px-3 py-2 text-end">{formatCurrency(totals.debit)}</td>
+                                    <td className="px-3 py-2 text-end">{formatCurrency(totals.credit)}</td>
                                     <td />
                                 </tr>
                                 {!totals.balanced && (
@@ -309,7 +309,7 @@ export default function Create({ accounts, journalNumber, journalEntry }: Props)
                                         <td className="px-3 pb-2" colSpan={2}>
                                             {t('Difference')}
                                         </td>
-                                        <td className="px-3 pb-2 text-right" colSpan={2}>
+                                        <td className="px-3 pb-2 text-end" colSpan={2}>
                                             {formatCurrency(Math.abs(totals.difference))}{' '}
                                             <span className="font-normal">
                                                 ({totals.difference > 0 ? t('needs credit') : t('needs debit')})

@@ -114,7 +114,7 @@ export default function Payslip() {
                     <div>
                         <h1 className="text-xl font-bold">{payrollEntry.payroll.title}</h1>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                         <h1 className="text-xl font-bold">{getCompanySetting('company_name') || 'YOUR COMPANY'}</h1>
                         <p className="text-sm text-gray-600">{getCompanySetting('company_address')}</p>
                     </div>
@@ -310,7 +310,7 @@ export default function Payslip() {
                     <div className="text-center flex-1">
                         <p className="text-xs text-gray-600">{t('This is a computer generated payslip and does not require signature.')}</p>
                     </div>
-                    <div className="text-right text-sm text-gray-600 max-w-xs">
+                    <div className="text-end text-sm text-gray-600 max-w-xs">
                         <div className="font-semibold">{getCompanySetting('company_name') || 'YOUR COMPANY'}</div>
                         {getCompanySetting('company_address') && <div>{getCompanySetting('company_address')}</div>}
                         {(getCompanySetting('company_city') || getCompanySetting('company_state') || getCompanySetting('company_zipcode')) && (

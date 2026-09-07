@@ -372,7 +372,7 @@ export default function EditForm({ form, auth }: EditFormProps) {
                               key={type.value}
                               type="button"
                               onClick={() => addFieldType(type.value)}
-                              className="relative flex items-center gap-2.5 p-2.5 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all text-left group"
+                              className="relative flex items-center gap-2.5 p-2.5 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all text-start group"
                               disabled={!auth.user?.permissions?.includes('edit-formbuilder-form-fields')}
                             >
                               {count > 0 && (

@@ -206,7 +206,7 @@ export default function Index() {
     ...(auth.user?.permissions?.some((p: string) => ['edit-knowledge-base', 'delete-knowledge-base'].includes(p)) ? [{
       key: 'actions',
       header: t('Actions'),
-      className: 'w-[90px] text-right',
+      className: 'w-[90px] text-end',
       render: (_: any, item: Knowledge) => (
         <div className="flex justify-end gap-1">
           <TooltipProvider>

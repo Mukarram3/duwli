@@ -73,7 +73,15 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 sticky top-0 z-10",
+      // Density: was h-12 px-4 (48px tall, 16px sides). Tightened to match the
+      // reference design — roughly 40% more rows fit on a screen, which is what
+      // an accounting user wants from a list.
+      //
+      // text-start, not text-left: `text-left` pinned every column heading to
+      // the left in Arabic while the cells beneath them flipped to the right.
+      // Headings and their data have been misaligned on every RTL screen in
+      // the system.
+      "h-10 px-3 text-start align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 sticky top-0 z-10",
       className
     )}
     {...props}
@@ -87,7 +95,10 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    // Was p-4 (16px on all four sides). px-3 py-2.5 keeps the row comfortable
+    // to read while removing the dead space that pushed most lists to three or
+    // four visible rows on a laptop.
+    className={cn("px-3 py-2.5 align-middle [&:has([role=checkbox])]:pr-0", className)}
     {...props}
   />
 ))

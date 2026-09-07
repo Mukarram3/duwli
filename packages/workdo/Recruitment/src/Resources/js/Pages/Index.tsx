@@ -493,7 +493,7 @@ export default function RecruitmentIndex({ message, dashboardData, userSlug, wel
                                                     <p className="text-xs text-gray-700">{t('Initial stage')}</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <span className="px-2 py-1 rounded-full text-sm bg-gray-100 text-gray-800 mb-1 inline-block">
                                                     {dashboardData.hiringFunnel.applications} {t('Candidates')}
                                                 </span>
@@ -513,7 +513,7 @@ export default function RecruitmentIndex({ message, dashboardData, userSlug, wel
                                                     <p className="text-xs text-blue-700">{t('Screening passed')}</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <span className="px-2 py-1 rounded-full text-sm bg-blue-100 text-blue-800 mb-1 inline-block">
                                                     {dashboardData.hiringFunnel.shortlisted} {t('Candidates')}
                                                 </span>
@@ -533,7 +533,7 @@ export default function RecruitmentIndex({ message, dashboardData, userSlug, wel
                                                     <p className="text-xs text-orange-700">{t('Interview completed')}</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <span className="px-2 py-1 rounded-full text-sm bg-orange-100 text-orange-800 mb-1 inline-block">
                                                     {dashboardData.hiringFunnel.interviewed} {t('Candidates')}
                                                 </span>
@@ -552,7 +552,7 @@ export default function RecruitmentIndex({ message, dashboardData, userSlug, wel
                                                 <p className="text-xs text-green-700">{t('Successfully hired')}</p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-end">
                                             <span className="px-2 py-1 rounded-full text-sm bg-green-100 text-green-800 mb-1 inline-block">
                                                 {dashboardData.hiringFunnel.hired} {t('Candidates')}
                                             </span>

@@ -553,7 +553,7 @@ export default function Index() {
                                                         <p className="text-xs text-muted-foreground mb-1">{t('Quotation Date')}</p>
                                                         <p className="text-xs font-medium text-gray-800">{formatDate(quotation.quotation_date)}</p>
                                                     </div>
-                                                    <div className="flex flex-col items-end text-right">
+                                                    <div className="flex flex-col items-end text-end">
                                                         <p className="text-xs text-muted-foreground mb-1">{t('Due Date')}</p>
                                                         <p className={`text-xs font-medium ${new Date(quotation.due_date) < new Date() ? 'text-red-600' : 'text-gray-800'}`}>
                                                             {formatDate(quotation.due_date)}

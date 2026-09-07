@@ -200,7 +200,7 @@ function UserDashboard({ message, stats, recentDeals, recentLeads, calendarEvent
                                                 <h4 className="font-medium text-sm text-gray-900">{deal.name}</h4>
                                                 <p className="text-xs text-gray-600 mt-1">{deal.stage?.name}</p>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <p className="text-xs text-gray-500">{formatDate(deal.created_at)}</p>
                                             </div>
                                         </div>
@@ -232,7 +232,7 @@ function UserDashboard({ message, stats, recentDeals, recentLeads, calendarEvent
                                                 <h4 className="font-medium text-sm text-gray-900">{lead.name}</h4>
                                                 <p className="text-xs text-gray-600 mt-1">{lead.subject}</p>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <p className="text-xs text-gray-500">{formatDate(lead.created_at)}</p>
                                             </div>
                                         </div>

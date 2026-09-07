@@ -527,8 +527,8 @@ export default function Index() {
                                                     </div>
 
                                                     <div>
-                                                        <p className="text-xs font-medium text-gray-600 mb-1 text-right">{t('Priority')}</p>
-                                                        <div className="text-right">
+                                                        <p className="text-xs font-medium text-gray-600 mb-1 text-end">{t('Priority')}</p>
+                                                        <div className="text-end">
                                                             {(() => {
                                                                 const priorityColors = {
                                                                     'High': 'bg-red-100 text-red-800',

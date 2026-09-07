@@ -205,7 +205,7 @@ export default function SalesAnalytics({
                                             </RadialBarChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-end">
                                         <p className="text-2xl font-semibold">{totalSales.percent}%</p>
                                         <p className="text-sm text-muted-foreground">
                                             {totalSales.count.toLocaleString()} {t('Sales')}
@@ -336,7 +336,7 @@ export default function SalesAnalytics({
                                                 style={{ width: `${(row.amount / max) * 100}%` }}
                                             />
                                         </div>
-                                        <span className="w-24 shrink-0 text-right text-sm font-semibold">
+                                        <span className="w-24 shrink-0 text-end text-sm font-semibold">
                                             {formatCurrency(row.amount)}
                                         </span>
                                     </div>
@@ -408,7 +408,7 @@ export default function SalesAnalytics({
                     {recentSales.length > 0 ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-muted/50 text-left">
+                                <thead className="bg-muted/50 text-start">
                                     <tr>
                                         <th className="px-5 py-3 font-medium">{t('Order ID')}</th>
                                         <th className="px-5 py-3 font-medium">{t('Client Name')}</th>
@@ -557,7 +557,7 @@ function Kpi({
 
             <div className="flex items-end justify-between gap-2">
                 <span className="text-2xl font-semibold">{value}</span>
-                <span className="text-right">
+                <span className="text-end">
                     {typeof delta === 'number' && (
                         <span
                             className={cn(

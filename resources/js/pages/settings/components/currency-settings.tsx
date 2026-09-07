@@ -203,7 +203,7 @@ export default function CurrencySettings({ userSettings = {}, auth }: CurrencySe
                         <div className="flex items-center gap-2">
                             <Input
                                 type="number"
-                                className="text-right h-8 text-sm"
+                                className="text-end h-8 text-sm"
                                 value={previewAmount}
                                 onChange={(e) => setPreviewAmount(parseFloat(e.target.value) || 0)}
                                 placeholder="Test amount"

@@ -1,0 +1,193 @@
+/* resources/css/typography.css
+ *
+ * DUWLI TYPOGRAPHY — Arabic and Latin
+ * ============================================================================
+ * WHY THIS FILE EXISTS
+ * The system declared NO font-family anywhere. Every screen fell through to
+ * Tailwind's default stack, which contains no Arabic face — so Arabic text
+ * rendered in whatever each user's operating system happened to pick. On
+ * Windows that is usually Tahoma or Segoe UI, both of which set Arabic badly:
+ * cramped joins, inconsistent stroke weight, and Latin and Arabic that do not
+ * sit on the same baseline when mixed in one line (which happens on every
+ * invoice pairing an Arabic customer name with a Latin invoice number).
+ *
+ * For a product sold in Saudi Arabia and the UAE this was the most visible
+ * defect in the interface.
+ *
+ * THE FONT — CAIRO
+ * Cairo is the most widely used Arabic UI typeface in the Gulf, and the one
+ * Saudi and UAE users will find most familiar. It reads as contemporary rather
+ * than institutional, its counters stay open at the small sizes used in table
+ * cells, and it ships a Latin companion so mixed-script lines share a baseline.
+ * SIL OFL licensed, so it ships with the product at no per-seat cost.
+ *
+ * CAIRO IS A VARIABLE FONT. Google serves ONE file covering the whole weight
+ * axis, so all four weights below reference the same woff2 and the browser
+ * interpolates. That is why `font-weight` is declared as a RANGE (100 900)
+ * rather than a single value on each face — declaring fixed weights against a
+ * variable file makes the browser synthesise fake bold instead of using the
+ * real one, which on Arabic thickens the joins and blurs the letterforms.
+ *
+ * Total cost: 2 files, 64 KB. The previous IBM Plex Sans Arabic setup used 8
+ * static files at 272 KB.
+ *
+ * SELF-HOSTED, NOT CDN
+ * Loading from fonts.googleapis.com would be one line less work but it adds a
+ * third-party request on every page load, is unreliable in parts of the region,
+ * and leaks user IPs to Google — which matters for a system holding financial
+ * records.
+ *
+ * SUBSETS
+ * Arabic and Latin are separate files with unicode-range declarations, so a
+ * browser rendering an English screen never downloads the Arabic file, and
+ * vice versa.
+ */
+
+/* Arabic — variable weight axis 100-900 */
+@font-face {
+    font-family: 'Cairo';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/fonts/cairo-arabic.woff2') format('woff2');
+    unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+
+/* Latin — variable weight axis 100-900 */
+@font-face {
+    font-family: 'Cairo';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/fonts/cairo-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ==========================================================================
+   Application font stack
+   ========================================================================== */
+
+/*
+ * Applied at :root so it cascades to everything including portals, dialogs and
+ * anything rendered outside the React tree. The system stack after Cairo is the
+ * fallback while the webfont loads (font-display: swap) and for any glyph Cairo
+ * does not cover.
+ */
+:root {
+    --font-sans: 'Cairo', ui-sans-serif, system-ui, -apple-system,
+        'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+        'Liberation Mono', monospace;
+}
+
+html,
+body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Cairo sits slightly small against the surrounding UI metrics at the same
+ * pixel size as the previous system fallback, and its Latin is a touch wide.
+ * A small optical size bump keeps table text legible without changing any of
+ * the layout classes.
+ */
+body {
+    font-size: 14.5px;
+}
+
+/* ==========================================================================
+   Numerals
+   ========================================================================== */
+
+/*
+ * TABULAR FIGURES ON EVERY NUMBER THAT SITS IN A COLUMN.
+ *
+ * Proportional digits are narrower for a 1 than a 0, so a column of money does
+ * not align on the decimal point and the eye cannot scan for magnitude. In an
+ * accounting system that is not cosmetic — misaligned decimals are how a
+ * misplaced digit goes unnoticed.
+ */
+table,
+.tabular-nums,
+input[type='number'] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/*
+ * ARABIC-INDIC DIGITS ARE NOT USED.
+ *
+ * Saudi and UAE accounting practice, ZATCA e-invoicing and every bank statement
+ * in the region use Western Arabic numerals (0-9), including in otherwise fully
+ * Arabic documents. Forcing ١٢٣ would look authentic and be wrong. `lnum` locks
+ * Latin numerals on so no font or locale setting can substitute them.
+ */
+[dir='rtl'],
+:lang(ar) {
+    font-feature-settings: 'lnum' 1;
+}
+
+/* ==========================================================================
+   RTL adjustments
+   ========================================================================== */
+
+/*
+ * Arabic has no uppercase. `text-transform: uppercase` on an Arabic string is
+ * a no-op for the Arabic glyphs but still uppercases any embedded Latin, which
+ * produces a jarring mixed-case label. Letter-spacing is worse: it BREAKS THE
+ * JOINS between Arabic letters, turning connected script into disconnected
+ * shapes. Both are neutralised for RTL.
+ */
+[dir='rtl'] .doc-label,
+[dir='rtl'] .doc-title,
+[dir='rtl'] .uppercase,
+[dir='rtl'] th {
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+/*
+ * Cairo has generous ascenders and descenders — more than the Latin-metric
+ * default line-height allows for. At table density Arabic set on a Latin
+ * line-height clips visually and reads as cramped.
+ */
+[dir='rtl'] body {
+    line-height: 1.7;
+}
+
+[dir='rtl'] table {
+    line-height: 1.6;
+}
+
+/*
+ * Cairo's bold is genuinely heavy. At small sizes in a dense table, 700 on
+ * Arabic turns into a solid block. Headings and totals step down to 600, which
+ * is a real instance on the variable axis rather than a synthesised weight.
+ */
+[dir='rtl'] th,
+[dir='rtl'] .font-bold {
+    font-weight: 600;
+}
+
+/* Latin text deliberately embedded in an RTL page — invoice numbers, SKUs,
+   email addresses — keeps its own direction so it is not reordered. */
+[dir='rtl'] .ltr-text {
+    direction: ltr;
+    display: inline-block;
+    unicode-bidi: isolate;
+}
+
+/* ==========================================================================
+   Print
+   ========================================================================== */
+
+/*
+ * print.css set a generic system stack, written before a font existed. The
+ * printed document should use the same face as the screen, or an Arabic invoice
+ * prints in a different typeface from the one the user approved.
+ */
+.doc-sheet {
+    font-family: var(--font-sans);
+}

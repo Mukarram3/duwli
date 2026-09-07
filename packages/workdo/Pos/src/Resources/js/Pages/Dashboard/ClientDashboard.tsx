@@ -142,7 +142,7 @@ export default function ClientDashboard({ stats, recentPurchases, purchasedProdu
                                                     {product.total_quantity} {t('units')} • {product.orders_count} {t('orders')}
                                                 </p>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <p className="text-sm font-bold text-green-600">{formatCurrency(product.total_spent)}</p>
                                             </div>
                                         </div>
@@ -175,7 +175,7 @@ export default function ClientDashboard({ stats, recentPurchases, purchasedProdu
                                                 <h4 className="font-medium text-sm text-gray-900">{purchase.sale_number}</h4>
                                                 <p className="text-xs text-gray-600 mt-1">{purchase.warehouse?.name || '-'}</p>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-end">
                                                 <p className="text-sm font-bold">{formatCurrency(purchase.total)}</p>
                                                 <p className="text-xs text-gray-500">{formatDate(purchase.created_at)}</p>
                                             </div>

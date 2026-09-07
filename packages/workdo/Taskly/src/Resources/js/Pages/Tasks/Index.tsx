@@ -508,8 +508,8 @@ export default function Index() {
                                                         <p className="text-xs text-gray-900">{task.milestone?.title || '-'}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-medium text-gray-600 mb-1 text-right">{t('Stage')}</p>
-                                                        <div className="text-right">
+                                                        <p className="text-xs font-medium text-gray-600 mb-1 text-end">{t('Stage')}</p>
+                                                        <div className="text-end">
                                                             {(() => {
                                                                 const stage = taskStages.find(s => s.id === (task as any).stage_id);
                                                                 const stageName = stage?.name || '-';
@@ -553,8 +553,8 @@ export default function Index() {
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-medium text-gray-600 mb-1 text-right">{t('Priority')}</p>
-                                                        <div className="text-right">
+                                                        <p className="text-xs font-medium text-gray-600 mb-1 text-end">{t('Priority')}</p>
+                                                        <div className="text-end">
                                                             {(() => {
                                                                 const priorityColors = {
                                                                     'High': 'bg-red-100 text-red-800',
@@ -571,7 +571,7 @@ export default function Index() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center justify-between pt-3 border-t">
-                                                    <span className="text-xs text-gray-900 text-right">
+                                                    <span className="text-xs text-gray-900 text-end">
                                                         {task.start_date && task.end_date ? `${formatDate(task.start_date)} - ${formatDate(task.end_date)}` : task.duration || '-'}
                                                     </span>
                                                     <div className="flex gap-1">

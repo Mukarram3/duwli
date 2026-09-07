@@ -1,1 +1,0 @@
-import{a3 as i,a0 as t,l as o}from"./ui-CUd_MbMF.js";var s=Object.freeze({position:"absolute",border:0,width:1,height:1,padding:0,margin:-1,overflow:"hidden",clip:"rect(0, 0, 0, 0)",whiteSpace:"nowrap",wordWrap:"normal"}),d="VisuallyHidden",r=i.forwardRef((a,e)=>t.jsx(o.span,{...a,ref:e,style:{...s,...a.style}}));r.displayName=d;var n=r;export{n as R,s as V};

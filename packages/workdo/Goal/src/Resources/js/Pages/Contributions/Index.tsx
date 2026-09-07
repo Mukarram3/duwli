@@ -223,7 +223,7 @@ export default function Index() {
         ...(auth.user?.permissions?.some((p: string) => ['edit-goal-contributions', 'delete-goal-contributions'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
-            className: 'w-[90px] text-right',
+            className: 'w-[90px] text-end',
             render: (_: any, item: GoalContribution) => (
                 <div className="flex justify-end gap-1">
                     <TooltipProvider>

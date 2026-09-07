@@ -229,12 +229,12 @@ export default function DashboardErp({
                             {recentTransactions.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-muted/50 text-left">
+                                        <thead className="bg-muted/50 text-start">
                                             <tr>
                                                 <th className="px-4 py-3 font-medium">{t('Reference')}</th>
                                                 <th className="px-4 py-3 font-medium">{t('Name')}</th>
                                                 <th className="px-4 py-3 font-medium">{t('Date')}</th>
-                                                <th className="px-4 py-3 text-right font-medium">{t('Amount')}</th>
+                                                <th className="px-4 py-3 text-end font-medium">{t('Amount')}</th>
                                                 <th className="px-4 py-3 font-medium">{t('Status')}</th>
                                             </tr>
                                         </thead>
@@ -252,7 +252,7 @@ export default function DashboardErp({
                                                     </td>
                                                     <td className="max-w-[180px] truncate px-4 py-3">{txn.party}</td>
                                                     <td className="px-4 py-3 text-muted-foreground">{txn.date}</td>
-                                                    <td className="px-4 py-3 text-right font-medium">
+                                                    <td className="px-4 py-3 text-end font-medium">
                                                         {formatCurrency(txn.amount)}
                                                     </td>
                                                     <td className="px-4 py-3">

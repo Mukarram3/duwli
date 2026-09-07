@@ -2,13 +2,13 @@ import { useTranslation } from 'react-i18next';
 import { CheckSquare, Mail, Phone, Users, MessageSquare, Upload, Activity as ActivityIcon, Clock } from 'lucide-react';
 import NoRecordsFound from '@/components/no-records-found';
 import { formatDate, formatDateTime } from '@/utils/helpers';
-import { Deal } from '../types';
+import { Lead } from '../types';
 
 interface ActivityProps {
-    deal: Deal;
+    lead: Lead;
 }
 
-export default function Activity({ deal }: ActivityProps) {
+export default function Activity({ lead }: ActivityProps) {
     const { t } = useTranslation();
 
     const getActivityConfig = (remark: string) => {
@@ -69,13 +69,13 @@ export default function Activity({ deal }: ActivityProps) {
                 <h3 className="text-lg font-bold text-foreground capitalize">{t('Activity')}</h3>
             </div>
             <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 max-h-[75vh] rounded-none w-full p-2 bg-background">
-                {deal.activities && deal.activities.length > 0 ? (
+                {lead.activities && lead.activities.length > 0 ? (
                     <div className="relative py-4 w-full">
                         {/* Vertical Timeline Line */}
                         <div className="absolute ltr:left-[128px] rtl:right-[128px] top-6 bottom-10 w-0.5 bg-border z-0" />
 
                         <div className="relative z-10 flex flex-col">
-                            {deal.activities.map((activity: any, index: number) => {
+                            {lead.activities.map((activity: any, index: number) => {
                                 const config = getActivityConfig(activity.remark);
                                 const title = (() => {
                                     try {
@@ -95,7 +95,7 @@ export default function Activity({ deal }: ActivityProps) {
                                 return (
                                     <div key={index} className="flex items-start w-full group">
                                         {/* Date column */}
-                                        <div className="w-28 ltr:text-right ltr:pr-6 rtl:text-left rtl:pl-6 font-bold text-xs text-muted-foreground pt-3.5 flex-shrink-0 select-none">
+                                        <div className="w-28 ltr:text-end ltr:pr-6 rtl:text-start rtl:pl-6 font-bold text-xs text-muted-foreground pt-3.5 flex-shrink-0 select-none">
                                             {showDate ? currentDate : ''}
                                         </div>
 

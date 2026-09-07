@@ -85,12 +85,12 @@ export default function View({ journalEntry }: any) {
 
                 <CardContent className="p-0">
                     <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-left">
+                        <thead className="bg-muted/50 text-start">
                             <tr>
                                 <th className="px-4 py-3 font-medium">{t('Account')}</th>
                                 <th className="px-4 py-3 font-medium">{t('Line Description')}</th>
-                                <th className="px-4 py-3 text-right font-medium">{t('Debit')}</th>
-                                <th className="px-4 py-3 text-right font-medium">{t('Credit')}</th>
+                                <th className="px-4 py-3 text-end font-medium">{t('Debit')}</th>
+                                <th className="px-4 py-3 text-end font-medium">{t('Credit')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -103,10 +103,10 @@ export default function View({ journalEntry }: any) {
                                         {item.account?.account_name}
                                     </td>
                                     <td className="px-4 py-3 text-muted-foreground">{item.description || '—'}</td>
-                                    <td className="px-4 py-3 text-right">
+                                    <td className="px-4 py-3 text-end">
                                         {Number(item.debit_amount) > 0 ? formatCurrency(item.debit_amount) : ''}
                                     </td>
-                                    <td className="px-4 py-3 text-right">
+                                    <td className="px-4 py-3 text-end">
                                         {Number(item.credit_amount) > 0 ? formatCurrency(item.credit_amount) : ''}
                                     </td>
                                 </tr>
@@ -117,8 +117,8 @@ export default function View({ journalEntry }: any) {
                                 <td className="px-4 py-3" colSpan={2}>
                                     {t('Totals')}
                                 </td>
-                                <td className="px-4 py-3 text-right">{formatCurrency(journalEntry.total_debit)}</td>
-                                <td className="px-4 py-3 text-right">{formatCurrency(journalEntry.total_credit)}</td>
+                                <td className="px-4 py-3 text-end">{formatCurrency(journalEntry.total_debit)}</td>
+                                <td className="px-4 py-3 text-end">{formatCurrency(journalEntry.total_credit)}</td>
                             </tr>
                         </tfoot>
                     </table>

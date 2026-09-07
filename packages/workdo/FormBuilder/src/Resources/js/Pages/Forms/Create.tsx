@@ -318,7 +318,7 @@ export default function CreateForm() {
                               key={type.value}
                               type="button"
                               onClick={() => addFieldType(type.value)}
-                              className="relative flex items-center gap-2.5 p-2.5 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all text-left group"
+                              className="relative flex items-center gap-2.5 p-2.5 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all text-start group"
                             >
                               {count > 0 && (
                                 <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm border border-background">

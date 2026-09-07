@@ -349,7 +349,7 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
                                                         availableCreditNotes.find(c => c.id === creditNote.credit_note_id)?.balance_amount || 0,
                                                         selectedAllocations.reduce((sum, a) => sum + a.amount, 0)
                                                     )}
-                                                    className="text-right"
+                                                    className="text-end"
                                                 />
                                             </div>
                                             <Button

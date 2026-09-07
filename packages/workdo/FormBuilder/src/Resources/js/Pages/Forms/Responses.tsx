@@ -220,7 +220,7 @@ export default function Responses({ form, responses, auth }: ResponsesProps) {
     {
       key: 'submission_no',
       header: '#',
-      className: 'px-4 py-3 text-left font-normal text-gray-750 text-sm w-20',
+      className: 'px-4 py-3 text-start font-normal text-gray-750 text-sm w-20',
       render: (_: any, response: FormResponse, index: number) => {
         const submissionNumber = responses.total - ((responses.current_page - 1) * responses.per_page + index);
         return (
@@ -233,7 +233,7 @@ export default function Responses({ form, responses, auth }: ResponsesProps) {
     {
       key: 'responder',
       header: t('Responder'),
-      className: 'px-4 py-3 text-left font-normal text-gray-750 text-sm',
+      className: 'px-4 py-3 text-start font-normal text-gray-750 text-sm',
       render: (_: any, response: FormResponse) => {
         const name = getNameVal(response);
         const email = getEmailVal(response);
@@ -259,7 +259,7 @@ export default function Responses({ form, responses, auth }: ResponsesProps) {
     {
       key: 'category',
       header: t('Category'),
-      className: 'px-4 py-3 text-left font-normal text-gray-750 text-sm',
+      className: 'px-4 py-3 text-start font-normal text-gray-750 text-sm',
       render: (_: any, response: FormResponse) => {
         const category = getCategoryVal(response);
         return <span className="text-gray-650 font-normal">{category}</span>;
@@ -268,7 +268,7 @@ export default function Responses({ form, responses, auth }: ResponsesProps) {
     {
       key: 'priority',
       header: t('Priority'),
-      className: 'px-4 py-3 text-left font-normal text-gray-750 text-sm',
+      className: 'px-4 py-3 text-start font-normal text-gray-750 text-sm',
       render: (_: any, response: FormResponse) => {
         const priority = getPriorityVal(response);
         const badgeClass = getPriorityBadgeClass(priority);
@@ -283,7 +283,7 @@ export default function Responses({ form, responses, auth }: ResponsesProps) {
       key: 'created_at',
       header: t('Submitted'),
       sortable: false,
-      className: 'px-4 py-3 text-left font-normal text-gray-750 text-sm',
+      className: 'px-4 py-3 text-start font-normal text-gray-750 text-sm',
       render: (value: string) => (
         <div className="flex flex-col">
           <span className="text-gray-900 font-semibold text-sm">{getRelativeTime(value)}</span>

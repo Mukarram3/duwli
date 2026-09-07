@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, CheckCircle2, Clock, FileText, Calculator, Plus, Settings } from 'lucide-react';
+import { CalendarDays, Package, CheckCircle2, Clock, FileText, Calculator, Plus, Settings, Save } from 'lucide-react';
 
 interface CreateProps {
     customers: Array<{id: number; name: string; email: string}>;

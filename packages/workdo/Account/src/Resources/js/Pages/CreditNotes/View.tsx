@@ -97,7 +97,7 @@ function View() {
                                 }`}>
                                     {t(creditNote.status.charAt(0).toUpperCase() + creditNote.status.slice(1))}
                                 </span>
-                                <div className="text-right">
+                                <div className="text-end">
                                     <div className="text-2xl font-bold">{formatCurrency(parseFloat(creditNote.total_amount.toString()))}</div>
                                     <div className="text-sm text-muted-foreground">{t('Total Amount')}</div>
                                 </div>
@@ -148,7 +148,7 @@ function View() {
                                                 </Button>
                                             )}
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-end">
                                             <div className="text-xl font-bold text-green-600">{formatCurrency(parseFloat(creditNote.balance_amount.toString()))}</div>
                                             <div className="text-sm text-muted-foreground">{t('Balance Amount')}</div>
                                         </div>
@@ -178,12 +178,12 @@ function View() {
                             <table className="min-w-full">
                                 <thead>
                                     <tr className="border-b">
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Product')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Qty')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Unit Price')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Discount')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Tax')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Total')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Product')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Qty')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Unit Price')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Discount')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Tax')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Total')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -198,9 +198,9 @@ function View() {
                                                     <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-4 text-right">{item.quantity}</td>
-                                            <td className="px-4 py-4 text-right">{formatCurrency(parseFloat(item.unit_price.toString()))}</td>
-                                            <td className="px-4 py-4 text-right">
+                                            <td className="px-4 py-4 text-end">{item.quantity}</td>
+                                            <td className="px-4 py-4 text-end">{formatCurrency(parseFloat(item.unit_price.toString()))}</td>
+                                            <td className="px-4 py-4 text-end">
                                                 {item.discount_percentage > 0 ? (
                                                     <div>
                                                         <div>{item.discount_percentage}%</div>
@@ -210,7 +210,7 @@ function View() {
                                                     </div>
                                                 ) : '-'}
                                             </td>
-                                            <td className="px-4 py-4 text-right">
+                                            <td className="px-4 py-4 text-end">
                                                 {item.taxes && item.taxes.length > 0 ? (
                                                     <div>
                                                         {item.taxes.map((tax, taxIndex) => (
@@ -229,7 +229,7 @@ function View() {
                                                     </div>
                                                 ) : '-'}
                                             </td>
-                                            <td className="px-4 py-4 text-right font-semibold">
+                                            <td className="px-4 py-4 text-end font-semibold">
                                                 {formatCurrency(parseFloat(item.total_amount.toString()))}
                                             </td>
                                         </tr>
@@ -289,17 +289,17 @@ function View() {
                                 <table className="min-w-full">
                                     <thead>
                                         <tr className="border-b">
-                                            <th className="px-4 py-3 text-left text-sm font-semibold">{t('Payment')}</th>
-                                            <th className="px-4 py-3 text-right text-sm font-semibold">{t('Applied Amount')}</th>
-                                            <th className="px-4 py-3 text-right text-sm font-semibold">{t('Date')}</th>
+                                            <th className="px-4 py-3 text-start text-sm font-semibold">{t('Payment')}</th>
+                                            <th className="px-4 py-3 text-end text-sm font-semibold">{t('Applied Amount')}</th>
+                                            <th className="px-4 py-3 text-end text-sm font-semibold">{t('Date')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {creditNote.applications.map((application) => (
                                             <tr key={application.id}>
                                                 <td className="px-4 py-4 text-sm text-gray-900">{application.payment.payment_number}</td>
-                                                <td className="px-4 py-4 text-right text-sm text-gray-500">{formatCurrency(parseFloat(application.applied_amount.toString()))}</td>
-                                                <td className="px-4 py-4 text-right text-sm text-gray-500">{formatDate(application.application_date)}</td>
+                                                <td className="px-4 py-4 text-end text-sm text-gray-500">{formatCurrency(parseFloat(application.applied_amount.toString()))}</td>
+                                                <td className="px-4 py-4 text-end text-sm text-gray-500">{formatDate(application.application_date)}</td>
                                             </tr>
                                         ))}
                                     </tbody>

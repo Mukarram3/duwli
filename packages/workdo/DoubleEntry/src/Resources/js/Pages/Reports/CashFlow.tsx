@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Printer, FileText } from 'lucide-react';
+import { Printer, FileText, Download } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import NoRecordsFound from '@/components/no-records-found';
 import axios from 'axios';
@@ -53,6 +53,18 @@ export default function CashFlow({ financialYear }: CashFlowProps) {
         fetchData();
     }, []);
 
+    /*
+     * Opens the print dialog, which produces selectable vector text and
+     * honours the repeating table headers in print.css. The rasterised
+     * download is kept as handleDownloadPDF below for anyone who needs a
+     * file without a dialog.
+     */
+    const handlePrint = () => {
+        const printUrl = route('double-entry.reports.cash-flow.print') +
+            `?from_date=${fromDate}&to_date=${toDate}&print=1`;
+        window.open(printUrl, '_blank');
+    };
+
     const handleDownloadPDF = () => {
         const printUrl = route('double-entry.reports.cash-flow.print') +
             `?from_date=${fromDate}&to_date=${toDate}&download=pdf`;
@@ -90,10 +102,18 @@ export default function CashFlow({ financialYear }: CashFlowProps) {
                         </Button>
                         <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
                         {data && auth.user?.permissions?.includes('print-cash-flow') && (
-                            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
-                                <Printer className="h-4 w-4" />
-                                {t('Download PDF')}
-                            </Button>
+                            <>
+                                <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
+                                    <Download className="h-4 w-4" />
+                                    {t('Download PDF')}
+                                </Button>
+                                {/* Print is listed second but is the better path: the browser
+                                    dialog offers "Save as PDF" and produces real vector text. */}
+                                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                                    <Printer className="h-4 w-4" />
+                                    {t('Print')}
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>

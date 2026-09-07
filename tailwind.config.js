@@ -16,6 +16,13 @@ module.exports = {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			// Keeps the `font-sans` utility in step with the :root stack set in
+  			// typography.css, so a component using `font-sans` gets the Arabic
+  			// face too rather than falling back to the Tailwind default.
+  			sans: ['var(--font-sans)'],
+  			mono: ['var(--font-mono)'],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

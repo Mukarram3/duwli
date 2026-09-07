@@ -59,7 +59,7 @@ export default function Print() {
                                 {getCompanySetting('company_address') && <p>{getCompanySetting('company_address')}</p>}
                             </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-end">
                             <h2 className="text-2xl font-bold text-gray-900 mb-3">{t('INVOICE AGING REPORT')}</h2>
                             <p className="text-sm text-gray-600">{t('As of')}: {formatDate(filters.as_of_date)}</p>
                         </div>
@@ -68,35 +68,35 @@ export default function Print() {
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="border-b-2 border-black">
-                            <th className="text-left py-2 px-2 text-sm font-semibold">{t('Customer')}</th>
-                            <th className="text-right py-2 px-2 text-sm font-semibold">{t('Current')}</th>
-                            <th className="text-right py-2 px-2 text-sm font-semibold">1-30 {t('Days')}</th>
-                            <th className="text-right py-2 px-2 text-sm font-semibold">31-60 {t('Days')}</th>
-                            <th className="text-right py-2 px-2 text-sm font-semibold">61-90 {t('Days')}</th>
-                            <th className="text-right py-2 px-2 text-sm font-semibold">&gt;90 {t('Days')}</th>
-                            <th className="text-right py-2 px-2 text-sm font-semibold">{t('Total')}</th>
+                            <th className="text-start py-2 px-2 text-sm font-semibold">{t('Customer')}</th>
+                            <th className="text-end py-2 px-2 text-sm font-semibold">{t('Current')}</th>
+                            <th className="text-end py-2 px-2 text-sm font-semibold">1-30 {t('Days')}</th>
+                            <th className="text-end py-2 px-2 text-sm font-semibold">31-60 {t('Days')}</th>
+                            <th className="text-end py-2 px-2 text-sm font-semibold">61-90 {t('Days')}</th>
+                            <th className="text-end py-2 px-2 text-sm font-semibold">&gt;90 {t('Days')}</th>
+                            <th className="text-end py-2 px-2 text-sm font-semibold">{t('Total')}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {data.customers.map((customer: any, idx: number) => (
                             <tr key={idx} className="border-b border-gray-200">
                                 <td className="py-2 px-2 text-sm">{customer.customer_name}</td>
-                                <td className="py-2 px-2 text-sm text-right">{formatCurrency(customer.current)}</td>
-                                <td className="py-2 px-2 text-sm text-right">{formatCurrency(customer['1_30_days'])}</td>
-                                <td className="py-2 px-2 text-sm text-right">{formatCurrency(customer['31_60_days'])}</td>
-                                <td className="py-2 px-2 text-sm text-right">{formatCurrency(customer['61_90_days'])}</td>
-                                <td className="py-2 px-2 text-sm text-right">{formatCurrency(customer.over_90_days)}</td>
-                                <td className="py-2 px-2 text-sm text-right font-semibold">{formatCurrency(customer.total)}</td>
+                                <td className="py-2 px-2 text-sm text-end">{formatCurrency(customer.current)}</td>
+                                <td className="py-2 px-2 text-sm text-end">{formatCurrency(customer['1_30_days'])}</td>
+                                <td className="py-2 px-2 text-sm text-end">{formatCurrency(customer['31_60_days'])}</td>
+                                <td className="py-2 px-2 text-sm text-end">{formatCurrency(customer['61_90_days'])}</td>
+                                <td className="py-2 px-2 text-sm text-end">{formatCurrency(customer.over_90_days)}</td>
+                                <td className="py-2 px-2 text-sm text-end font-semibold">{formatCurrency(customer.total)}</td>
                             </tr>
                         ))}
                         <tr className="border-t-2 border-black font-bold">
                             <td className="py-3 px-2 text-sm">{t('TOTAL')}</td>
-                            <td className="py-3 px-2 text-sm text-right">{formatCurrency(data.aging_summary.current)}</td>
-                            <td className="py-3 px-2 text-sm text-right">{formatCurrency(data.aging_summary['1_30_days'])}</td>
-                            <td className="py-3 px-2 text-sm text-right">{formatCurrency(data.aging_summary['31_60_days'])}</td>
-                            <td className="py-3 px-2 text-sm text-right">{formatCurrency(data.aging_summary['61_90_days'])}</td>
-                            <td className="py-3 px-2 text-sm text-right">{formatCurrency(data.aging_summary.over_90_days)}</td>
-                            <td className="py-3 px-2 text-sm text-right">{formatCurrency(data.aging_summary.total)}</td>
+                            <td className="py-3 px-2 text-sm text-end">{formatCurrency(data.aging_summary.current)}</td>
+                            <td className="py-3 px-2 text-sm text-end">{formatCurrency(data.aging_summary['1_30_days'])}</td>
+                            <td className="py-3 px-2 text-sm text-end">{formatCurrency(data.aging_summary['31_60_days'])}</td>
+                            <td className="py-3 px-2 text-sm text-end">{formatCurrency(data.aging_summary['61_90_days'])}</td>
+                            <td className="py-3 px-2 text-sm text-end">{formatCurrency(data.aging_summary.over_90_days)}</td>
+                            <td className="py-3 px-2 text-sm text-end">{formatCurrency(data.aging_summary.total)}</td>
                         </tr>
                     </tbody>
                 </table>

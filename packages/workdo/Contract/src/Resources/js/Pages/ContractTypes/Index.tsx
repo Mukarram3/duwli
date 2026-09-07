@@ -204,7 +204,7 @@ export default function Index() {
         ...(auth.user?.permissions?.some((p: string) => ['edit-contract-types', 'delete-contract-types'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
-            className: 'text-right',
+            className: 'text-end',
             render: (_: any, contracttype: ContractType) => (
                 <div className="flex justify-end gap-1">
                     <TooltipProvider>

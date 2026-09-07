@@ -464,7 +464,7 @@ export default function Index() {
                                                         <p className="text-xs text-muted-foreground mb-1">{t('Return Date')}</p>
                                                         <p className="text-xs font-medium text-gray-800 dark:text-gray-200">{formatDate(returnItem.return_date)}</p>
                                                     </div>
-                                                    <div className="flex flex-col items-end text-right">
+                                                    <div className="flex flex-col items-end text-end">
                                                         <p className="text-xs text-muted-foreground mb-1">{t('Warehouse')}</p>
                                                         <p className="text-xs font-medium text-gray-800 truncate dark:text-gray-200">{returnItem.warehouse?.name || '-'}</p>
                                                     </div>

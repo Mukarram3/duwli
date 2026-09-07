@@ -107,22 +107,22 @@ export default function QuotationItemsTable({ items, onChange, errors, products 
                 <table className="min-w-full">
                     <thead>
                         <tr className="border-b border-border">
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                            <th className="px-4 py-3 text-start text-sm font-semibold text-foreground">
                                 {t('Product')} <span className="text-red-500">*</span>
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                            <th className="px-4 py-3 text-start text-sm font-semibold text-foreground">
                                 {t('Qty')} <span className="text-red-500">*</span>
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                            <th className="px-4 py-3 text-start text-sm font-semibold text-foreground">
                                 {t('Unit Price')} <span className="text-red-500">*</span>
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                            <th className="px-4 py-3 text-start text-sm font-semibold text-foreground">
                                 {t('Discount')} %
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                            <th className="px-4 py-3 text-start text-sm font-semibold text-foreground">
                                 {t('Tax')}
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                            <th className="px-4 py-3 text-start text-sm font-semibold text-foreground">
                                 {t('Total')}
                             </th>
                             <th className="px-4 py-3 text-center text-sm font-semibold text-foreground">

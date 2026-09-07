@@ -493,7 +493,7 @@ export default function Index() {
                                                         <p className="text-xs text-muted-foreground mb-1">{t('Invoice Date')}</p>
                                                         <p className="text-xs font-medium text-gray-800">{formatDate(invoice.invoice_date)}</p>
                                                     </div>
-                                                    <div className="flex flex-col items-end text-right">
+                                                    <div className="flex flex-col items-end text-end">
                                                         <p className="text-xs text-muted-foreground mb-1">{t('Due Date')}</p>
                                                         <p className={`text-xs font-medium ${invoice.display_status === 'overdue' ? 'text-red-600' : 'text-gray-800'}`}>
                                                             {formatDate(invoice.due_date)}

@@ -88,7 +88,7 @@ export function PayslipModal({ open, onOpenChange, payrollEntry, payroll }: Pays
                                     <h3 className="text-lg font-semibold">{employeeName}</h3>
                                     <p className="text-sm text-gray-600">{employeeEmail}</p>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-end">
                                     <p className="text-sm font-medium">{payroll.title}</p>
                                     <p className="text-sm text-gray-600">
                                         {formatDate(payroll.pay_period_start)} - {formatDate(payroll.pay_period_end)}
@@ -217,7 +217,7 @@ export function PayslipModal({ open, onOpenChange, payrollEntry, payroll }: Pays
                                 <span className="font-medium">{t('Paid Leave Days')}</span>
                                 <div className="flex items-center gap-4">
                                     <span className="font-medium text-green-600">{payrollEntry.paid_leave_days} days</span>
-                                    <span className="text-sm text-gray-500 w-24 text-right">{t('No deduction')}</span>
+                                    <span className="text-sm text-gray-500 w-24 text-end">{t('No deduction')}</span>
                                 </div>
                             </div>
                             
@@ -227,7 +227,7 @@ export function PayslipModal({ open, onOpenChange, payrollEntry, payroll }: Pays
                                 <span className="font-medium">{t('Unpaid Leave Days')}</span>
                                 <div className="flex items-center gap-4">
                                     <span className="font-medium text-red-600">{payrollEntry.unpaid_leave_days} days</span>
-                                    <span className="font-medium text-red-600 w-24 text-right">{formatCurrency(payrollEntry.unpaid_leave_deduction)}</span>
+                                    <span className="font-medium text-red-600 w-24 text-end">{formatCurrency(payrollEntry.unpaid_leave_deduction)}</span>
                                 </div>
                             </div>
                             
@@ -237,7 +237,7 @@ export function PayslipModal({ open, onOpenChange, payrollEntry, payroll }: Pays
                                 <span className="font-medium">{t('Half Days')}</span>
                                 <div className="flex items-center gap-4">
                                     <span className="font-medium text-yellow-600">{payrollEntry.half_days} days</span>
-                                    <span className="font-medium text-red-600 w-24 text-right">{formatCurrency(payrollEntry.half_day_deduction)}</span>
+                                    <span className="font-medium text-red-600 w-24 text-end">{formatCurrency(payrollEntry.half_day_deduction)}</span>
                                 </div>
                             </div>
                             
@@ -247,7 +247,7 @@ export function PayslipModal({ open, onOpenChange, payrollEntry, payroll }: Pays
                                 <span className="font-medium">{t('Absent Days')}</span>
                                 <div className="flex items-center gap-4">
                                     <span className="font-medium text-red-600">{payrollEntry.absent_days} days</span>
-                                    <span className="font-medium text-red-600 w-24 text-right">{formatCurrency(payrollEntry.absent_day_deduction)}</span>
+                                    <span className="font-medium text-red-600 w-24 text-end">{formatCurrency(payrollEntry.absent_day_deduction)}</span>
                                 </div>
                             </div>
                             

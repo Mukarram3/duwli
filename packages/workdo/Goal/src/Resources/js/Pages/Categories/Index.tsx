@@ -183,7 +183,7 @@ export default function Index() {
         ...(auth.user?.permissions?.some((p: string) => ['edit-categories', 'delete-categories'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),
-            className: 'w-[90px] text-right',
+            className: 'w-[90px] text-end',
             render: (_: any, item: Category) => (
                 <div className="flex justify-end gap-1">
                     <TooltipProvider>

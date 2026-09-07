@@ -354,7 +354,7 @@ export default function Create({ vendors, bankAccounts, onSuccess }: CreateVendo
                                                         availableDebitNotes.find(d => d.id === debitNote.debit_note_id)?.balance_amount || 0,
                                                         selectedAllocations.reduce((sum, a) => sum + a.amount, 0)
                                                     )}
-                                                    className="text-right"
+                                                    className="text-end"
                                                 />
                                             </div>
                                             <Button

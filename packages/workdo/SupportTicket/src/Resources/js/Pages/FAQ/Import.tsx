@@ -196,7 +196,7 @@ export default function Import() {
                   <thead>
                     <tr className="bg-gray-50">
                       {csvHeaders.map((header, index) => (
-                        <th key={index} className="border p-2 text-left">
+                        <th key={index} className="border p-2 text-start">
                           <div className="space-y-2">
                             <div className="font-medium">{header}</div>
                             <Select 

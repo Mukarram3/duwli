@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Printer, FileText } from 'lucide-react';
+import { Printer, FileText, Download } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/utils/helpers';
 import NoRecordsFound from '@/components/no-records-found';
 import axios from 'axios';
@@ -55,6 +55,18 @@ export default function ExpenseReport({ financialYear }: ExpenseReportProps) {
         fetchData();
     }, []);
 
+    /*
+     * Opens the print dialog, which produces selectable vector text and
+     * honours the repeating table headers in print.css. The rasterised
+     * download is kept as handleDownloadPDF below for anyone who needs a
+     * file without a dialog.
+     */
+    const handlePrint = () => {
+        const printUrl = route('double-entry.reports.expense-report.print') +
+            `?from_date=${fromDate}&to_date=${toDate}&print=1`;
+        window.open(printUrl, '_blank');
+    };
+
     const handleDownloadPDF = () => {
         const printUrl = route('double-entry.reports.expense-report.print') +
             `?from_date=${fromDate}&to_date=${toDate}&download=pdf`;
@@ -99,10 +111,18 @@ export default function ExpenseReport({ financialYear }: ExpenseReportProps) {
                             </Button>
                             <Button variant="outline" onClick={clearFilters} size="sm">{t('Clear')}</Button>
                             {data && auth.user?.permissions?.includes('print-expense-report') && (
-                                <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
-                                    <Printer className="h-4 w-4" />
-                                    {t('Download PDF')}
-                                </Button>
+                                <>
+                                    <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="gap-2">
+                                        <Download className="h-4 w-4" />
+                                        {t('Download PDF')}
+                                    </Button>
+                                    {/* Print is listed second but is the better path: the browser
+                                        dialog offers "Save as PDF" and produces real vector text. */}
+                                    <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                                        <Printer className="h-4 w-4" />
+                                        {t('Print')}
+                                    </Button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -127,11 +147,11 @@ export default function ExpenseReport({ financialYear }: ExpenseReportProps) {
                                 <table className="w-full">
                                     <thead className="bg-gray-100 sticky top-0">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold">{t('Rank')}</th>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold">{t('Account Code')}</th>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold">{t('Expense Category')}</th>
-                                            <th className="px-4 py-3 text-right text-sm font-semibold">{t('Amount')}</th>
-                                            <th className="px-4 py-3 text-right text-sm font-semibold">{t('% of Total')}</th>
+                                            <th className="px-4 py-3 text-start text-sm font-semibold">{t('Rank')}</th>
+                                            <th className="px-4 py-3 text-start text-sm font-semibold">{t('Account Code')}</th>
+                                            <th className="px-4 py-3 text-start text-sm font-semibold">{t('Expense Category')}</th>
+                                            <th className="px-4 py-3 text-end text-sm font-semibold">{t('Amount')}</th>
+                                            <th className="px-4 py-3 text-end text-sm font-semibold">{t('% of Total')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -140,18 +160,18 @@ export default function ExpenseReport({ financialYear }: ExpenseReportProps) {
                                                 <td className="px-4 py-3 text-sm font-medium">{idx + 1}</td>
                                                 <td className="px-4 py-3 text-sm">{expense.account_code}</td>
                                                 <td className="px-4 py-3 text-sm">{expense.account_name}</td>
-                                                <td className="px-4 py-3 text-sm text-right font-semibold">
+                                                <td className="px-4 py-3 text-sm text-end font-semibold">
                                                     {formatCurrency(expense.amount)}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-right">
+                                                <td className="px-4 py-3 text-sm text-end">
                                                     {getPercentage(expense.amount)}%
                                                 </td>
                                             </tr>
                                         ))}
                                         <tr className="bg-gray-200 font-bold border-t-4 border-gray-800 sticky bottom-0">
                                             <td colSpan={3} className="px-4 py-4 text-base">{t('Total Expenses')}</td>
-                                            <td className="px-4 py-4 text-base text-right">{formatCurrency(data.total_expenses)}</td>
-                                            <td className="px-4 py-4 text-base text-right">100%</td>
+                                            <td className="px-4 py-4 text-base text-end">{formatCurrency(data.total_expenses)}</td>
+                                            <td className="px-4 py-4 text-base text-end">100%</td>
                                         </tr>
                                     </tbody>
                                 </table>

@@ -85,35 +85,35 @@ export default function InvoiceAging({ financialYear }: any) {
                             <table className="w-full">
                                 <thead className="bg-gray-100 sticky top-0">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">{t('Customer')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Current')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">1-30 {t('Days')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">31-60 {t('Days')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">61-90 {t('Days')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">&gt;90 {t('Days')}</th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">{t('Total')}</th>
+                                        <th className="px-4 py-3 text-start text-sm font-semibold">{t('Customer')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Current')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">1-30 {t('Days')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">31-60 {t('Days')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">61-90 {t('Days')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">&gt;90 {t('Days')}</th>
+                                        <th className="px-4 py-3 text-end text-sm font-semibold">{t('Total')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {data.customers.map((customer, idx) => (
                                         <tr key={idx} className="border-t hover:bg-gray-50">
                                             <td className="px-4 py-3">{customer.customer_name}</td>
-                                            <td className="px-4 py-3 text-right">{formatCurrency(customer.current)}</td>
-                                            <td className="px-4 py-3 text-right">{formatCurrency(customer['1_30_days'])}</td>
-                                            <td className="px-4 py-3 text-right">{formatCurrency(customer['31_60_days'])}</td>
-                                            <td className="px-4 py-3 text-right">{formatCurrency(customer['61_90_days'])}</td>
-                                            <td className="px-4 py-3 text-right">{formatCurrency(customer.over_90_days)}</td>
-                                            <td className="px-4 py-3 text-right font-semibold">{formatCurrency(customer.total)}</td>
+                                            <td className="px-4 py-3 text-end">{formatCurrency(customer.current)}</td>
+                                            <td className="px-4 py-3 text-end">{formatCurrency(customer['1_30_days'])}</td>
+                                            <td className="px-4 py-3 text-end">{formatCurrency(customer['31_60_days'])}</td>
+                                            <td className="px-4 py-3 text-end">{formatCurrency(customer['61_90_days'])}</td>
+                                            <td className="px-4 py-3 text-end">{formatCurrency(customer.over_90_days)}</td>
+                                            <td className="px-4 py-3 text-end font-semibold">{formatCurrency(customer.total)}</td>
                                         </tr>
                                     ))}
                                     <tr className="bg-gray-200 font-bold border-t-4">
                                         <td className="px-4 py-4">{t('Total')}</td>
-                                        <td className="px-4 py-4 text-right">{formatCurrency(data.aging_summary.current)}</td>
-                                        <td className="px-4 py-4 text-right">{formatCurrency(data.aging_summary['1_30_days'])}</td>
-                                        <td className="px-4 py-4 text-right">{formatCurrency(data.aging_summary['31_60_days'])}</td>
-                                        <td className="px-4 py-4 text-right">{formatCurrency(data.aging_summary['61_90_days'])}</td>
-                                        <td className="px-4 py-4 text-right">{formatCurrency(data.aging_summary.over_90_days)}</td>
-                                        <td className="px-4 py-4 text-right">{formatCurrency(data.aging_summary.total)}</td>
+                                        <td className="px-4 py-4 text-end">{formatCurrency(data.aging_summary.current)}</td>
+                                        <td className="px-4 py-4 text-end">{formatCurrency(data.aging_summary['1_30_days'])}</td>
+                                        <td className="px-4 py-4 text-end">{formatCurrency(data.aging_summary['31_60_days'])}</td>
+                                        <td className="px-4 py-4 text-end">{formatCurrency(data.aging_summary['61_90_days'])}</td>
+                                        <td className="px-4 py-4 text-end">{formatCurrency(data.aging_summary.over_90_days)}</td>
+                                        <td className="px-4 py-4 text-end">{formatCurrency(data.aging_summary.total)}</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -225,8 +225,8 @@ export default function Show() {
                                         <TableHead className="font-semibold">{t('Journal Number')}</TableHead>
                                         <TableHead className="font-semibold">{t('Date')}</TableHead>
                                         <TableHead className="font-semibold">{t('Description')}</TableHead>
-                                        <TableHead className="text-right font-semibold">{t('Debit')}</TableHead>
-                                        <TableHead className="text-right font-semibold">{t('Credit')}</TableHead>
+                                        <TableHead className="text-end font-semibold">{t('Debit')}</TableHead>
+                                        <TableHead className="text-end font-semibold">{t('Credit')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -237,12 +237,12 @@ export default function Show() {
                                             </TableCell>
                                             <TableCell>{formatDate(item.journal_entry.journal_date)}</TableCell>
                                             <TableCell className="max-w-xs truncate">{item.description}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-end">
                                                 {item.debit_amount > 0 ? (
                                                     <span className="text-red-600">{formatCurrency(item.debit_amount)}</span>
                                                 ) : '-'}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-end">
                                                 {item.credit_amount > 0 ? (
                                                     <span className="text-green-600">{formatCurrency(item.credit_amount)}</span>
                                                 ) : '-'}
