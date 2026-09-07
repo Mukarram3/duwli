@@ -30,6 +30,14 @@ export interface Customer {
   /** Derived, not stored: 'overdue' | 'due' | 'paid'. */
   account_status?: 'overdue' | 'due' | 'paid';
 
+  /** Age in days of the oldest unpaid invoice. 0 when nothing is late. */
+  days_past_due?: number;
+  /**
+   * Debt ageing band derived from days_past_due — see
+   * CustomerController::debtStatus. Null when the customer owes nothing.
+   */
+  debt_status?: 'normal' | 'warning' | 'risk' | 'high_risk' | 'critical' | null;
+
   billing_address: Address;
   shipping_address: Address;
   same_as_billing: boolean;

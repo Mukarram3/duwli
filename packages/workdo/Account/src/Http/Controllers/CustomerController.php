@@ -36,6 +36,23 @@ class CustomerController extends Controller
                 ->when(request('company_name'), fn($q) => $q->where('company_name', 'like', '%' . request('company_name') . '%'))
                 ->when(request('customer_code'), fn($q) => $q->where('customer_code', 'like', '%' . request('customer_code') . '%'))
                 ->when(request('tax_number'), fn($q) => $q->where('tax_number', 'like', '%' . request('tax_number') . '%'))
+                /*
+                 * Debt-status filter.
+                 *
+                 * The band is derived from invoice ageing, not stored on the
+                 * customer, so it cannot be a simple WHERE. This restricts the
+                 * customer list to the user_ids whose oldest unpaid invoice
+                 * falls in the requested band — resolved as one subquery
+                 * against sales_invoices, so the filter applies to the WHOLE
+                 * result set and paginates correctly.
+                 *
+                 * Filtering the collection after pagination would have been
+                 * simpler and wrong: it would filter only the visible page and
+                 * report a total count that did not match the rows shown.
+                 */
+                ->when(request('debt_status'), function ($q) {
+                    $q->whereIn('user_id', $this->customerIdsInDebtBand(request('debt_status')));
+                })
                 ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())
                 ->paginate(request('per_page', 10))
                 ->withQueryString();
@@ -64,6 +81,12 @@ class CustomerController extends Controller
                     ? 'overdue'
                     : ($customer->balance > 0 ? 'due' : 'paid');
 
+                $customer->days_past_due = (int) ($row->days_past_due ?? 0);
+                $customer->debt_status   = self::debtStatus(
+                    $customer->days_past_due,
+                    $customer->balance
+                );
+
                 return $customer;
             });
 
@@ -80,6 +103,83 @@ class CustomerController extends Controller
             ]);
         }
         return back()->with('error', __('Permission denied'));
+    }
+
+    /**
+     * Customer user_ids whose oldest unpaid invoice falls in the given ageing
+     * band. Used by the debt-status filter on the list.
+     *
+     * The day boundaries mirror debtStatus() exactly. They are expressed here
+     * as SQL rather than reusing the PHP classifier because the filter has to
+     * run inside the query to paginate correctly — so the two must be kept in
+     * step if the bands ever change.
+     */
+    private function customerIdsInDebtBand(string $band): array
+    {
+        $bounds = [
+            'normal'    => [0, 30],
+            'warning'   => [31, 60],
+            'risk'      => [61, 90],
+            'high_risk' => [91, 120],
+            'critical'  => [121, null],
+        ];
+
+        if (!isset($bounds[$band])) {
+            return [];
+        }
+
+        [$min, $max] = $bounds[$band];
+
+        return SalesInvoice::query()
+            ->where('created_by', creatorId())
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->where('balance_amount', '>', 0)
+            ->groupBy('customer_id')
+            ->havingRaw(
+                $max === null
+                    ? 'MAX(CASE WHEN due_date < CURDATE() THEN DATEDIFF(CURDATE(), due_date) ELSE 0 END) >= ?'
+                    : 'MAX(CASE WHEN due_date < CURDATE() THEN DATEDIFF(CURDATE(), due_date) ELSE 0 END) BETWEEN ? AND ?',
+                $max === null ? [$min] : [$min, $max]
+            )
+            ->pluck('customer_id')
+            ->all();
+    }
+
+    /**
+     * Debt risk band, from the age of the oldest unpaid invoice.
+     *
+     *      0-30 days    normal
+     *     31-60 days    warning
+     *     61-90 days    risk
+     *    91-120 days    high_risk
+     *      120+ days    critical
+     *
+     * Returned as a machine key, not a label. The front end translates it, so
+     * the same band reads "High Risk" in English and "خطر عالي" in Arabic
+     * without the API having to know which language the user is in.
+     *
+     * A customer with NOTHING OUTSTANDING returns null rather than 'normal'.
+     * "Owes nothing" and "owes money, but it is not yet late" are different
+     * positions, and colouring the first one green implies a credit assessment
+     * that has not been made.
+     *
+     * The bands are inclusive at the top: 30 days is normal, 31 is warning.
+     * That matches how the rule was specified and how ageing is read — day 30
+     * is still within a 30-day term.
+     */
+    public static function debtStatus(int $daysPastDue, float $balance): ?string
+    {
+        if ($balance <= 0) {
+            return null;
+        }
+
+        return match (true) {
+            $daysPastDue <= 30  => 'normal',
+            $daysPastDue <= 60  => 'warning',
+            $daysPastDue <= 90  => 'risk',
+            $daysPastDue <= 120 => 'high_risk',
+            default             => 'critical',
+        };
     }
 
     /**
@@ -108,6 +208,17 @@ class CustomerController extends Controller
             ->selectRaw('SUM(balance_amount) as balance')
             ->selectRaw('SUM(CASE WHEN due_date < CURDATE() THEN balance_amount ELSE 0 END) as overdue')
             ->selectRaw('COUNT(*) as open_count')
+            /*
+             * Days past due = the age of the OLDEST unpaid invoice, not an
+             * average and not the newest. Debt risk is driven by the item that
+             * has been outstanding longest: a customer with one 200-day invoice
+             * and nine current ones is a critical case, and averaging would
+             * hide that behind a comfortable number.
+             *
+             * MAX over DATEDIFF gives the oldest, because a larger DATEDIFF
+             * means an earlier due date.
+             */
+            ->selectRaw('MAX(CASE WHEN due_date < CURDATE() THEN DATEDIFF(CURDATE(), due_date) ELSE 0 END) as days_past_due')
             ->groupBy('customer_id')
             ->get()
             ->keyBy('customer_id');

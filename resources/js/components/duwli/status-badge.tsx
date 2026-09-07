@@ -36,7 +36,9 @@ import { cn } from '@/lib/utils';
 export type StatusTone =
     | 'success'
     | 'warning'
+    | 'orange'
     | 'danger'
+    | 'critical'
     | 'info'
     | 'neutral'
     | 'purple';
@@ -44,7 +46,15 @@ export type StatusTone =
 const toneClasses: Record<StatusTone, string> = {
     success: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-400/20',
     warning: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-400/20',
+    // Sits between warning and danger. Debt ageing needs five distinguishable
+    // bands, and amber-to-red alone cannot carry five steps.
+    orange: 'bg-orange-50 text-orange-700 ring-orange-600/20 dark:bg-orange-950/40 dark:text-orange-400 dark:ring-orange-400/20',
     danger: 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-400/20',
+    // The only SOLID badge in the system. Tinted pills read as metadata, which
+    // is right for a status — but the top of an escalation scale should not
+    // read as metadata. Reserved for the worst band of a graded scale; do not
+    // use it for ordinary bad states like "cancelled".
+    critical: 'bg-red-600 text-white ring-red-700/40 dark:bg-red-700 dark:text-white dark:ring-red-500/40',
     info: 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-400/20',
     neutral: 'bg-slate-50 text-slate-600 ring-slate-500/20 dark:bg-slate-800/60 dark:text-slate-300 dark:ring-slate-400/20',
     purple: 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-950/40 dark:text-violet-400 dark:ring-violet-400/20',
@@ -53,7 +63,9 @@ const toneClasses: Record<StatusTone, string> = {
 const dotClasses: Record<StatusTone, string> = {
     success: 'bg-emerald-500',
     warning: 'bg-amber-500',
+    orange: 'bg-orange-500',
     danger: 'bg-red-500',
+    critical: 'bg-white',
     info: 'bg-sky-500',
     neutral: 'bg-slate-400',
     purple: 'bg-violet-500',
@@ -142,12 +154,19 @@ const STATUS_MAP: Record<string, { tone: StatusTone; label: string }> = {
     completed: { tone: 'success', label: 'Completed' },
     todo: { tone: 'neutral', label: 'To Do' },
 
+    // --- debt ageing bands (see CustomerController::debtStatus) ---
+    // Keyed separately from 'warning'/'critical' priority values above so a
+    // debt band can never be confused with a ticket priority.
+    normal: { tone: 'success', label: 'Normal' },
+    risk: { tone: 'orange', label: 'Risk' },
+    high_risk: { tone: 'danger', label: 'High Risk' },
+
     // --- priority (shares the vocabulary deliberately) ---
     low: { tone: 'neutral', label: 'Low' },
     medium: { tone: 'info', label: 'Medium' },
     high: { tone: 'warning', label: 'High' },
     urgent: { tone: 'danger', label: 'Urgent' },
-    critical: { tone: 'danger', label: 'Critical' },
+    critical: { tone: 'critical', label: 'Critical' },
 };
 
 /** Normalise any incoming status into a map key. */

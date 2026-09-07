@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Plus, Edit as EditIcon, Trash2, Building2, Lock, FileText, Eye, Upload,
     Users, Wallet, Receipt, TrendingUp,
@@ -38,6 +39,8 @@ interface CustomerFilters {
     company_name: string;
     customer_code: string;
     tax_number: string;
+    /** Debt ageing band — see CustomerController::debtStatus. */
+    debt_status: string;
 }
 
 interface CustomerModalState {
@@ -55,7 +58,8 @@ export default function Index() {
     const [filters, setFilters] = useState<CustomerFilters>({
         company_name: urlParams.get('company_name') || '',
         customer_code: urlParams.get('customer_code') || '',
-        tax_number: urlParams.get('tax_number') || ''
+        tax_number: urlParams.get('tax_number') || '',
+        debt_status: urlParams.get('debt_status') || ''
     });
 
     const [perPage] = useState(urlParams.get('per_page') || '10');
@@ -94,7 +98,7 @@ export default function Index() {
     };
 
     const clearFilters = () => {
-        setFilters({ company_name: '', customer_code: '', tax_number: '' });
+        setFilters({ company_name: '', customer_code: '', tax_number: '', debt_status: '' });
         router.get(route('account.customers.index'), { per_page: perPage, view: viewMode });
     };
 
@@ -111,13 +115,29 @@ export default function Index() {
         }, { preserveState: true, replace: true });
     };
 
+
+    /** Band keys in ageing order, so the filter reads as a scale. */
+    const DEBT_BANDS = [
+        { value: 'normal', label: 'Normal' },
+        { value: 'warning', label: 'Warning' },
+        { value: 'risk', label: 'Risk' },
+        { value: 'high_risk', label: 'High Risk' },
+        { value: 'critical', label: 'Critical' },
+    ];
+
+    const debtLabel = (value: string) =>
+        DEBT_BANDS.find((b) => b.value === value)?.label || value;
+
     /** Chips describing what is currently filtering the table. */
     const activeFilters: ActiveFilter[] = ([
         { key: 'customer_code', label: 'Customer Code', value: filters.customer_code },
         { key: 'tax_number', label: 'Tax Number', value: filters.tax_number },
+        { key: 'debt_status', label: 'Debt Status', value: filters.debt_status ? t(debtLabel(filters.debt_status)) : '' },
     ] as ActiveFilter[]).filter((f) => Boolean(f.value));
 
-    const hasAnyFilter = Boolean(filters.company_name || filters.customer_code || filters.tax_number);
+    const hasAnyFilter = Boolean(
+        filters.company_name || filters.customer_code || filters.tax_number || filters.debt_status
+    );
 
     const openModal = (mode: 'add' | 'edit', data: Customer | null = null) => {
         setModalState({ isOpen: true, mode, data });
@@ -285,6 +305,32 @@ export default function Index() {
             ),
         },
         {
+            key: 'debt_status',
+            header: t('Debt Status'),
+            render: (_: any, customer: any) => {
+                // Null means nothing outstanding. "Owes nothing" and "owes
+                // money that is not yet late" are different positions, and
+                // showing the first as green Normal implies a credit
+                // assessment nobody has made.
+                if (!customer.debt_status) {
+                    return <TextCell value={null} />;
+                }
+
+                const days = Number(customer.days_past_due) || 0;
+
+                return (
+                    <span className="flex flex-col items-start gap-0.5">
+                        <StatusBadge status={customer.debt_status} />
+                        {days > 0 && (
+                            <span className="text-[11px] text-muted-foreground tabular-nums">
+                                {days} {t('days past due')}
+                            </span>
+                        )}
+                    </span>
+                );
+            },
+        },
+        {
             key: 'account_status',
             header: t('Status'),
             render: (_: any, customer: any) => (
@@ -447,6 +493,27 @@ export default function Index() {
                                 className="h-9"
                             />
                         </div>
+                        <div className="space-y-1.5">
+                            <Label>{t('Debt Status')}</Label>
+                            <Select
+                                value={filters.debt_status || 'all'}
+                                onValueChange={(value) =>
+                                    setFilters({ ...filters, debt_status: value === 'all' ? '' : value })
+                                }
+                            >
+                                <SelectTrigger className="h-9">
+                                    <SelectValue placeholder={t('All debt statuses')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{t('All debt statuses')}</SelectItem>
+                                    {DEBT_BANDS.map((band) => (
+                                        <SelectItem key={band.value} value={band.value}>
+                                            {t(band.label)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="flex gap-2 pt-1">
                             <Button size="sm" className="flex-1" onClick={handleFilter}>{t('Apply')}</Button>
                             <Button size="sm" variant="outline" className="flex-1" onClick={clearFilters}>{t('Clear')}</Button>
@@ -511,6 +578,17 @@ export default function Index() {
                                                         </div>
                                                     )}
                                                 </dl>
+
+                                                {customer.debt_status && (
+                                                    <div className="mb-2 flex items-center gap-2">
+                                                        <StatusBadge status={customer.debt_status} />
+                                                        {Number(customer.days_past_due) > 0 && (
+                                                            <span className="text-[11px] text-muted-foreground tabular-nums">
+                                                                {customer.days_past_due} {t('days past due')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 <div className="mb-3">
                                                     <StatusBadge
