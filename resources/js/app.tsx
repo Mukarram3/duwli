@@ -12,66 +12,128 @@ import { Suspense } from "react";
 import axios from "axios";
 
 
-// Silent CSRF token refresh
-const refreshToken = async () => {
-    try {
-        const response = await fetch(window.location.href, { method: 'GET' });
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newToken = doc.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (newToken) {
-            document.querySelector('meta[name="csrf-token"]')?.setAttribute('content', newToken);
-            axios.defaults.headers.common['X-CSRF-TOKEN'] = newToken;
-        }
-    } catch (e) {}
+/*
+ * CSRF TOKEN REFRESH
+ * -----------------------------------------------------------------------------
+ * REWRITTEN. The previous implementation refreshed the token like this:
+ *
+ *     const response = await fetch(window.location.href, { method: 'GET' });
+ *     const html = await response.text();
+ *     ...parse the whole document with DOMParser, read the meta tag...
+ *
+ * Three problems with that, all of which contribute to the raw-JSON failure:
+ *
+ * 1. IT RE-DOWNLOADS THE ENTIRE CURRENT PAGE to read one meta tag — full HTML,
+ *    every prop, every embedded payload. On the landing page that is a large
+ *    response, fetched again on top of the navigation already in flight.
+ *
+ * 2. IT WRITES THAT RESPONSE INTO THE BROWSER HTTP CACHE under the page's own
+ *    URL, using the default cache mode. Once any cache in the chain has stored
+ *    the wrong variant for that URL, a later navigation can be answered with
+ *    JSON instead of HTML — which is precisely the reported symptom.
+ *
+ * 3. THE 419 DETECTION NEVER FIRED. `event.detail.errors` is Inertia's
+ *    validation error bag; it does not carry HTTP status codes, so
+ *    `errors[419]` was always undefined and the retry path was dead code.
+ *
+ * The replacement asks the server for the token and nothing else, from a
+ * dedicated endpoint, with caching explicitly disabled. It also guards against
+ * concurrent calls, so a burst of failed requests triggers one refresh rather
+ * than one per request.
+ */
+
+/*
+ * Keep a reference to the untouched fetch BEFORE patching it, so refreshToken
+ * cannot recurse into its own interceptor.
+ */
+const originalFetch = window.fetch.bind(window);
+
+/** In-flight refresh, so N failed requests cause 1 fetch rather than N. */
+let refreshInFlight: Promise<string | null> | null = null;
+
+const readToken = (): string | null =>
+    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? null;
+
+const applyToken = (token: string) => {
+    document.querySelector('meta[name="csrf-token"]')?.setAttribute('content', token);
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
 };
 
-router.on('before', (event) => {
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (!token) {
+const refreshToken = async (): Promise<string | null> => {
+    if (refreshInFlight) return refreshInFlight;
+
+    refreshInFlight = (async () => {
+        try {
+            // `cache: 'no-store'` is the important part: it keeps this request
+            // out of the HTTP cache entirely, so it cannot poison the entry for
+            // any page URL.
+            const response = await originalFetch('/csrf-token', {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!response.ok) return null;
+
+            const data = await response.json();
+            if (data?.token) {
+                applyToken(data.token);
+                return data.token as string;
+            }
+            return null;
+        } catch {
+            return null;
+        } finally {
+            // Cleared on the next tick so simultaneous callers share this result.
+            setTimeout(() => { refreshInFlight = null; }, 0);
+        }
+    })();
+
+    return refreshInFlight;
+};
+
+router.on('before', () => {
+    if (!readToken()) {
         refreshToken();
     }
 });
 
-router.on('error', async (event) => {
-    const errors = event.detail.errors;
-    if (errors && (errors[419] || errors['419'] || Object.values(errors).some(e => String(e).includes('419')))) {
-        await refreshToken();
+/*
+ * Inertia surfaces a 419 as an `invalid` event carrying the response, not as
+ * an entry in the validation error bag. This is the listener the old code was
+ * trying to write.
+ */
+router.on('invalid', (event: any) => {
+    if (event?.detail?.response?.status === 419) {
+        event.preventDefault();
+        refreshToken().then(() => router.reload());
     }
 });
 
-// Global fetch interceptor
-const originalFetch = window.fetch;
-window.fetch = async (...args) => {
-    const [url, options] = args;
-    
-    // Ensure fresh token before request
-    if (options && options.method && options.method !== 'GET') {
-        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (!token) {
-            await refreshToken();
-        }
-        // Update token in headers
-        const newToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (newToken && options.headers) {
-            (options.headers as any)['X-CSRF-TOKEN'] = newToken;
+// Global fetch interceptor — adds a fresh token to state-changing requests and
+// retries once on 419.
+window.fetch = async (...args: Parameters<typeof fetch>) => {
+    const [, options] = args;
+    const method = (options?.method || 'GET').toUpperCase();
+
+    if (method !== 'GET' && method !== 'HEAD') {
+        const token = readToken() ?? (await refreshToken());
+        if (token && options) {
+            options.headers = { ...(options.headers as any), 'X-CSRF-TOKEN': token };
         }
     }
-    
+
     const response = await originalFetch(...args);
-    
-    // Fallback: retry on 419 error
+
     if (response.status === 419) {
-        await refreshToken();
-        if (options && options.headers) {
-            const newToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            if (newToken) {
-                (options.headers as any)['X-CSRF-TOKEN'] = newToken;
-            }
+        const token = await refreshToken();
+        if (token && options) {
+            options.headers = { ...(options.headers as any), 'X-CSRF-TOKEN': token };
+            return originalFetch(...args);
         }
-        return originalFetch(...args);
     }
+
     return response;
 };
 

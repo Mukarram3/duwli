@@ -34,6 +34,30 @@ use Inertia\Inertia;
 use App\Http\Controllers\SalesDashboardController;
 
 
+/*
+ * Lightweight CSRF token endpoint.
+ *
+ * Replaces the old refresh method, which re-downloaded the ENTIRE current page
+ * and parsed it with DOMParser just to read one meta tag — and in doing so
+ * wrote that response into the browser HTTP cache under the page's own URL.
+ * That is one of the ways a cached JSON variant ends up being served for an
+ * ordinary page load.
+ *
+ * Deliberately OUTSIDE the auth group: a guest whose session has rotated needs
+ * a token to log in, and a token is not a secret — CSRF protection works
+ * because the attacker cannot READ the response, not because the value is
+ * confidential. It stays inside the `web` group so the session cookie is
+ * present and the token matches the caller's session.
+ *
+ * Never cached, at any layer.
+ */
+Route::get('/csrf-token', function () {
+    return response()
+        ->json(['token' => csrf_token()])
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0')
+        ->header('X-LiteSpeed-Cache-Control', 'no-cache');
+})->name('csrf-token');
+
 Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     // Route::get('/dashboard', function () {
     //     return Inertia::render('dashboard');

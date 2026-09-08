@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
             \App\Http\Middleware\CheckInstallation::class,
+            // Must run BEFORE HandleInertiaRequests so the no-store headers are
+            // applied to the Inertia JSON response on the way back out.
+            \App\Http\Middleware\PreventInertiaCaching::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\DemoModeMiddleware::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,

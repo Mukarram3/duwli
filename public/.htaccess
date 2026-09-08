@@ -1,3 +1,36 @@
+# =============================================================================
+# DISABLE SERVER-SIDE CACHING FOR THE APPLICATION
+# =============================================================================
+# LiteSpeed (used by most shared hosting, including Hostinger) enables LSCache
+# by default. LSCache does not reliably honour the `Vary: X-Inertia` header
+# that Inertia relies on to keep two different responses apart at the same URL:
+#
+#     normal navigation      -> text/html        (the full page)
+#     request with X-Inertia -> application/json (page props only)
+#
+# When the cache stores the JSON variant under the plain URL, the next ordinary
+# page load is answered with `Content-Type: application/json` and the browser
+# renders the raw JSON as text — a screen full of
+# {"component":"...","props":{...}}.
+#
+# It looks time-dependent because it is governed by the cache TTL, not by
+# anything in the application code. Nothing in the app is counting seconds.
+#
+# This application is a per-user, session-driven system. NONE of its HTML is
+# safely cacheable at the server: a shared cache serving one logged-in user's
+# page to another is a security problem, not only a display one. Static assets
+# under /build and /fonts are unaffected — they are served directly by the web
+# server and never pass through PHP.
+<IfModule LiteSpeed>
+    CacheDisable public /
+    CacheLookup off
+</IfModule>
+
+# Same instruction for Apache's mod_cache, in case the host is not LiteSpeed.
+<IfModule mod_cache.c>
+    CacheDisable /
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
