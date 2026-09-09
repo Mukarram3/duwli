@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit as EditIcon, Trash2, Eye, Package as PackageIcon, Download, FileImage, Upload } from 'lucide-react';
+import { Plus, Edit as EditIcon, Trash2, Eye, Package as PackageIcon, Download, FileImage, Upload, FileUp, FileDown} from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -241,14 +241,14 @@ export default function Index() {
                         {
                             label: t('Import'),
                             onClick: () => setImportOpen(true),
-                            icon: Upload,
+                            icon: FileUp,
                             variant: 'primary',
                             permission: 'create-assets',
                         },
                         {
                             label: t('Export'),
                             href: actionRoute('assets.assets.export'),
-                            icon: Download,
+                            icon: FileDown,
                             variant: 'primary',
                             external: true,
                             permission: 'manage-assets',

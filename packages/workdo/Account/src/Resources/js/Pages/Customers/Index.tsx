@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    Plus, Edit as EditIcon, Trash2, Building2, Lock, FileText, Eye, Upload,
+    Plus, Edit as EditIcon, Trash2, Building2, Lock, FileText, Eye, FileUp,
     Users, Wallet, Receipt, TrendingUp,
 } from "lucide-react";
 import ImportDialog from '@/components/import-dialog';
@@ -412,7 +412,7 @@ export default function Index() {
                     {can('create-customers') && (
                         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}
                             className="h-9 px-3.5 text-[13px] font-semibold">
-                            <Upload className="mr-1.5 h-4 w-4" />
+                            <FileUp className="mr-1.5 h-4 w-4" />
                             {t('Import')}
                         </Button>
                     )}

@@ -105,6 +105,35 @@ class HomeController extends Controller
          *
          * Set ERP_UNIFIED_DASHBOARD=false in .env to restore the old page.
          */
+        /*
+         * SALES IS THE LANDING PAGE.
+         *
+         * /dashboard renders the Sales dashboard directly, rather than the
+         * generic ERP overview. Sales is what this business opens the system
+         * to look at, and an extra click to reach it on every login is a click
+         * paid every day.
+         *
+         * DELEGATED, NOT REDIRECTED. A redirect would bounce the user to
+         * /sales/dashboard and leave that in the address bar and in history,
+         * so "Dashboard" in the breadcrumb would disagree with the URL and the
+         * back button would land on a redirect loop. Delegating renders the
+         * same screen under /dashboard, which is what the user asked for.
+         *
+         * Falls through to the generic overview when the Account module is off
+         * or the user cannot see invoices — a purchasing or HR user should not
+         * land on a page of sales figures they have no permission to read.
+         *
+         * Set ERP_SALES_LANDING=false in .env to restore the generic overview.
+         */
+        $salesLanding = config('app.erp_sales_landing', true);
+
+        if ($salesLanding
+            && Module_is_active('Account')
+            && Auth::user()->can('manage-sales-invoices')) {
+            return app(\App\Http\Controllers\SalesDashboardController::class)
+                ->index(request());
+        }
+
         if ($useUnified) {
             // Figures come from POSTED journal entries, the same source as the
             // Trial Balance and P&L, so the dashboard can never disagree with

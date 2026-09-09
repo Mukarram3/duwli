@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
     Replace, FileSpreadsheet, Wallet, AlertCircle, CheckCircle2,
-    CreditCard, User as UserIcon,
+    CreditCard, CirclePlus, FileUp, User as UserIcon,
 } from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -33,6 +33,7 @@ import {
 } from '@/components/duwli';
 import { Label } from '@/components/ui/label';
 import { SalesInvoice, SalesFilters } from './types';
+import InvoiceImportDialog from './ImportDialog';
 
 interface SalesIndexProps {
     invoices: {
@@ -64,6 +65,7 @@ export default function Index() {
     const [perPage] = useState(urlParams.get('per_page') || '10');
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
     const [sortDirection, setSortDirection] = useState(urlParams.get('direction') || 'asc');
+    const [importOpen, setImportOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(urlParams.get('view') as 'list' | 'grid' || 'list');
 
     // Component for invoice action buttons
@@ -98,26 +100,70 @@ export default function Index() {
     // Qoyod-style action bar. Related destinations sit on the page they belong
     // to rather than taking their own sidebar rows. Entries whose route does
     // not resolve (package not installed) are dropped automatically.
+    /*
+     * ACTION BAR — ordered per the Invoice & Receivables specification:
+     *
+     *   New Invoice | New Customer Receipt | Manage Receipts |
+     *   Manage Credit Notes | Import Invoices | Export
+     *
+     * Creation actions first, then management screens, then bulk data.
+     * That puts the two things a user opens this page to DO at the front,
+     * and the maintenance destinations behind them.
+     *
+     * "Manage Receipts" and "New Customer Receipt" are deliberately distinct:
+     * the first opens the full receipt management screen, the second is a
+     * quick create. They must not collapse into one button.
+     *
+     * Entries whose route does not resolve (package not installed) are
+     * dropped automatically by actionRoute().
+     */
     const invoiceActions: PageAction[] = [
+        {
+            label: t('New Invoice'),
+            href: actionRoute('sales-invoices.create'),
+            icon: Plus,
+            variant: 'primary',
+            permission: 'create-sales-invoices',
+        },
+        {
+            /*
+             * Quick create of a customer receipt. There is no dedicated
+             * `create` route — receipts are raised from a dialog on the
+             * payments screen — so this opens that screen with ?new=1, which
+             * the receipts page reads to open the create dialog on load.
+             *
+             * NOTE: the ?new=1 handler does not exist on the payments screen
+             * yet. Until it is added this lands on the receipts list, which is
+             * correct but one click short of the intended behaviour. Flagged
+             * in the handover.
+             */
+            label: t('New Customer Receipt'),
+            href: actionRoute('account.customer-payments.index')
+                ? `${actionRoute('account.customer-payments.index')}?new=1`
+                : undefined,
+            icon: CirclePlus,
+            variant: 'primary',
+            permission: 'create-customer-payments',
+        },
         {
             label: t('Manage Receipts'),
             href: actionRoute('account.customer-payments.index'),
             icon: Receipt,
-            variant: 'primary',
+            variant: 'outline',
             permission: 'manage-customer-payments',
         },
         {
             label: t('Manage Credit Notes'),
             href: actionRoute('account.credit-notes.index'),
             icon: FileText,
-            variant: 'primary',
+            variant: 'outline',
             permission: 'manage-credit-notes',
         },
         {
-            label: t('New Invoice'),
-            href: actionRoute('sales-invoices.create'),
-            icon: Plus,
-            variant: 'primary',
+            label: t('Import'),
+            onClick: () => setImportOpen(true),
+            icon: FileUp,
+            variant: 'outline',
             permission: 'create-sales-invoices',
         },
         {
@@ -342,7 +388,7 @@ export default function Index() {
                                      * balance reaches zero, with the reason
                                      * shown rather than the icon vanishing.
                                      */
-                                    label: t('Record Payment'),
+                                    label: t('Receive Payment'),
                                     icon: CreditCard,
                                     className: 'text-emerald-600 hover:text-emerald-700',
                                     permitted: auth.user?.permissions?.includes('create-customer-payments'),
@@ -350,9 +396,21 @@ export default function Index() {
                                     disabledReason: isDraft
                                         ? t('Post the invoice before recording a payment')
                                         : t('Invoice is fully paid'),
+                                    /*
+                                     * Opens the Create Customer Receipt form
+                                     * with THIS invoice already selected and
+                                     * its outstanding balance allocated.
+                                     *
+                                     * The invoice id is all that is passed —
+                                     * the controller resolves the customer,
+                                     * the balance and the reference itself.
+                                     * Sending the amount through the URL would
+                                     * let anyone edit the address bar and
+                                     * allocate money the invoice does not owe.
+                                     */
                                     onClick: () => router.visit(
                                         route('account.customer-payments.index', {
-                                            customer_id: invoice.customer_id,
+                                            invoice_id: invoice.id,
                                         })
                                     ),
                                 },
@@ -417,6 +475,38 @@ export default function Index() {
             pageDescription={t('Manage and track your sales invoices, payments, and balances.')}
             pageIcon={FileSpreadsheet}
             pageCount={invoices.meta?.total ?? invoices.total}
+            /*
+             * Export lives in the header's Export dropdown rather than as a
+             * seventh button in the action bar: Excel and CSV are the same
+             * intent with different output, and the bar is already long.
+             *
+             * The current filters are passed through, so the file matches what
+             * the user is looking at rather than dumping the whole table.
+             */
+            pageExports={
+                can('manage-sales-invoices')
+                    ? [
+                          {
+                              label: 'Download as Excel',
+                              icon: FileSpreadsheet,
+                              onClick: () => {
+                                  window.location.href = route('sales-invoices.export', {
+                                      ...filters, format: 'xlsx',
+                                  });
+                              },
+                          },
+                          {
+                              label: 'Download as CSV',
+                              icon: FileText,
+                              onClick: () => {
+                                  window.location.href = route('sales-invoices.export', {
+                                      ...filters, format: 'csv',
+                                  });
+                              },
+                          },
+                      ]
+                    : undefined
+            }
             pageActions={
                 <PageActionBar
                     actions={invoiceActions}
@@ -782,6 +872,8 @@ export default function Index() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
+            <InvoiceImportDialog open={importOpen} onOpenChange={setImportOpen} />
+
         </AuthenticatedLayout>
     );
 }

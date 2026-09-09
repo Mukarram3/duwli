@@ -17,6 +17,13 @@ return [
     // Render the unified ERP dashboard instead of the legacy one.
     'erp_unified_dashboard' => env('ERP_UNIFIED_DASHBOARD', true),
 
+    /*
+     * When true, /dashboard renders the Sales dashboard instead of the generic
+     * ERP overview. Sales is the landing page users open the system to see.
+     * Users without invoice permission still get the generic overview.
+     */
+    'erp_sales_landing' => env('ERP_SALES_LANDING', true),
+
     'name' => env('APP_NAME', 'Laravel'),
 
     /*

@@ -25,7 +25,7 @@ import {
 } from '@/components/duwli';
 import { RowActions } from '@/components/row-actions';
 import {
-    Eye, Plus, Check, Undo2, Lock, BookOpen, Upload,
+    Eye, Plus, Check, Undo2, Lock, BookOpen, FileUp,
     FileEdit, Scale, AlertTriangle,
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
@@ -90,7 +90,7 @@ export default function Index({ journalEntries, filters: initialFilters, stats }
             // opening balances and month-end adjustments actually arrive.
             label: t('Import'),
             onClick: () => setImportOpen(true),
-            icon: Upload,
+            icon: FileUp,
             variant: 'primary',
             permission: 'create-journal-entries',
         },

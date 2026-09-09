@@ -86,6 +86,8 @@ export interface CustomerPaymentsIndexProps {
     bankAccounts: BankAccount[];
     filters: CustomerPaymentFilters;
     auth: AuthContext;
+    /** Years that actually have receipts, for the Fiscal Year filter. */
+    fiscalYears?: (number | string)[];
 }
 
 export interface CreateCustomerPaymentProps {

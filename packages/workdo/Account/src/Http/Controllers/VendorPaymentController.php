@@ -16,6 +16,8 @@ use App\Models\User;
 use App\Models\PurchaseInvoice;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Workdo\Account\Models\JournalEntry;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Workdo\Account\Events\CreateVendorPayment;
@@ -47,15 +49,34 @@ class VendorPaymentController extends Controller
                     }
                 });
 
-            // Apply filters
+            /*
+             * FILTERS
+             * The reference layout offers a full filter panel. Each of these
+             * runs in SQL so it applies to the WHOLE result set and paginates
+             * correctly — filtering the loaded page instead would show a total
+             * count that did not match the rows displayed.
+             */
             if ($request->vendor_id) {
                 $query->where('vendor_id', $request->vendor_id);
             }
             if ($request->status) {
                 $query->where('status', $request->status);
             }
+            // "Reference" matches either the system payment number or the
+            // vendor's own reference — a user looking for a payment has one or
+            // the other to hand, rarely both.
+            if ($request->reference) {
+                $query->where(function ($q) use ($request) {
+                    $q->where('payment_number', 'like', '%' . $request->reference . '%')
+                      ->orWhere('reference_number', 'like', '%' . $request->reference . '%');
+                });
+            }
             if ($request->search) {
-                $query->where('payment_number', 'like', '%' . $request->search . '%');
+                $query->where(function ($q) use ($request) {
+                    $q->where('payment_number', 'like', '%' . $request->search . '%')
+                      ->orWhere('reference_number', 'like', '%' . $request->search . '%')
+                      ->orWhereHas('vendor', fn ($v) => $v->where('name', 'like', '%' . $request->search . '%'));
+                });
             }
             if ($request->date_from) {
                 $query->whereDate('payment_date', '>=', $request->date_from);
@@ -63,8 +84,35 @@ class VendorPaymentController extends Controller
             if ($request->date_to) {
                 $query->whereDate('payment_date', '<=', $request->date_to);
             }
+            if ($request->filled('min_amount')) {
+                $query->where('payment_amount', '>=', (float) $request->min_amount);
+            }
+            if ($request->filled('max_amount')) {
+                $query->where('payment_amount', '<=', (float) $request->max_amount);
+            }
             if ($request->bank_account_id) {
                 $query->where('bank_account_id', $request->bank_account_id);
+            }
+            // Fiscal year, taken as a calendar year unless the company defines
+            // its own start month. Kept simple deliberately: an incorrect
+            // fiscal boundary is worse than an obvious calendar one.
+            if ($request->fiscal_year) {
+                $query->whereYear('payment_date', $request->fiscal_year);
+            }
+            if ($request->fiscal_period) {
+                $query->whereMonth('payment_date', $request->fiscal_period);
+            }
+
+            /*
+             * "Kind" filters by ALLOCATION state, which is derived rather than
+             * stored: a payment is Unused, Partially Used or Used depending on
+             * how much of it has been applied to bills. It has to be computed
+             * from the allocations table, so it is expressed as a HAVING over a
+             * subquery rather than a plain WHERE.
+             */
+            if ($request->kind) {
+                $ids = $this->paymentIdsByAllocationState($request->kind);
+                $query->whereIn('id', $ids);
             }
 
             $sortField = $request->get('sort', 'created_at');
@@ -72,20 +120,195 @@ class VendorPaymentController extends Controller
             $query->orderBy($sortField, $sortDirection);
 
             $payments = $query->paginate($request->get('per_page', 10));
-            $vendors = User::where('type', 'vendor')->where('created_by', creatorId())->get();
 
+            /*
+             * UNALLOCATED AMOUNT is derived, not stored: the payment total less
+             * everything applied to bills and debit notes. Computed here with
+             * two grouped queries over the page's ids rather than per row — a
+             * per-row sum on a 100-row page is 200 extra queries.
+             *
+             * It drives the Allocate action: a payment with nothing left to
+             * apply must not offer one.
+             */
+            $ids = $payments->getCollection()->pluck('id');
+
+            $allocated = VendorPaymentAllocation::whereIn('payment_id', $ids)
+                ->selectRaw('payment_id, SUM(allocated_amount) as total')
+                ->groupBy('payment_id')
+                ->pluck('total', 'payment_id');
+
+            $applied = DebitNoteApplication::whereIn('payment_id', $ids)
+                ->selectRaw('payment_id, SUM(applied_amount) as total')
+                ->groupBy('payment_id')
+                ->pluck('total', 'payment_id');
+
+            $payments->getCollection()->transform(function ($payment) use ($allocated, $applied) {
+                $used = (float) ($allocated[$payment->id] ?? 0) + (float) ($applied[$payment->id] ?? 0);
+                $payment->allocated_amount   = round($used, 2);
+                $payment->unallocated_amount = round(max($payment->payment_amount - $used, 0), 2);
+
+                // Kind, as the reference column shows it.
+                $payment->kind = $used <= 0
+                    ? 'unused'
+                    : ($payment->unallocated_amount > 0 ? 'partially_used' : 'used');
+
+                return $payment;
+            });
+
+            $vendors = User::where('type', 'vendor')->where('created_by', creatorId())->get();
             $bankAccounts = BankAccount::where('is_active', true)->where('created_by', creatorId())->get();
 
             return Inertia::render('Account/VendorPayments/Index', [
-                'payments' => $payments,
-                'vendors' => $vendors,
+                'payments'     => $payments,
+                'vendors'      => $vendors,
                 'bankAccounts' => $bankAccounts,
-                'filters' => $request->only(['vendor_id', 'status', 'search', 'bank_account_id'])
+                'filters'      => $request->only([
+                    'vendor_id', 'status', 'search', 'reference', 'kind',
+                    'bank_account_id', 'date_from', 'date_to',
+                    'min_amount', 'max_amount', 'fiscal_year', 'fiscal_period',
+                ]),
+                // Years that actually have payments — an empty year in a picker
+                // is a dead end.
+                'fiscalYears' => VendorPayment::where('created_by', creatorId())
+                    ->selectRaw('DISTINCT YEAR(payment_date) as year')
+                    ->orderByDesc('year')
+                    ->pluck('year'),
             ]);
         }
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Payment ids in a given allocation state.
+     *
+     * Unused / Partially Used / Used is not a stored column — it depends on how
+     * much of the payment has been applied to bills and debit notes. This
+     * resolves it in SQL so the filter applies across the whole result set and
+     * paginates correctly.
+     *
+     * @param  string  $state  unused|partially_used|used
+     * @return array<int>
+     */
+    private function paymentIdsByAllocationState(string $state): array
+    {
+        $payments = VendorPayment::where('created_by', creatorId())
+            ->select('id', 'payment_amount')
+            ->get();
+
+        if ($payments->isEmpty()) {
+            return [];
+        }
+
+        $ids = $payments->pluck('id');
+
+        $allocated = VendorPaymentAllocation::whereIn('payment_id', $ids)
+            ->selectRaw('payment_id, SUM(allocated_amount) as total')
+            ->groupBy('payment_id')
+            ->pluck('total', 'payment_id');
+
+        $applied = DebitNoteApplication::whereIn('payment_id', $ids)
+            ->selectRaw('payment_id, SUM(applied_amount) as total')
+            ->groupBy('payment_id')
+            ->pluck('total', 'payment_id');
+
+        return $payments->filter(function ($payment) use ($allocated, $applied, $state) {
+            $used = (float) ($allocated[$payment->id] ?? 0) + (float) ($applied[$payment->id] ?? 0);
+            $remaining = round($payment->payment_amount - $used, 2);
+
+            return match ($state) {
+                'unused'         => $used <= 0,
+                'partially_used' => $used > 0 && $remaining > 0,
+                'used'           => $used > 0 && $remaining <= 0,
+                default          => true,
+            };
+        })->pluck('id')->all();
+    }
+
+    /**
+     * VOID a payment — cancel it while PRESERVING the accounting history.
+     *
+     * This is not a delete, and the difference matters. Deleting a cleared
+     * payment would remove a row the ledger still refers to, leaving journal
+     * entries pointing at nothing and a bank reconciliation that no longer
+     * balances. Voiding leaves every record in place and posts the REVERSE
+     * entries, so the audit trail shows both what happened and that it was
+     * undone.
+     *
+     * The sequence matters and is deliberate:
+     *   1. Roll back the bills — a voided payment no longer pays them, so the
+     *      amounts must go back onto their balances or those bills would show
+     *      as paid with nothing paying them.
+     *   2. Roll back any debit notes applied through this payment.
+     *   3. Reverse the journal entry, leaving the original in place.
+     *   4. Mark the payment cancelled, recording who and when.
+     *
+     * A payment that was never cleared has no ledger effect, so steps 1-3 are
+     * skipped and it is simply marked cancelled.
+     */
+    public function void(Request $request, VendorPayment $vendorPayment)
+    {
+        if (!Auth::user()->can('cleared-vendor-payments') || $vendorPayment->created_by != creatorId()) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        if ($vendorPayment->status === 'cancelled') {
+            return back()->with('error', __('This payment has already been cancelled.'));
+        }
+
+        try {
+            DB::transaction(function () use ($vendorPayment) {
+                if ($vendorPayment->status === 'cleared') {
+                    // 1. Put the money back on the bills.
+                    foreach ($vendorPayment->allocations as $allocation) {
+                        $invoice = $allocation->invoice;
+                        if (!$invoice) {
+                            continue;
+                        }
+
+                        $invoice->paid_amount    = max($invoice->paid_amount - $allocation->allocated_amount, 0);
+                        $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
+                        $invoice->status = $invoice->paid_amount <= 0
+                            ? 'posted'
+                            : ($invoice->balance_amount <= 0 ? 'paid' : 'partial');
+                        $invoice->save();
+                    }
+
+                    // 2. And back on the debit notes.
+                    foreach (DebitNoteApplication::where('payment_id', $vendorPayment->id)->get() as $application) {
+                        $note = DebitNote::find($application->debit_note_id);
+                        if (!$note) {
+                            continue;
+                        }
+
+                        $note->applied_amount  = max($note->applied_amount - $application->applied_amount, 0);
+                        $note->balance_amount  = $note->total_amount - $note->applied_amount;
+                        $note->status = $note->applied_amount <= 0
+                            ? 'open'
+                            : ($note->balance_amount <= 0 ? 'applied' : 'partial');
+                        $note->save();
+                    }
+
+                    // 3. Reverse the ledger entry. The original stays — that is
+                    //    the whole point of a void rather than a delete.
+                    $journal = JournalEntry::where('reference_type', 'vendor_payment')
+                        ->where('reference_id', $vendorPayment->id)
+                        ->where('status', 'posted')
+                        ->first();
+
+                    if ($journal) {
+                        $this->journalService->reverseManualJournal($journal);
+                    }
+                }
+
+                $vendorPayment->update(['status' => 'cancelled']);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', __('Could not void the payment: ') . $e->getMessage());
+        }
+
+        return back()->with('success', __('The payment has been voided. The accounting entries were reversed and the history kept.'));
     }
 
     public function store(StoreVendorPaymentRequest $request)

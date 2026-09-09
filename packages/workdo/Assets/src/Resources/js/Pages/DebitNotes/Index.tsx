@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Eye, XCircle, CheckCircle, Trash2, Plus, Download, ShieldCheck } from 'lucide-react';
+import { Eye, XCircle, CheckCircle, Trash2, Plus, Download, ShieldCheck, FileDown} from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -292,7 +292,7 @@ export default function Index() {
                         {
                             label: t('Export'),
                             href: actionRoute('account.debit-notes.export'),
-                            icon: Download,
+                            icon: FileDown,
                             variant: 'primary',
                             external: true,
                             permission: 'manage-debit-notes',

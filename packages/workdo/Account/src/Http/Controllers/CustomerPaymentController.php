@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\SalesInvoice;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Workdo\Account\Services\ReceiptExportService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Workdo\Account\Events\CreateCustomerPayment;
@@ -45,15 +46,36 @@ class CustomerPaymentController extends Controller
                     }
                 });
 
-            // Apply filters
+            /*
+             * FILTERS — the full panel from the reference layout.
+             *
+             * All of them run in SQL so they apply to the WHOLE result set and
+             * paginate correctly. Filtering the loaded page instead reports a
+             * total count that does not match the rows shown.
+             */
             if ($request->customer_id) {
                 $query->where('customer_id', $request->customer_id);
             }
             if ($request->status) {
                 $query->where('status', $request->status);
             }
+            // "Reference" matches the system receipt number OR the customer's
+            // own reference — whoever is looking has one or the other to hand,
+            // rarely both.
+            if ($request->reference) {
+                $query->where(function ($q) use ($request) {
+                    $q->where('payment_number', 'like', '%' . $request->reference . '%')
+                      ->orWhere('reference_number', 'like', '%' . $request->reference . '%');
+                });
+            }
+            // "Contact Name or Ref. No." — one box that searches both, because
+            // that is how the reference screen labels it.
             if ($request->search) {
-                $query->where('payment_number', 'like', '%' . $request->search . '%');
+                $query->where(function ($q) use ($request) {
+                    $q->where('payment_number', 'like', '%' . $request->search . '%')
+                      ->orWhere('reference_number', 'like', '%' . $request->search . '%')
+                      ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', '%' . $request->search . '%'));
+                });
             }
             if ($request->date_from) {
                 $query->whereDate('payment_date', '>=', $request->date_from);
@@ -61,8 +83,30 @@ class CustomerPaymentController extends Controller
             if ($request->date_to) {
                 $query->whereDate('payment_date', '<=', $request->date_to);
             }
+            if ($request->filled('min_amount')) {
+                $query->where('payment_amount', '>=', (float) $request->min_amount);
+            }
+            if ($request->filled('max_amount')) {
+                $query->where('payment_amount', '<=', (float) $request->max_amount);
+            }
             if ($request->bank_account_id) {
                 $query->where('bank_account_id', $request->bank_account_id);
+            }
+            if ($request->fiscal_year) {
+                $query->whereYear('payment_date', $request->fiscal_year);
+            }
+            if ($request->fiscal_period) {
+                $query->whereMonth('payment_date', $request->fiscal_period);
+            }
+
+            /*
+             * "Kind" filters by ALLOCATION state, which is derived rather than
+             * stored: a receipt is Unused, Partially Used or Used depending on
+             * how much has been applied to invoices. It has to be resolved from
+             * the allocations, so it cannot be a plain WHERE.
+             */
+            if ($request->kind) {
+                $query->whereIn('id', $this->paymentIdsByAllocationState($request->kind));
             }
 
             $sortField = $request->get('sort', 'created_at');
@@ -70,20 +114,157 @@ class CustomerPaymentController extends Controller
             $query->orderBy($sortField, $sortDirection);
 
             $payments = $query->paginate($request->get('per_page', 10));
-            $customers = User::where('type', 'client')->where('created_by', creatorId())->get();
 
+            /*
+             * UNALLOCATED AMOUNT is derived: the receipt total less everything
+             * applied to invoices and credit notes. Two grouped queries over
+             * the page's ids, not one per row — a per-row sum on a 100-row page
+             * is 200 extra queries.
+             *
+             * It is the actionable figure on this screen: money received but
+             * not yet matched to an invoice.
+             */
+            $ids = $payments->getCollection()->pluck('id');
+
+            $allocated = CustomerPaymentAllocation::whereIn('payment_id', $ids)
+                ->selectRaw('payment_id, SUM(allocated_amount) as total')
+                ->groupBy('payment_id')
+                ->pluck('total', 'payment_id');
+
+            $applied = CreditNoteApplication::whereIn('payment_id', $ids)
+                ->selectRaw('payment_id, SUM(applied_amount) as total')
+                ->groupBy('payment_id')
+                ->pluck('total', 'payment_id');
+
+            $payments->getCollection()->transform(function ($payment) use ($allocated, $applied) {
+                $used = (float) ($allocated[$payment->id] ?? 0) + (float) ($applied[$payment->id] ?? 0);
+                $payment->allocated_amount   = round($used, 2);
+                $payment->unallocated_amount = round(max($payment->payment_amount - $used, 0), 2);
+                $payment->kind = $used <= 0
+                    ? 'unused'
+                    : ($payment->unallocated_amount > 0 ? 'partially_used' : 'used');
+
+                return $payment;
+            });
+
+            $customers = User::where('type', 'client')->where('created_by', creatorId())->get();
             $bankAccounts = BankAccount::where('is_active', true)->where('created_by', creatorId())->get();
 
             return Inertia::render('Account/CustomerPayments/Index', [
-                'payments' => $payments,
-                'customers' => $customers,
+                'payments'     => $payments,
+                'customers'    => $customers,
                 'bankAccounts' => $bankAccounts,
-                'filters' => $request->only(['customer_id', 'status', 'search', 'bank_account_id'])
+                'filters'      => $request->only([
+                    'customer_id', 'status', 'search', 'reference', 'kind',
+                    'bank_account_id', 'date_from', 'date_to',
+                    'min_amount', 'max_amount', 'fiscal_year', 'fiscal_period',
+                ]),
+                // Only years that actually have receipts — an empty year in a
+                // picker is a dead end.
+                'fiscalYears' => CustomerPayment::where('created_by', creatorId())
+                    ->selectRaw('DISTINCT YEAR(payment_date) as year')
+                    ->orderByDesc('year')
+                    ->pluck('year'),
+
+                /*
+                 * PREFILL — set when the user clicked the Payment icon on a
+                 * specific sales invoice (?invoice_id=...).
+                 *
+                 * Resolved SERVER-SIDE rather than passed through the URL. The
+                 * outstanding balance decides how much money is being taken;
+                 * accepting it from a query string would let anyone edit the
+                 * address bar and allocate an amount the invoice does not owe.
+                 *
+                 * Scoped by created_by, so an invoice id from another company
+                 * resolves to nothing rather than leaking a customer name and
+                 * a balance.
+                 */
+                'prefill' => $this->invoicePrefill($request->get('invoice_id')),
             ]);
         }
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Build the prefill payload for "receive payment for THIS invoice".
+     *
+     * Returns null for anything that cannot legitimately be paid — a missing
+     * id, another company's invoice, a draft, a cancelled document, or one
+     * with nothing left outstanding. In every one of those cases the form
+     * simply opens blank rather than half-filled with something misleading.
+     */
+    private function invoicePrefill($invoiceId): ?array
+    {
+        if (!$invoiceId) {
+            return null;
+        }
+
+        $invoice = SalesInvoice::with('customer:id,name')
+            ->where('created_by', creatorId())
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->find($invoiceId);
+
+        if (!$invoice || $invoice->balance_amount <= 0) {
+            return null;
+        }
+
+        return [
+            'invoice_id'     => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'customer_id'    => $invoice->customer_id,
+            'customer_name'  => $invoice->customer->name ?? null,
+            // The OUTSTANDING balance, not the invoice total — a partly paid
+            // invoice should not offer to collect the full amount again.
+            'balance_amount' => (float) $invoice->balance_amount,
+        ];
+    }
+
+    /**
+     * Receipt ids in a given allocation state.
+     *
+     * Unused / Partially Used / Used is not a stored column — it depends on how
+     * much of the receipt has been applied to invoices and credit notes. This
+     * resolves it so the "Kind" filter applies across the whole result set and
+     * paginates correctly.
+     *
+     * @param  string  $state  unused|partially_used|used
+     * @return array<int>
+     */
+    private function paymentIdsByAllocationState(string $state): array
+    {
+        $payments = CustomerPayment::where('created_by', creatorId())
+            ->select('id', 'payment_amount')
+            ->get();
+
+        if ($payments->isEmpty()) {
+            return [];
+        }
+
+        $ids = $payments->pluck('id');
+
+        $allocated = CustomerPaymentAllocation::whereIn('payment_id', $ids)
+            ->selectRaw('payment_id, SUM(allocated_amount) as total')
+            ->groupBy('payment_id')
+            ->pluck('total', 'payment_id');
+
+        $applied = CreditNoteApplication::whereIn('payment_id', $ids)
+            ->selectRaw('payment_id, SUM(applied_amount) as total')
+            ->groupBy('payment_id')
+            ->pluck('total', 'payment_id');
+
+        return $payments->filter(function ($payment) use ($allocated, $applied, $state) {
+            $used = (float) ($allocated[$payment->id] ?? 0) + (float) ($applied[$payment->id] ?? 0);
+            $remaining = round($payment->payment_amount - $used, 2);
+
+            return match ($state) {
+                'unused'         => $used <= 0,
+                'partially_used' => $used > 0 && $remaining > 0,
+                'used'           => $used > 0 && $remaining <= 0,
+                default          => true,
+            };
+        })->pluck('id')->all();
     }
 
     public function store(StoreCustomerPaymentRequest $request)
@@ -159,9 +340,22 @@ class CustomerPaymentController extends Controller
 
     public function getOutstandingInvoices($customerId)
     {
+        /*
+         * Anything with money still owed, EXCEPT drafts and cancelled
+         * documents.
+         *
+         * This used to be an allow-list of ['posted','partial'], which silently
+         * excluded 'overdue' and 'paid'. An overdue invoice is the one most
+         * likely to be paid, and it could not be selected here at all — so
+         * clicking Receive Payment on it prefilled a form whose invoice never
+         * appeared in the list, and the allocation quietly never attached.
+         *
+         * A deny-list is also correct as statuses are added: a new status means
+         * money owed unless it explicitly does not.
+         */
         $invoices = SalesInvoice::where('customer_id', $customerId)
             ->where('balance_amount', '>', 0)
-            ->whereIn('status', ['posted', 'partial'])
+            ->whereNotIn('status', ['draft', 'cancelled'])
             ->where('created_by', creatorId())
             ->get();
 
@@ -241,5 +435,30 @@ class CustomerPaymentController extends Controller
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Export customer receipts to Excel, honouring the current filters.
+     *
+     * The vendor side has had this since the module was written
+     * (VendorPaymentController@export); the customer side never did, which is
+     * why the two screens offered different actions. ReceiptExportService
+     * already supported a 'customer' scope — only the route and this method
+     * were missing.
+     */
+    public function export(Request $request, ReceiptExportService $service)
+    {
+        if (!Auth::user()->can('manage-customer-payments')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        try {
+            $path = $service->export('customer', $request->only(['search', 'status', 'date_from', 'date_to']));
+        } catch (\Exception $e) {
+            return back()->with('error', __('Export failed: ') . $e->getMessage());
+        }
+
+        return response()->download($path, 'customer-receipts-' . now()->format('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
     }
 }

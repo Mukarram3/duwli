@@ -74,6 +74,13 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         // Before {vendorPayment} so these are not matched as ids.
         Route::get('/export', [VendorPaymentController::class, 'export'])->name('export');
         Route::get('/export-all', [VendorPaymentController::class, 'exportAll'])->name('export-all');
+        /*
+         * Void — cancel a payment while KEEPING its accounting history.
+         * Distinct from destroy(): delete removes the row, void reverses the
+         * ledger and leaves the trail intact. Only delete is available on a
+         * payment that never cleared.
+         */
+        Route::post('/{vendorPayment}/void', [VendorPaymentController::class, 'void'])->name('void');
         Route::get('/all-receipts', [VendorPaymentController::class, 'allReceipts'])->name('all-receipts');
         Route::get('/', [VendorPaymentController::class, 'index'])->name('index');
         Route::post('/store', [VendorPaymentController::class, 'store'])->name('store');
@@ -138,6 +145,9 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
     Route::prefix('account/customer-payments')->name('account.customer-payments.')->group(function () {
         Route::get('/', [CustomerPaymentController::class, 'index'])->name('index');
         Route::post('/', [CustomerPaymentController::class, 'store'])->name('store');
+        // Literal paths first, before any {customerPayment} wildcard, so
+        // 'export' is never matched as a payment id.
+        Route::get('/export', [CustomerPaymentController::class, 'export'])->name('export');
         Route::delete('/{customerPayment}', [CustomerPaymentController::class, 'destroy'])->name('destroy');
         Route::get('/customers/{customerId}/outstanding', [CustomerPaymentController::class, 'getOutstandingInvoices'])->name('outstanding-invoices');
         Route::patch('/{customerPayment}/update-status', [CustomerPaymentController::class, 'updateStatus'])->name('update-status');

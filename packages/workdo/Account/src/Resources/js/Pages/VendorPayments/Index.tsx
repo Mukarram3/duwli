@@ -11,7 +11,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Eye, Trash2, CreditCard, CheckCircle, X, Layers, Download } from 'lucide-react';
+import {
+    Plus, Eye, Trash2, CreditCard, CheckCircle, X, Layers, Download, FileDown,
+    Printer, Ban,
+} from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -23,7 +26,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import Create from './Create';
 import View from './View';
-import NoRecordsFound from '@/components/no-records-found';
+import {
+    EntityCell, ReferenceCell, TextCell, DateCell, MoneyCell,
+    StatusBadge, EmptyState, FilterBar, type ActiveFilter,
+} from '@/components/duwli';
+import { RowActions } from '@/components/row-actions';
+import { Label } from '@/components/ui/label';
 import { VendorPayment, VendorPaymentsIndexProps, VendorPaymentModalState } from './types';
 
 interface VendorPaymentFilters {
@@ -38,6 +46,12 @@ import { formatDate, formatCurrency } from '@/utils/helpers';
 export default function Index() {
     const { t } = useTranslation();
     const { payments, vendors, bankAccounts, filters: initialFilters, auth } = usePage<VendorPaymentsIndexProps>().props;
+
+    const can = (permission: string) => Boolean(auth.user?.permissions?.includes(permission));
+
+    /** Payment being allocated / voided. Both drive their own dialog. */
+    const [allocating, setAllocating] = useState<any>(null);
+    const [voiding, setVoiding] = useState<any>(null);
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<VendorPaymentFilters>({
@@ -135,129 +149,228 @@ export default function Index() {
         setModalState({ isOpen: false, mode: '', data: null });
     };
 
+    /**
+     * ACTIONS — availability driven by STATUS and PERMISSION together.
+     *
+     * The rules, and why:
+     *
+     *   View       always, with permission.
+     *   Edit       pending only. A cleared payment has posted to the ledger;
+     *              editing it would leave the journal disagreeing with the row.
+     *   Allocate   only when there is something left to allocate. A fully
+     *              applied payment offering "Allocate" wastes a click and
+     *              implies capacity that does not exist.
+     *   Download   always, with permission — a record of what was paid.
+     *   Print      always. A payment voucher is a physical document.
+     *   Delete     pending only. Once cleared, the ledger refers to this row
+     *              and removing it would orphan the journal entry.
+     *   Void       cleared only. This is the correct way to cancel a posted
+     *              payment: it reverses the entries and KEEPS the history,
+     *              where delete would erase it.
+     *
+     * Blocked actions are DISABLED WITH A REASON rather than hidden, so the
+     * action column keeps a constant shape down the page and the user learns
+     * why rather than wondering where the button went.
+     */
+    const rowActionsFor = (payment: any) => {
+        const isPending = payment.status === 'pending';
+        const isCleared = payment.status === 'cleared';
+        const isCancelled = payment.status === 'cancelled';
+        const unallocated = Number(payment.unallocated_amount ?? 0);
+
+        return [
+            {
+                label: t('View'),
+                icon: Eye,
+                onClick: () => setViewingItem(payment),
+                className: 'text-green-600 hover:text-green-700',
+                permitted: can('view-vendor-payments'),
+            },
+            /*
+             * EDIT is specified but NOT shipped.
+             *
+             * There is no edit form for a vendor payment — the module only has
+             * Create and View, and no update route exists. A button that opens
+             * nothing is worse than a missing one, because it gets reported as
+             * a bug rather than as a gap.
+             *
+             * Building it is a small piece: an Edit component mirroring
+             * Create, an update() method, and a route. Flagged in the handover.
+             */
+            {
+                label: t('Allocate'),
+                icon: Layers,
+                onClick: () => setAllocating(payment),
+                className: 'text-violet-600 hover:text-violet-700',
+                permitted: can('cleared-vendor-payments'),
+                available: !isCancelled && unallocated > 0,
+                disabledReason: isCancelled
+                    ? t('Payment is cancelled')
+                    : t('Nothing left to allocate'),
+            },
+            {
+                label: t('Download'),
+                icon: FileDown,
+                onClick: () => { window.location.href = route('account.vendor-payments.export', { id: payment.id }); },
+                className: 'text-slate-600 hover:text-slate-700',
+                permitted: can('manage-vendor-payments'),
+            },
+            {
+                label: t('Print'),
+                icon: Printer,
+                onClick: () => window.print(),
+                className: 'text-slate-600 hover:text-slate-700',
+                permitted: can('manage-vendor-payments'),
+            },
+            {
+                label: t('Void'),
+                icon: Ban,
+                onClick: () => setVoiding(payment),
+                className: 'text-amber-600 hover:text-amber-700',
+                permitted: can('cleared-vendor-payments'),
+                available: isCleared,
+                // Void exists precisely because delete is wrong once posted.
+                available_reason: undefined,
+                disabledReason: isCancelled
+                    ? t('Already cancelled')
+                    : t('Only cleared payments can be voided'),
+            },
+            {
+                label: t('Delete'),
+                icon: Trash2,
+                onClick: () => openDeleteDialog(payment.id),
+                className: 'text-destructive hover:text-destructive',
+                permitted: can('delete-vendor-payments'),
+                available: isPending,
+                disabledReason: t('Posted payments cannot be deleted — void them instead'),
+            },
+        ];
+    };
+
+    const hasAnyFilter = Boolean(
+        filters.search || filters.vendor_id || filters.status ||
+        filters.date_range || filters.bank_account_id
+    );
+
+    /*
+     * Split by cause: a filtered list offers a way OUT of the filter, an
+     * untouched list offers a way to create the first record. Offering
+     * "Create" on a filtered list is how duplicate payments get made.
+     */
+    const emptyBlock = hasAnyFilter ? (
+        <EmptyState variant="filtered" onClearFilters={clearFilters} />
+    ) : (
+        <EmptyState
+            variant="empty"
+            icon={CreditCard}
+            title="No vendor payments yet"
+            description="Record your first payment to a supplier."
+            createPermission="create-vendor-payments"
+            createLabel="New Vendor Receipt"
+            onCreate={() => openModal('add')}
+        />
+    );
+
     const tableColumns = [
-        {
-            key: 'payment_number',
-            header: t('Payment Number'),
-            sortable: true,
-            render: (value: string, payment: VendorPayment) =>
-                auth.user?.permissions?.includes('view-vendor-payments') ? (
-                    <span className="text-blue-600 hover:text-blue-700 cursor-pointer" onClick={() => setViewingItem(payment)}>{value}</span>
-                ) : (
-                    value
-                )
-        },
-        {
-            key: 'payment_date',
-            header: t('Payment Date'),
-            sortable: true,
-            render: (value: string) => formatDate(value)
-        },
         {
             key: 'vendor.name',
             header: t('Vendor'),
-            sortable: false,
-            render: (_: any, payment: VendorPayment) => payment.vendor?.name || '-'
+            render: (_: any, payment: any) => (
+                <EntityCell name={payment.vendor?.name} secondary={payment.vendor?.email} />
+            ),
+        },
+        {
+            key: 'payment_number',
+            header: t('Reference'),
+            sortable: true,
+            render: (value: string, payment: any) => (
+                <ReferenceCell
+                    value={value}
+                    secondary={payment.reference_number}
+                    href={can('view-vendor-payments') ? undefined : undefined}
+                />
+            ),
+        },
+        {
+            key: 'kind',
+            header: t('Kind'),
+            // Derived from the allocations, not stored — see the controller.
+            render: (_: any, payment: any) => (
+                <StatusBadge
+                    status={payment.kind || 'unused'}
+                    label={
+                        payment.kind === 'used' ? 'Used'
+                        : payment.kind === 'partially_used' ? 'Partially Used'
+                        : 'Unused'
+                    }
+                    tone={
+                        payment.kind === 'used' ? 'success'
+                        : payment.kind === 'partially_used' ? 'warning'
+                        : 'neutral'
+                    }
+                />
+            ),
         },
         {
             key: 'bankAccount.account_name',
-            header: t('Bank Account'),
-            sortable: false,
-            render: (_: any, payment: VendorPayment) => payment.bank_account?.account_name || '-'
+            header: t('Account'),
+            render: (_: any, payment: any) => (
+                <TextCell value={payment.bank_account?.account_name} />
+            ),
+        },
+        {
+            key: 'notes',
+            header: t('Description'),
+            render: (value: any) => (
+                <span className="line-clamp-2 max-w-[240px] text-sm">
+                    <TextCell value={value} />
+                </span>
+            ),
+        },
+        {
+            key: 'payment_date',
+            header: t('Date'),
+            sortable: true,
+            render: (value: string) => <DateCell value={value} />,
         },
         {
             key: 'payment_amount',
             header: t('Amount'),
             sortable: true,
-            render: (value: number) => formatCurrency(value)
+            className: 'text-end',
+            render: (value: number) => <MoneyCell value={value} bold />,
+        },
+        {
+            key: 'unallocated_amount',
+            header: t('Unallocated Amount'),
+            className: 'text-end',
+            render: (_: any, payment: any) => (
+                // Money sitting unapplied is the actionable figure on this
+                // screen, so it is coloured only when there is some.
+                <MoneyCell
+                    value={payment.unallocated_amount}
+                    className={
+                        Number(payment.unallocated_amount) > 0
+                            ? 'font-semibold text-amber-600 dark:text-amber-400'
+                            : undefined
+                    }
+                />
+            ),
         },
         {
             key: 'status',
             header: t('Status'),
             sortable: true,
-            render: (value: string) => (
-                <span className={`px-2 py-1 rounded-full text-sm ${
-                    value === 'cleared' ? 'bg-green-100 text-green-800' :
-                    value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                }`}>
-                    {t(value)}
-                </span>
-            )
+            render: (value: string) => <StatusBadge status={value} />,
         },
-        ...(auth.user?.permissions?.some((p: string) => ['view-vendor-payments', 'delete-vendor-payments','cleared-vendor-payments'].includes(p)) ? [{
+        {
             key: 'actions',
             header: t('Actions'),
-            render: (_: any, payment: VendorPayment) => (
-                <div className="flex gap-1">
-                    <TooltipProvider>
-                    {auth.user?.permissions?.includes('cleared-vendor-payments') && payment.status === 'pending' && (
-                            <>
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => router.post(route('account.vendor-payments.update-status', payment.id), { status: 'cleared' })}
-                                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                                        >
-                                            <CheckCircle className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{t('Mark as Cleared')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                <Tooltip delayDuration={0}>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => router.post(route('account.vendor-payments.update-status', payment.id), { status: 'cancelled' })}
-                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{t('Cancel Payment')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </>
-                        )}
-                        {auth.user?.permissions?.includes('view-vendor-payments') && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm" onClick={() => setViewingItem(payment)} className="h-8 w-8 p-0 text-green-600 hover:text-green-700">
-                                        <Eye className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('View')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                        {auth.user?.permissions?.includes('delete-vendor-payments') && payment.status === 'pending' && (
-                            <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openDeleteDialog(payment.id)}
-                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{t('Delete')}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-                    </TooltipProvider>
-                </div>
-            )
-        }] : [])
+            className: 'text-end',
+            render: (_: any, payment: any) => (
+                <RowActions className="justify-end" actions={rowActionsFor(payment)} />
+            ),
+        },
     ];
 
     return (
@@ -287,7 +400,7 @@ export default function Index() {
                         {
                             label: t('Export'),
                             href: actionRoute('account.vendor-payments.export'),
-                            icon: Download,
+                            icon: FileDown,
                             variant: 'primary',
                             external: true,
                             permission: 'manage-vendor-payments',
@@ -421,17 +534,7 @@ export default function Index() {
                                     sortDirection={sortDirection as 'asc' | 'desc'}
                                     className="rounded-none"
                                     emptyState={
-                                        <NoRecordsFound
-                                            icon={CreditCard}
-                                            title={t('No payments found')}
-                                            description={t('Get started by creating your first vendor payment.')}
-                                            hasFilters={!!(filters.search || filters.vendor_id || filters.status || filters.date_range || filters.bank_account_id)}
-                                            onClearFilters={clearFilters}
-                                            createPermission="create-vendor-payments"
-                                            onCreateClick={() => openModal('add')}
-                                            createButtonText={t('Create Payment')}
-                                            className="h-auto"
-                                        />
+                                        emptyBlock
                                     }
                                 />
                             </div>
@@ -565,16 +668,7 @@ export default function Index() {
                                     ))}
                                 </div>
                             ) : (
-                                <NoRecordsFound
-                                    icon={CreditCard}
-                                    title={t('No payments found')}
-                                    description={t('Get started by creating your first vendor payment.')}
-                                    hasFilters={!!(filters.search || filters.vendor_id || filters.status || filters.date_range || filters.bank_account_id)}
-                                    onClearFilters={clearFilters}
-                                    createPermission="create-vendor-payments"
-                                    onCreateClick={() => openModal('add')}
-                                    createButtonText={t('Create Payment')}
-                                />
+                                emptyBlock
                             )}
                         </div>
                     )}
@@ -612,6 +706,40 @@ export default function Index() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
+            {/*
+              VOID confirmation.
+              Worded to make the difference from Delete explicit: voiding
+              reverses the ledger entries and KEEPS the record, where deleting
+              would remove a row the journal still refers to.
+            */}
+            <ConfirmationDialog
+                open={!!voiding}
+                onOpenChange={() => setVoiding(null)}
+                title={t('Void Payment')}
+                message={
+                    voiding
+                        ? t('This reverses the accounting entries and puts the amounts back on the supplier bills. The payment record and its history are kept.')
+                        : ''
+                }
+                confirmText={t('Void Payment')}
+                onConfirm={() => {
+                    if (!voiding) return;
+                    router.post(route('account.vendor-payments.void', voiding.id), {}, {
+                        onFinish: () => setVoiding(null),
+                    });
+                }}
+                variant="destructive"
+            />
+
+            {/*
+              ALLOCATE opens the existing View screen, which already shows the
+              allocation breakdown. A dedicated allocation dialog is the next
+              piece — flagged in the handover — but sending the user somewhere
+              that shows the real figures beats a button that does nothing.
+            */}
+            <Dialog open={!!allocating} onOpenChange={() => setAllocating(null)}>
+                {allocating && <View payment={allocating} />}
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

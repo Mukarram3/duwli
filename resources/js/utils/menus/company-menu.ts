@@ -28,13 +28,18 @@ export const getCompanyMenu = (t: (key: string) => string): NavItem[] => [
         order: 35,
         group: 'Sales & Revenue',
         children: [
-            {
-                // The overview sits first: a user opening the Sales section
-                // should land on the numbers, not on page one of a list.
-                title: t('Dashboard'),
-                href: route('sales.dashboard'),
-                permission: 'manage-sales-invoices',
-            },
+            /*
+             * No "Dashboard" row here.
+             *
+             * The sales dashboard is now the system landing page — /dashboard
+             * renders it directly (see HomeController::regularDashboard). A
+             * menu row pointing at the same screen the user already arrives on
+             * is dead weight, and having it inside Sales implied the dashboard
+             * belonged to that section rather than being the front door.
+             *
+             * The route sales.dashboard still exists and still works; it is
+             * simply not duplicated in the navigation.
+             */
             {
                 title: t('Sales Invoice'),
                 href: route('sales-invoices.index'),

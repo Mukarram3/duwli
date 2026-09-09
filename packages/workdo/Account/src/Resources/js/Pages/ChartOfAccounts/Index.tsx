@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit as EditIcon, Trash2, Eye, Calculator as CalculatorIcon, Download, FileImage } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, Calculator as CalculatorIcon, Download, FileImage, FileUp, FileDown} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -423,8 +423,8 @@ export default function Index() {
                             onClick={() => setImportOpen(true)}
                             className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
                         >
-                            <Upload className="mr-1.5 h-4 w-4" />
-                            {t('Import Accounts')}
+                            <FileUp className="mr-1.5 h-4 w-4" />
+                            {t('Import')}
                         </Button>
                     )}
                     {auth.user?.permissions?.includes('manage-chart-of-accounts') &&
@@ -434,8 +434,8 @@ export default function Index() {
                                 size="sm"
                                 className="h-9 bg-[#1E3A6F] px-3.5 text-[13px] font-semibold text-white hover:bg-[#183057]"
                             >
-                                <Download className="mr-1.5 h-4 w-4" />
-                                {t('Export Accounts')}
+                                <FileDown className="mr-1.5 h-4 w-4" />
+                                {t('Export')}
                             </Button>
                         </a>
                     )}

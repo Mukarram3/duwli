@@ -10,8 +10,13 @@ use App\Models\Warehouse;
 use App\Http\Requests\StoreSalesInvoiceRequest;
 use App\Http\Requests\UpdateSalesInvoiceRequest;
 use Workdo\ProductService\Models\ProductServiceItem;
+use Workdo\ProductService\Models\ProductServiceTax;
+use Workdo\ProductService\Models\ProductServiceUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use App\Services\SalesInvoiceImportExportService;
+use App\Services\VatCalculator;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Events\CreateSalesInvoice;
@@ -159,12 +164,88 @@ class SalesInvoiceController extends Controller
     public function create()
     {
         if(Auth::user()->can('create-sales-invoices')){
-            $customers = User::where('type', 'client')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
+            /*
+             * The Customer Details panel shows phone, tax number and current
+             * balance, so they have to be selected here — the previous query
+             * fetched only id/name/email and the panel would have rendered
+             * three permanent dashes.
+             *
+             * The balance is the sum of what is still outstanding, computed in
+             * one grouped subquery rather than per customer.
+             */
+            $customerIds = User::where('type', 'client')->where('created_by', creatorId())->pluck('id');
+
+            // Outstanding balance per customer — one grouped query, not one
+            // per row.
+            $balances = SalesInvoice::whereIn('customer_id', $customerIds)
+                ->where('created_by', creatorId())
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                ->selectRaw('customer_id, SUM(balance_amount) as balance')
+                ->groupBy('customer_id')
+                ->pluck('balance', 'customer_id');
+
+            // Tax numbers live on the Account customer record, not on the user.
+            $taxNumbers = \Workdo\Account\Models\Customer::whereIn('user_id', $customerIds)
+                ->where('created_by', creatorId())
+                ->pluck('tax_number', 'user_id');
+
+            $customers = User::where('type', 'client')
+                ->where('created_by', creatorId())
+                ->select('id', 'name', 'email', 'mobile_no')
+                ->get()
+                ->map(function ($user) use ($balances, $taxNumbers) {
+                    $user->balance    = (float) ($balances[$user->id] ?? 0);
+                    $user->tax_number = $taxNumbers[$user->id] ?? null;
+                    return $user;
+                });
+
             $warehouses = Warehouse::where('is_active', true)->select('id', 'name', 'address')->where('created_by', creatorId())->get();
 
             return Inertia::render('Sales/Create', [
-                'customers' => $customers,
+                'customers'  => $customers,
                 'warehouses' => $warehouses,
+
+                // Products carry their own default price and tax, so choosing
+                // one fills the line rather than leaving the user to key it.
+                // `description` is selected so choosing a product can pre-fill
+                // the line description, and `tax_ids` so it can pre-select the
+                // product's usual VAT rate.
+                'products' => ProductServiceItem::where('created_by', creatorId())
+                    ->select('id', 'name', 'sku', 'description', 'sale_price', 'unit', 'tax_ids', 'type')
+                    ->get(),
+
+                // Units of measurement for the Unit column. A free-text field
+                // produces "pcs", "PCS", "Pieces" and "piece" in the same
+                // table, which then cannot be summed or reported on.
+                'units' => ProductServiceUnit::where('created_by', creatorId())
+                    ->select('id', 'unit_name')
+                    ->orderBy('unit_name')
+                    ->get(),
+
+                // Tax master WITH category codes. The category is what drives
+                // the VAT summary and the ZATCA submission — a rate alone
+                // cannot distinguish zero-rated from exempt.
+                'taxes' => ProductServiceTax::where('created_by', creatorId())
+                    ->select('id', 'tax_name', 'rate', 'category_code', 'exemption_reason_code')
+                    ->get(),
+
+                'vatCategories' => VatCalculator::categories(),
+
+                /*
+                 * UNCL4461 payment means codes — the set ZATCA expects on an
+                 * e-invoice. Stored as codes rather than free text so the
+                 * submission does not need a translation layer later.
+                 */
+                'paymentMeans' => [
+                    ['code' => '10', 'label' => __('Cash')],
+                    ['code' => '30', 'label' => __('Credit Transfer')],
+                    ['code' => '42', 'label' => __('Payment to Bank Account')],
+                    ['code' => '48', 'label' => __('Bank Card')],
+                    ['code' => '1',  'label' => __('Instrument Not Defined')],
+                ],
+
+                'paymentTerms' => ['Net 15', 'Net 30', 'Net 45', 'Net 60', 'Due on Receipt'],
+
                 'modules' => [
                     'recurringinvoicebill' => module_is_active('RecurringInvoiceBill')
                 ]
@@ -175,71 +256,180 @@ class SalesInvoiceController extends Controller
         }
     }
 
-    public function store(StoreSalesInvoiceRequest $request)
+    /**
+     * Create a sales invoice — as a DRAFT or as an APPROVED document.
+     *
+     * The two paths are genuinely different operations, not one operation with
+     * a different status string:
+     *
+     *   mode=draft    Lenient validation (see StoreSalesInvoiceRequest). Saved
+     *                 as a working document. NO journal entry, NO VAT reported,
+     *                 fully editable afterwards.
+     *
+     *   mode=approve  Strict validation. Saved, then posted in the same
+     *                 operation: journal entries raised, VAT entered, invoice
+     *                 locked to editing and correctable only by credit note.
+     *
+     * Every figure is computed by VatCalculator — the same service the form,
+     * the printed document and the posting action use — so the screen, the
+     * document and the ledger can never disagree.
+     */
+    public function store(StoreSalesInvoiceRequest $request, VatCalculator $vat)
     {
-        if(Auth::user()->can('create-sales-invoices')){
-            $totals = $this->calculateTotals($request->items);
+        if (!Auth::user()->can('create-sales-invoices')) {
+            return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
+        }
 
+        $approving = $request->mode() === 'approve';
+
+        /*
+         * Permission is checked BEFORE anything is written. Discovering
+         * afterwards that the user cannot post would leave a draft they did not
+         * ask for and a confusing message.
+         */
+        if ($approving && !Auth::user()->can('post-sales-invoices')) {
+            return back()->withInput()->with(
+                'error',
+                __('You do not have permission to approve invoices. Save it as a draft instead.')
+            );
+        }
+
+        $items = $request->input('items', []);
+
+        // Server-side costing. The browser computes the same figures for
+        // display, but they are recomputed here and the client's numbers are
+        // discarded — a total that arrives from a form is an assertion, not a
+        // fact, and this one posts to the ledger.
+        $costed = $vat->invoice($items);
+
+        $invoice = DB::transaction(function () use ($request, $costed, $items, $approving) {
             $invoice = new SalesInvoice();
-            $invoice->invoice_date = $request->invoice_date;
-            $invoice->due_date = $request->due_date;
-            $invoice->customer_id = $request->customer_id;
-            $invoice->warehouse_id = $request->type === 'product' ? $request->warehouse_id : null;
-            $invoice->type = $request->type ?? 'product';
+
+            $invoice->uuid          = (string) Str::uuid();
+            $invoice->customer_id   = $request->customer_id;
+            $invoice->description   = $request->description;
+            $invoice->invoice_date  = $request->invoice_date ?: now()->toDateString();
+            // Supply date drives the VAT period. Defaulted to the invoice date
+            // rather than left null, because a null supply date on a posted
+            // invoice puts it in no period at all.
+            $invoice->supply_date   = $request->supply_date ?: ($request->invoice_date ?: now()->toDateString());
+            $invoice->due_date      = $request->due_date;
+            $invoice->type          = $request->type ?? 'product';
+            $invoice->warehouse_id  = ($request->type ?? 'product') === 'product' ? $request->warehouse_id : null;
+            $invoice->location_id   = $request->location_id;
             $invoice->payment_terms = $request->payment_terms;
-            $invoice->notes = $request->notes;
-            $invoice->subtotal = $totals['subtotal'];
-            $invoice->tax_amount = $totals['tax_amount'];
-            $invoice->discount_amount = $totals['discount_amount'];
-            $invoice->total_amount = $totals['total_amount'];
-            $invoice->balance_amount = $totals['total_amount'];
+            $invoice->payment_mean  = $request->payment_mean;
+            $invoice->reference     = $request->reference;
+            $invoice->notes         = $request->notes;
+
+            $invoice->subtotal         = $costed['subtotal'];
+            $invoice->discount_amount  = $costed['discount_amount'];
+            $invoice->total_before_vat = $costed['total_before_vat'];
+            $invoice->tax_amount       = $costed['tax_amount'];
+            $invoice->total_amount     = $costed['total_amount'];
+            $invoice->paid_amount      = 0;
+            $invoice->balance_amount   = $costed['total_amount'];
+
+            $invoice->invoice_type_code = '388'; // tax invoice
+            $invoice->status     = 'draft';      // posted below, never both at once
             $invoice->creator_id = Auth::id();
             $invoice->created_by = creatorId();
             $invoice->save();
 
-            // Create invoice items
-            $this->createInvoiceItems($invoice->id, $request->items);
+            $this->writeInvoiceItems($invoice, $items, $costed['lines']);
 
-            // Status is explicit rather than left to the column default, so
-            // the two save paths are visible in the code:
-            //   Save as Draft   -> stays draft, no journal entries
-            //   Save and Post   -> posted in the same operation
-            $invoice->status = 'draft';
-            $invoice->save();
+            return $invoice;
+        });
 
-            try {
-                CreateSalesInvoice::dispatch($request, $invoice);
-            } catch (\Throwable $th) {
-                return back()->with('error', $th->getMessage());
-            }
-
-            // A single combined operation: the invoice is saved and posted
-            // together, rather than the user saving then posting separately.
-            if ($request->boolean('post_immediately')) {
-                if (!Auth::user()->can('post-sales-invoices')) {
-                    return redirect()->route('sales-invoices.index')
-                        ->with('warning', __('The invoice was saved as a draft — you do not have permission to post.'));
-                }
-
-                try {
-                    PostSalesInvoice::dispatch($invoice);
-                    $invoice->update(['status' => 'posted']);
-                } catch (\Throwable $th) {
-                    // The invoice exists as a draft; only posting failed, so
-                    // say so rather than implying nothing was saved.
-                    return redirect()->route('sales-invoices.index')
-                        ->with('error', __('Saved as draft, but posting failed: ') . $th->getMessage());
-                }
-
-                return redirect()->route('sales-invoices.index')
-                    ->with('success', __('The sales invoice has been saved and posted.'));
-            }
-
-            return redirect()->route('sales-invoices.index')->with('success', __('The sales invoice has been created successfully.'));
-
+        try {
+            CreateSalesInvoice::dispatch($request, $invoice);
+        } catch (\Throwable $th) {
+            return back()->with('error', $th->getMessage());
         }
-        else{
-            return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
+
+        if (!$approving) {
+            return redirect()->route('sales-invoices.index')
+                ->with('success', __('Saved as a draft. No accounting entries were made.'));
+        }
+
+        /*
+         * Approval. The status is set BEFORE dispatching, for the same reason
+         * post() does it: if the listener throws after writing journals, an
+         * invoice still marked draft with journals against it would duplicate
+         * them on the next attempt. Updating first means a failure leaves a
+         * status to correct, not a ledger to unpick.
+         */
+        try {
+            $invoice->update([
+                'status'    => 'posted',
+                'posted_by' => Auth::id(),
+                'posted_at' => now(),
+            ]);
+
+            PostSalesInvoice::dispatch($invoice);
+        } catch (\Throwable $th) {
+            $invoice->update(['status' => 'draft', 'posted_by' => null, 'posted_at' => null]);
+
+            return redirect()->route('sales-invoices.index')
+                ->with('error', __('Saved as a draft, but approval failed: ') . $th->getMessage());
+        }
+
+        return redirect()->route('sales-invoices.index')
+            ->with('success', __('The invoice has been approved and posted to the ledger.'));
+    }
+
+    /**
+     * Write the invoice lines from the costed figures.
+     *
+     * The tax CATEGORY and rate are stored on the line, copied from the tax
+     * master at the moment of entry. If the master is edited next year, this
+     * invoice must still show what was charged at the time.
+     */
+    private function writeInvoiceItems(SalesInvoice $invoice, array $items, array $costed): void
+    {
+        foreach ($items as $index => $item) {
+            $line = $costed[$index] ?? null;
+            if (!$line) {
+                continue;
+            }
+
+            // Skip completely blank rows — a draft often has an empty last row
+            // left over from the "add line" button.
+            if (empty($item['product_id']) && empty($item['description'])) {
+                continue;
+            }
+
+            $record = SalesInvoiceItem::create([
+                'invoice_id'            => $invoice->id,
+                'product_id'            => $item['product_id'] ?? null,
+                'description'           => $item['description'] ?? null,
+                'quantity'              => $item['quantity'] ?? 0,
+                'unit'                  => $item['unit'] ?? null,
+                'unit_price'            => $item['unit_price'] ?? 0,
+                'is_tax_inclusive'      => (bool) ($item['is_tax_inclusive'] ?? false),
+                'discount_percentage'   => $item['discount_percentage'] ?? 0,
+                'discount_amount'       => $line['discount_amount'],
+                'total_before_vat'      => $line['total_before_vat'],
+                'tax_percentage'        => $line['tax_percentage'],
+                'tax_category_code'     => $line['tax_category_code'],
+                'exemption_reason_code' => $line['exemption_reason_code'] ?? null,
+                'tax_amount'            => $line['tax_amount'],
+                'total_amount'          => $line['total_amount'],
+                'creator_id'            => Auth::id(),
+                'created_by'            => creatorId(),
+            ]);
+
+            // The per-line tax breakdown table, kept for documents that show
+            // several taxes on one line.
+            if (!empty($item['taxes']) && is_array($item['taxes'])) {
+                foreach ($item['taxes'] as $tax) {
+                    SalesInvoiceItemTax::create([
+                        'item_id'  => $record->id,
+                        'tax_name' => $tax['tax_name'] ?? '',
+                        'tax_rate' => $tax['tax_rate'] ?? 0,
+                    ]);
+                }
+            }
         }
     }
 
@@ -517,5 +707,109 @@ class SalesInvoiceController extends Controller
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    // =================================================================
+    // Import / Export
+    // =================================================================
+
+    /**
+     * Export invoices matching the CURRENT FILTERS.
+     *
+     * The filters are read from the request, which is what the index screen
+     * already sends — so the file contains exactly what the user is looking
+     * at. Exporting the whole table regardless of filters is the classic
+     * version of this feature and it is infuriating: the user narrows to 12
+     * overdue invoices, clicks Export, and receives 4,000 rows.
+     */
+    public function export(Request $request, SalesInvoiceImportExportService $service)
+    {
+        if (!Auth::user()->can('manage-sales-invoices')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $format = $request->get('format') === 'csv' ? 'csv' : 'xlsx';
+
+        $path = $service->export(
+            $request->only(['customer_id', 'warehouse_id', 'status', 'search', 'date_range']),
+            $format
+        );
+
+        return response()->download($path)->deleteFileAfterSend(true);
+    }
+
+    /** Blank template with worked examples showing the one-row-per-line format. */
+    public function importTemplate(SalesInvoiceImportExportService $service)
+    {
+        if (!Auth::user()->can('create-sales-invoices')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        return response()->download($service->template())->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Validate an uploaded file and return what WOULD be created, without
+     * writing anything. This is the preview step the specification asks for.
+     */
+    public function importPreview(Request $request, SalesInvoiceImportExportService $service)
+    {
+        if (!Auth::user()->can('create-sales-invoices')) {
+            return response()->json(['message' => __('Permission denied')], 403);
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        // Stored under a token the confirm step passes back, so the file is
+        // read once and the user is not asked to upload it twice.
+        $stored = $request->file('file')->store('imports');
+        $result = $service->preview(storage_path('app/' . $stored));
+
+        return response()->json([
+            'token'      => $stored,
+            'summary'    => $result['summary'],
+            'errors'     => $result['errors'],
+            'duplicates' => $result['duplicates'],
+            // Capped: a 5,000-invoice file would otherwise return a payload
+            // too large to render, and nobody reviews 5,000 rows by eye.
+            'invoices'   => array_slice($result['invoices'], 0, 50),
+            'truncated'  => count($result['invoices']) > 50,
+        ]);
+    }
+
+    /**
+     * Commit a previewed file.
+     *
+     * Everything is created as DRAFT and no journal entries are raised here.
+     * The batch is reviewed and posted through the normal workflow, so the
+     * accounting entry comes from the same code path as a manual invoice and
+     * nothing reaches the ledger without a person posting it.
+     */
+    public function importConfirm(Request $request, SalesInvoiceImportExportService $service)
+    {
+        if (!Auth::user()->can('create-sales-invoices')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate(['token' => 'required|string']);
+
+        $path = storage_path('app/' . $request->get('token'));
+
+        if (!is_file($path)) {
+            return back()->with('error', __('The uploaded file has expired. Please upload it again.'));
+        }
+
+        $result = $service->import($path);
+        @unlink($path);
+
+        if (!empty($result['errors'])) {
+            return back()->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('sales-invoices.index')
+            ->with('success', $result['message']);
     }
 }

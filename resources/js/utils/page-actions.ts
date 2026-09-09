@@ -24,6 +24,16 @@ import {
     Users,
     AlertTriangle,
     ArrowLeftRight,
+    Building2,
+    FileMinus,
+    FilePlus,
+    FileSpreadsheet,
+    MapPin,
+    Receipt,
+    TrendingDown,
+    Undo2,
+    Warehouse,
+    Wrench,
 } from 'lucide-react';
 import type { PageAction } from '@/components/page-action-bar';
 
@@ -158,23 +168,35 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * to the sidebar, which is how Qoyod arranges the same three pages.
      */
     'sales-invoices.index': [
-        { label: 'Manage Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments', keepInNav: true },
-        { label: 'Manage Credit Notes', route: 'account.credit-notes.index', permission: 'manage-credit-notes', keepInNav: true },
-        { label: 'Invoice Returns', route: 'sales-returns.index', permission: 'manage-sales-return-invoices' },
+        { label: 'Manage Receipts', route: 'account.customer-payments.index', icon: Receipt, permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Manage Credit Notes', route: 'account.credit-notes.index', icon: FileMinus, permission: 'manage-credit-notes', keepInNav: true },
+        { label: 'Invoice Returns', route: 'sales-returns.index', icon: Undo2, permission: 'manage-sales-return-invoices' },
     ],
 
-    /** Receipts — back to invoices, across to vendor payments. */
+    /**
+     * Customer receipts — back to invoices, across to credit notes.
+     *
+     * "Vendor Receipts" was removed. Money OUT to a supplier has nothing to do
+     * with money IN from a customer: different ledger side, different
+     * permission, usually a different person. It sat here because this file
+     * originally treated receipts as one subject, but on a screen titled
+     * "Manage Customer Payments" it reads as an invitation to record a payment
+     * on the wrong side of the books.
+     *
+     * Vendor receipts remain reachable from the Purchasing pages and from the
+     * combined All Receipts view, which is where someone looking for them
+     * would actually go.
+     */
     'account.customer-payments.index': [
-        { label: 'Invoices', route: 'sales-invoices.index', permission: 'manage-sales-invoices', keepInNav: true },
-        { label: 'Vendor Receipts', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
-        { label: 'Credit Notes', route: 'account.credit-notes.index', overflow: true, permission: 'manage-credit-notes', keepInNav: true },
+        { label: 'Invoices', route: 'sales-invoices.index', icon: FileSpreadsheet, permission: 'manage-sales-invoices', keepInNav: true },
+        { label: 'Credit Notes', route: 'account.credit-notes.index', icon: FileMinus, permission: 'manage-credit-notes', keepInNav: true },
     ],
 
     /** Credit notes — back to the invoice they credit, and to receipts. */
     'account.credit-notes.index': [
-        { label: 'Invoices', route: 'sales-invoices.index', permission: 'manage-sales-invoices', keepInNav: true },
-        { label: 'Manage Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments', keepInNav: true },
-        { label: 'Debit Notes', route: 'account.debit-notes.index', overflow: true, permission: 'manage-debit-notes', keepInNav: true },
+        { label: 'Invoices', route: 'sales-invoices.index', icon: FileSpreadsheet, permission: 'manage-sales-invoices', keepInNav: true },
+        { label: 'Manage Receipts', route: 'account.customer-payments.index', icon: Receipt, permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Debit Notes', route: 'account.debit-notes.index', icon: FilePlus, overflow: true, permission: 'manage-debit-notes', keepInNav: true },
     ],
 
 
@@ -184,38 +206,42 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * reads the same way as the sales one.
      */
     'purchase-invoices.index': [
-        { label: 'Manage Receipts', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
-        { label: 'Manage Debit Notes', route: 'account.debit-notes.index', permission: 'manage-debit-notes', keepInNav: true },
-        { label: 'Purchase Returns', route: 'purchase-returns.index', permission: 'manage-purchase-return-invoices', keepInNav: true },
-        { label: 'Vendors', route: 'account.vendors.index', overflow: true, permission: 'manage-vendors', keepInNav: true },
+        { label: 'Manage Receipts', route: 'account.vendor-payments.index', icon: Receipt, permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Manage Debit Notes', route: 'account.debit-notes.index', icon: FilePlus, permission: 'manage-debit-notes', keepInNav: true },
+        { label: 'Purchase Returns', route: 'purchase-returns.index', icon: Undo2, permission: 'manage-purchase-return-invoices', keepInNav: true },
+        { label: 'Vendors', route: 'account.vendors.index', icon: Building2, overflow: true, permission: 'manage-vendors', keepInNav: true },
     ],
 
     'account.debit-notes.index': [
-        { label: 'Bills', route: 'purchase-invoices.index', permission: 'manage-purchase-invoices', keepInNav: true },
-        { label: 'Manage Receipts', route: 'account.vendor-payments.index', permission: 'manage-vendor-payments', keepInNav: true },
-        { label: 'Credit Notes', route: 'account.credit-notes.index', overflow: true, permission: 'manage-credit-notes', keepInNav: true },
+        { label: 'Bills', route: 'purchase-invoices.index', icon: FileSpreadsheet, permission: 'manage-purchase-invoices', keepInNav: true },
+        { label: 'Manage Receipts', route: 'account.vendor-payments.index', icon: Receipt, permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Credit Notes', route: 'account.credit-notes.index', icon: FileMinus, overflow: true, permission: 'manage-credit-notes', keepInNav: true },
     ],
 
+    /*
+     * Vendor payments — the mirror of the customer receipts entry above.
+     * "Customer Receipts" removed for the same reason: money in from a
+     * customer does not belong as an action on a screen for paying suppliers.
+     */
     'account.vendor-payments.index': [
-        { label: 'Bills', route: 'purchase-invoices.index', permission: 'manage-purchase-invoices', keepInNav: true },
-        { label: 'Customer Receipts', route: 'account.customer-payments.index', permission: 'manage-customer-payments', keepInNav: true },
-        { label: 'Debit Notes', route: 'account.debit-notes.index', overflow: true, permission: 'manage-debit-notes', keepInNav: true },
+        { label: 'Bills', route: 'purchase-invoices.index', icon: FileSpreadsheet, permission: 'manage-purchase-invoices', keepInNav: true },
+        { label: 'Debit Notes', route: 'account.debit-notes.index', icon: FilePlus, permission: 'manage-debit-notes', keepInNav: true },
     ],
 
     /** Products — stock and taxonomy screens sit on the product list. */
     'product-service.items.index': [
-        { label: 'Warehouses', route: 'warehouses.index', permission: 'manage-warehouses', keepInNav: true },
-        { label: 'Inventory Transfers', route: 'transfers.index', permission: 'manage-transfers', keepInNav: true },
-        { label: 'Product Categories', route: 'product-service.item-categories.index', keepInNav: true },
+        { label: 'Warehouses', route: 'warehouses.index', icon: Warehouse, permission: 'manage-warehouses', keepInNav: true },
+        { label: 'Inventory Transfers', route: 'transfers.index', icon: ArrowLeftRight, permission: 'manage-transfers', keepInNav: true },
+        { label: 'Product Categories', route: 'product-service.item-categories.index', icon: Tags, keepInNav: true },
     ],
 
     /** Assets — the lifecycle of an asset lives on the asset list. */
     'assets.assets.index': [
-        { label: 'Asset Classifications', route: 'assets.categories.index' },
-        { label: 'Asset Transfer', route: 'assets.asset-assignments.index' },
-        { label: 'Maintenance', route: 'assets.asset-maintenance.index' },
-        { label: 'Depreciation', route: 'assets.asset-depreciation.index' },
-        { label: 'Locations', route: 'assets.asset-locations.index', overflow: true },
+        { label: 'Asset Classifications', route: 'assets.categories.index', icon: Tags },
+        { label: 'Asset Transfer', route: 'assets.asset-assignments.index', icon: ArrowLeftRight },
+        { label: 'Maintenance', route: 'assets.asset-maintenance.index', icon: Wrench },
+        { label: 'Depreciation', route: 'assets.asset-depreciation.index', icon: TrendingDown },
+        { label: 'Locations', route: 'assets.asset-locations.index', icon: MapPin, overflow: true },
     ],
 };
 

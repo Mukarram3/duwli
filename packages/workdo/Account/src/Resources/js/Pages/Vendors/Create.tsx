@@ -76,31 +76,6 @@ export default function Create({ onSuccess, users = [], auth }: CreateVendorProp
             </DialogHeader>
             <form onSubmit={submit} className="space-y-4">
                 <div>
-                    <Label htmlFor="user_id">{t('User')}</Label>
-                    <Select value={data.user_id} onValueChange={handleUserSelect}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={t('Select a user (optional)')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="0">{t('No User Selected')}</SelectItem>
-                            {users.map((user) => (
-                                <SelectItem key={user.id} value={user.id.toString()}>
-                                    {user.name} ({user.email})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.user_id} />
-                    {users.length === 0 && auth?.user?.permissions?.includes('create-users') && (
-                        <p className="text-xs text-gray-500 mt-1">
-                            {t('Create user here.')} <button onClick={() => router.get(route('users.index'))} className="text-blue-600 hover:underline">{t('Create user')}</button>
-                        </p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                        {t('Note: Only users with vendor role who are not already assigned to other vendors will appear in this list.')}
-                    </p>
-                </div>
-                <div>
                     <Label htmlFor="company_name">{t('Company Name')}</Label>
                     <Input
                         id="company_name"
@@ -355,6 +330,66 @@ export default function Create({ onSuccess, users = [], auth }: CreateVendorProp
                     />
                     <InputError message={errors.notes} />
                 </div>
+
+                {/*
+                  PORTAL ACCESS — moved to the END of the form and collapsed.
+                  ---------------------------------------------------------------
+                  It was the FIRST field, above Company Name, with two lines of
+                  explanatory note under it. Nothing about it was required — not
+                  in the form, not in the request validation, not in the database
+                  — but position and prominence read as "fill this in first", so
+                  people stopped here on a field they could safely skip.
+
+                  It is NOT removed. See the comment on the summary line below:
+                  purchase invoices and vendor payments both reference users.id
+                  as their vendor, so a vendor with no linked user cannot yet be
+                  billed or paid. Deleting the field would let people create
+                  vendors that silently cannot be transacted with — a worse
+                  outcome than the friction it causes here.
+                */}
+                <details className="rounded-lg border bg-muted/30 p-3">
+                    <summary className="cursor-pointer text-sm font-medium">
+                        {t('Portal access')}{' '}
+                        <span className="font-normal text-muted-foreground">
+                            {t('(optional)')}
+                        </span>
+                    </summary>
+
+                    <div className="mt-3">
+                        <p className="mb-2 text-xs text-muted-foreground">
+                            {t('Link this vendor to a user account so they can sign in to the portal. Leave this empty to create the vendor as a record only.')}
+                        </p>
+
+                        <Label htmlFor="user_id">{t('User account')}</Label>
+                        <Select value={data.user_id} onValueChange={handleUserSelect}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t('No user account')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="0">{t('No user account')}</SelectItem>
+                                {users.map((user) => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                        {user.name} ({user.email})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.user_id} />
+
+                        {users.length === 0 && auth?.user?.permissions?.includes('create-users') && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {t('No unassigned vendor users available.')}{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => router.get(route('users.index'))}
+                                    className="text-primary hover:underline"
+                                >
+                                    {t('Create one')}
+                                </button>
+                            </p>
+                        )}
+                    </div>
+                </details>
 
                 <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={onSuccess}>

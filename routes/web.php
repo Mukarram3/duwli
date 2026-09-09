@@ -89,6 +89,18 @@ Route::middleware(['auth', 'verified', 'PlanModuleCheck'])->group(function () {
     Route::get('purchase-invoices/{purchaseInvoice}/print', [PurchaseInvoiceController::class, 'print'])->name('purchase-invoices.print');
 
     // sales invoices
+    /*
+     * Import / export. These MUST be declared before Route::resource below.
+     * The resource route registers GET sales-invoices/{salesInvoice}, whose
+     * wildcard matches the literal segment "export" — so a later declaration
+     * would never be reached and /sales-invoices/export would 404 looking for
+     * an invoice with the id "export". Laravel matches in registration order.
+     */
+    Route::get('sales-invoices/export', [SalesInvoiceController::class, 'export'])->name('sales-invoices.export');
+    Route::get('sales-invoices/import/template', [SalesInvoiceController::class, 'importTemplate'])->name('sales-invoices.import.template');
+    Route::post('sales-invoices/import/preview', [SalesInvoiceController::class, 'importPreview'])->name('sales-invoices.import.preview');
+    Route::post('sales-invoices/import/confirm', [SalesInvoiceController::class, 'importConfirm'])->name('sales-invoices.import.confirm');
+
     Route::resource('sales-invoices', SalesInvoiceController::class);
     Route::post('sales-invoices/{salesInvoice}/post', [SalesInvoiceController::class, 'post'])->name('sales-invoices.post');
     Route::get('sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'print'])->name('sales-invoices.print');

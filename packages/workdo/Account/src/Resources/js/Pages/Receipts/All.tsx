@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageActionBar, actionRoute, type PageAction } from '@/components/page-action-bar';
-import { ArrowDownLeft, ArrowUpRight, Download, Search } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Download, Search, FileDown} from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { cn } from '@/lib/utils';
 
@@ -66,7 +66,7 @@ export default function AllReceipts() {
         {
             label: t('Export'),
             href: actionRoute('account.vendor-payments.export-all'),
-            icon: Download,
+            icon: FileDown,
             variant: 'primary',
             external: true,
             permission: 'manage-vendor-payments',

@@ -1,575 +1,750 @@
-import React, { useState, useEffect } from 'react';
-import { Head, useForm, usePage, router } from '@inertiajs/react';
+// resources/js/pages/Sales/Create.tsx
+import { useMemo, useState } from 'react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
-import { useFormFields } from '@/hooks/useFormFields';
-import { SalesInvoiceItem } from './types';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
-import InvoiceItemsTable from './components/InvoiceItemsTable';
-import { useTaxCalculator } from './components/TaxCalculator';
-import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { InputError } from '@/components/ui/input-error';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, CheckCircle2, Clock, FileText, Calculator, Plus, Settings, Save } from 'lucide-react';
+import { SectionCard } from '@/components/duwli';
+import {
+    FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, User as UserIcon,
+} from 'lucide-react';
+import { formatCurrency } from '@/utils/helpers';
 
-interface CreateProps {
-    customers: Array<{id: number; name: string; email: string}>;
-    warehouses: Array<{id: number; name: string; address: string}>;
-    modules?: {recurringinvoicebill?: boolean};
-    [key: string]: any;
+/**
+ * SALES INVOICE ENTRY FORM
+ * =============================================================================
+ * Rebuilt for VAT and e-invoicing.
+ *
+ * TWO SAVE BUTTONS, TWO DIFFERENT OPERATIONS
+ * They post the same payload with a different `mode`, and the backend branches
+ * on it (StoreSalesInvoiceRequest and SalesInvoiceController@store):
+ *
+ *   Save as Draft    lenient validation, nothing posted, stays editable
+ *   Save and Approve strict validation, journal entries raised, VAT reported,
+ *                    locked to editing afterwards
+ *
+ * Approve is the filled button and carries a confirmation, because it is the
+ * irreversible one.
+ *
+ * THE ARITHMETIC IS MIRRORED, NOT TRUSTED
+ * Every figure here is recomputed on the server by VatCalculator before
+ * anything is written. The client-side maths exists so totals update as the
+ * user types — it is a preview, never the source of truth. A total that
+ * arrives from a browser is an assertion; this one posts to a ledger.
+ *
+ * Both implementations follow the same four rules so they agree:
+ *   1. discount comes off before VAT
+ *   2. inclusive and exclusive prices are different arithmetic, per line
+ *   3. rounding happens per line, then lines are summed
+ *   4. categories Z, E and O carry no VAT whatever rate is entered
+ */
+
+type Product = {
+    id: number;
+    name: string;
+    sku: string | null;
+    description: string | null;
+    sale_price: number;
+    unit: string | null;
+    tax_ids: number[] | null;
+    type: string;
+};
+
+type Line = {
+    product_id: string;
+    description: string;
+    quantity: string;
+    unit: string;
+    unit_price: string;
+    is_tax_inclusive: boolean;
+    /** The number the user typed. Read as a % or a fixed amount per discount_type. */
+    discount_value: string;
+    discount_type: 'percent' | 'amount';
+    /** Which row of the tax master this line uses. Drives rate AND category together. */
+    tax_id: string;
+    tax_percentage: string;
+    tax_category_code: string;
+    exemption_reason_code: string;
+};
+
+const emptyLine = (): Line => ({
+    product_id: '',
+    description: '',
+    quantity: '1',
+    unit: '',
+    unit_price: '0',
+    is_tax_inclusive: false,
+    discount_value: '0',
+    discount_type: 'percent',
+    tax_id: '',
+    tax_percentage: '0',
+    tax_category_code: 'S',
+    exemption_reason_code: '',
+});
+
+/** Mirrors VatCalculator::line(). Kept deliberately identical in structure. */
+function costLine(line: Line) {
+    const qty = parseFloat(line.quantity) || 0;
+    const price = parseFloat(line.unit_price) || 0;
+    const rate = parseFloat(line.tax_percentage) || 0;
+    const discountValue = parseFloat(line.discount_value) || 0;
+
+    const gross = qty * price;
+    // A percentage and a fixed amount are both allowed. Either way the
+    // discount can never exceed the line, or the net would go negative.
+    const discount = Math.min(
+        line.discount_type === 'amount' ? discountValue : gross * (discountValue / 100),
+        gross,
+    );
+    const afterDiscount = gross - discount;
+
+    let net: number;
+    let vat: number;
+
+    if (line.is_tax_inclusive && rate > 0) {
+        net = afterDiscount / (1 + rate / 100);
+        vat = afterDiscount - net;
+    } else {
+        net = afterDiscount;
+        vat = net * (rate / 100);
+    }
+
+    if (['Z', 'E', 'O'].includes(line.tax_category_code)) {
+        vat = 0;
+    }
+
+    const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    net = round(net);
+    vat = round(vat);
+
+    return { gross: round(gross), discount: round(discount), net, vat, total: round(net + vat) };
 }
 
 export default function Create() {
     const { t } = useTranslation();
-    const { customers, warehouses, modules } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const pageProps = usePage<any>().props;
+    const {
+        customers = [], warehouses = [], products = [], taxes = [], units = [],
+        vatCategories = [], paymentMeans = [], paymentTerms = [],
+    } = pageProps;
 
-    const { data, setData, post, processing, errors } = useForm({
-        post_immediately: false,
-        invoice_date: new Date().toISOString().split('T')[0],
-        due_date: '',
+    const money = (v: any) => formatCurrency(Number(v ?? 0), pageProps);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data, setData, post, processing, errors } = useForm<any>({
+        mode: 'draft',
         customer_id: '',
-        warehouse_id: '',
-        type: 'product',
+        description: '',
+        invoice_date: today,
+        supply_date: today,
+        due_date: '',
         payment_terms: '',
+        payment_mean: '',
+        reference: '',
+        type: 'product',
+        warehouse_id: '',
+        location_id: '',
         notes: '',
-        sync_to_google_calendar: false,
-        items: [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }] as SalesInvoiceItem[]
+        terms: '',
+        items: [emptyLine()],
     });
 
-    const calendarFields = useFormFields('createCalendarSyncField', data, setData, errors, 'create', t, 'Sales');
+    const [confirming, setConfirming] = useState(false);
 
-    const handleWarehouseChange = async (warehouseId: string) => {
-        setData('warehouse_id', warehouseId);
-
-        if (warehouseId) {
-            try {
-                const response = await fetch(route('sales-invoices.warehouse.products') + `?warehouse_id=${warehouseId}`);
-                const warehouseProducts = await response.json();
-                setAvailableProducts(warehouseProducts);
-            } catch (error) {
-                console.error('Failed to fetch warehouse products:', error);
-                setAvailableProducts([]);
-            }
-        } else {
-            setAvailableProducts([]);
-        }
-
-        // Reset items when warehouse changes
-        setData('items', [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
-    };
-
-    const handleTypeChange = async (type: string) => {
-        setData('type', type);
-
-        if (type === 'service') {
-            try {
-                const response = await fetch(route('sales-invoices.services'));
-                const services = await response.json();
-                setAvailableProducts(services);
-            } catch (error) {
-                setAvailableProducts([]);
-            }
-        } else {
-            setAvailableProducts([]);
-            setData('warehouse_id', '');
-        }
-
-        // Reset items when type changes
-        setData('items', [{
-            product_id: 0,
-            quantity: 1,
-            unit_price: 0,
-            discount_percentage: 0,
-            discount_amount: 0,
-            tax_percentage: 0,
-            tax_amount: 0,
-            total_amount: 0
-        }]);
+    const setLine = (index: number, patch: Partial<Line>) => {
+        const items = [...data.items];
+        items[index] = { ...items[index], ...patch };
+        setData('items', items);
     };
 
     /**
-     * Two separate save paths, as an accountant expects:
+     * Choosing a product fills the rest of the line: description, unit, price
+     * and its usual VAT rate. The description is pre-filled but stays editable
+     * — the catalogue description is a starting point, not the final wording
+     * for this particular sale.
      *
-     *   Save as Draft   the invoice is stored and nothing else happens — no
-     *                   journal entries, no effect on account balances
-     *   Save and Post   a single operation that stores the invoice AND posts
-     *                   it, creating the journal entries
-     *
-     * The flag travels with the same request, so posting is part of the save
-     * rather than a second action the user has to remember.
+     * An existing description is NOT overwritten. Someone who has typed their
+     * own line text and then corrects the product should not lose it.
      */
-    const submit = (e: React.FormEvent, postImmediately: boolean) => {
-        e.preventDefault();
-        setData('post_immediately', postImmediately);
+    const pickProduct = (index: number, productId: string) => {
+        const product = products.find((p: Product) => String(p.id) === productId);
+        if (!product) {
+            setLine(index, { product_id: productId });
+            return;
+        }
 
-        // setData is async; transform guarantees the flag is on this request.
+        const current = data.items[index];
+        const patch: Partial<Line> = {
+            product_id: productId,
+            unit_price: String(product.sale_price ?? 0),
+        };
+
+        if (!current.description) {
+            patch.description = product.description || '';
+        }
+        if (product.unit) {
+            patch.unit = product.unit;
+        }
+
+        // Pre-select the product's own tax if it has one and the line has not
+        // already been set deliberately.
+        if (!current.tax_id) {
+            const ids = Array.isArray(product.tax_ids) ? product.tax_ids : [];
+            const productTax = taxes.find((x: any) => ids.includes(x.id));
+            if (productTax) {
+                patch.tax_id = String(productTax.id);
+                patch.tax_percentage = String(productTax.rate);
+                patch.tax_category_code = productTax.category_code || 'S';
+                patch.exemption_reason_code = productTax.exemption_reason_code || '';
+            }
+        }
+
+        setLine(index, patch);
+    };
+
+    /**
+     * ONE dropdown sets the rate and the category together.
+     *
+     * They were two separate columns; a user could pick "Exempt" and leave 15%,
+     * or "Standard" at 0% — combinations the tax authority rejects. Selecting a
+     * row from the tax master makes that impossible: the rate and its category
+     * always travel as a pair, as they do in the master.
+     */
+    const pickTax = (index: number, taxId: string) => {
+        const tax = taxes.find((x: any) => String(x.id) === taxId);
+        if (!tax) return;
+        setLine(index, {
+            tax_id: taxId,
+            tax_percentage: String(tax.rate),
+            tax_category_code: tax.category_code || 'S',
+            exemption_reason_code: tax.exemption_reason_code || '',
+        });
+    };
+
+    const totals = useMemo(() => {
+        let subtotal = 0, discount = 0, beforeVat = 0, vat = 0;
+        const summary: Record<string, any> = {};
+
+        data.items.forEach((line: Line) => {
+            const c = costLine(line);
+            subtotal += c.gross;
+            discount += c.discount;
+            beforeVat += c.net;
+            vat += c.vat;
+
+            // Grouped by category AND rate: two standard-rated lines at
+            // different rates must not merge — the authority expects one
+            // subtotal per rate.
+            const key = `${line.tax_category_code}-${line.tax_percentage}`;
+            if (!summary[key]) {
+                summary[key] = {
+                    code: line.tax_category_code,
+                    label: vatCategories.find((c: any) => c.code === line.tax_category_code)?.label
+                        || line.tax_category_code,
+                    rate: parseFloat(line.tax_percentage) || 0,
+                    taxable: 0,
+                    tax: 0,
+                };
+            }
+            summary[key].taxable += c.net;
+            summary[key].tax += c.vat;
+        });
+
+        const order: Record<string, number> = { S: 0, Z: 1, E: 2, O: 3 };
+        const rows = Object.values(summary).sort(
+            (a: any, b: any) => (order[a.code] ?? 9) - (order[b.code] ?? 9) || b.rate - a.rate
+        );
+
+        return { subtotal, discount, beforeVat, vat, total: beforeVat + vat, rows };
+    }, [data.items, vatCategories]);
+
+    const submit = (mode: 'draft' | 'approve') => {
+        /*
+         * The line shape the FORM uses is not the shape the API takes.
+         *
+         * The form carries a single `discount_value` plus a type toggle,
+         * because that is how a user thinks about a discount. The API takes
+         * either discount_percentage or discount_amount, because that is what
+         * VatCalculator branches on. Translating here keeps the API honest and
+         * the form natural, instead of bending one to suit the other.
+         *
+         * `tax_id` is a form-only field — the rate and category it selected are
+         * what the server stores, so historic invoices survive edits to the
+         * tax master.
+         */
+        const items = data.items.map((line: Line) => ({
+            product_id: line.product_id || null,
+            description: line.description || null,
+            quantity: line.quantity,
+            unit: line.unit || null,
+            unit_price: line.unit_price,
+            is_tax_inclusive: line.is_tax_inclusive,
+            discount_percentage: line.discount_type === 'percent' ? line.discount_value : 0,
+            discount_amount: line.discount_type === 'amount' ? line.discount_value : 0,
+            tax_percentage: line.tax_percentage,
+            tax_category_code: line.tax_category_code,
+            exemption_reason_code: line.exemption_reason_code || null,
+        }));
+
+        // setData is async, so the mode is merged in explicitly — relying on
+        // state alone would post the previous mode on the first click.
+        setData('mode', mode);
         post(route('sales-invoices.store'), {
-            transform: (payload: any) => ({ ...payload, post_immediately: postImmediately }),
+            data: { ...data, mode, items },
+            preserveScroll: true,
+            onFinish: () => setConfirming(false),
         } as any);
     };
 
-    const handleSubmit = (e: React.FormEvent) => submit(e, false);
-
-    const totals = useTaxCalculator(data.items);
-
-    // Recurring fields hook
-    const recurringFields = useFormFields('salesInvoiceCreateFields', data, setData, errors, 'create');
-
-    // Commission plan fields hook
-    const commissionFields = useFormFields('commissionPlanBtn', data, setData, errors, 'create');
-
-    // Sage fields hook
-    const sageFields = useFormFields('salesInvoiceFields', data, setData, errors, 'create', t);
+    const customer = customers.find((c: any) => String(c.id) === String(data.customer_id));
 
     return (
         <AuthenticatedLayout
             breadcrumbs={[
-                {label: t('Sales Invoice'), url: route('sales-invoices.index')},
-                {label: t('Create Sales Invoice')}
+                { label: t('Sales'), url: route('sales-invoices.index') },
+                { label: t('New Invoice') },
             ]}
-            pageTitle={t('Create Sales Invoice')}
-            pageDescription={t('Create a new sales invoice by entering the customer details, items, and terms.')}
+            pageTitle={t('New Invoice')}
+            pageIcon={FileSpreadsheet}
             backUrl={route('sales-invoices.index')}
         >
-            <Head title={t('Create Sales Invoice')} />
+            <Head title={t('New Invoice')} />
 
-            <div>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-                        {/* Left Column - Main Details, Items, and Integrations */}
-                        <div className="lg:col-span-4 space-y-6">
-                            <Card className="border border-border shadow-md rounded-xl overflow-hidden bg-card">
-                                <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                                <CalendarDays className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <CardTitle className="text-base font-semibold text-foreground">
-                                                    {t('Sales Invoice Details')}
-                                                </CardTitle>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-muted/50 p-1.5 rounded-lg border border-border/50">
-                                            <RadioGroup value={data.type} onValueChange={handleTypeChange} className="flex gap-4">
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md cursor-pointer hover:bg-card/50 transition-colors">
-                                                    <RadioGroupItem value="product" id="type-product" />
-                                                    <Label htmlFor="type-product" className="cursor-pointer font-medium text-xs text-foreground select-none">{t('Product Wise')}</Label>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md cursor-pointer hover:bg-card/50 transition-colors">
-                                                    <RadioGroupItem value="service" id="type-service" />
-                                                    <Label htmlFor="type-service" className="cursor-pointer font-medium text-xs text-foreground select-none">{t('Service Wise')}</Label>
-                                                </div>
-                                            </RadioGroup>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6 space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="invoice_date" required className="text-sm font-medium text-foreground">
-                                                {t('Invoice Date')}
-                                            </Label>
-                                            <DatePicker
-                                                id="invoice_date"
-                                                value={data.invoice_date}
-                                                onChange={(value) => setData('invoice_date', value)}
-                                                required
-                                            />
-                                            <InputError message={errors.invoice_date} />
-                                        </div>
+            <div className="grid gap-5 lg:grid-cols-3">
+                <SectionCard title="Invoice Details" className="lg:col-span-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                            <Label>{t('Invoice Number')}</Label>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {t('This invoice number is generated automatically.')}
+                            </p>
+                        </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="due_date" required className="text-sm font-medium text-foreground">
-                                                {t('Due Date')}
-                                            </Label>
-                                            <DatePicker
-                                                id="due_date"
-                                                value={data.due_date}
-                                                onChange={(value) => setData('due_date', value)}
-                                                required
-                                            />
-                                            <InputError message={errors.due_date} />
-                                        </div>
+                        <div className="sm:col-span-2">
+                            <Label htmlFor="description">{t('Invoice Description')}</Label>
+                            <Input id="description" value={data.description}
+                                onChange={(e) => setData('description', e.target.value)}
+                                placeholder={t('What is this invoice for?')} />
+                            <InputError message={errors.description} />
+                        </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="customer_id" required className="text-sm font-medium text-foreground">
-                                                {t('Customer')}
-                                            </Label>
-                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('Select Customer')} />
-                                                </SelectTrigger>
-                                                <SelectContent searchable>
-                                                    {customers.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                            {customer.name} - {customer.email}
+                        <div>
+                            <Label>{t('Customer')} <span className="text-destructive">*</span></Label>
+                            <Select value={data.customer_id} onValueChange={(v) => setData('customer_id', v)}>
+                                <SelectTrigger><SelectValue placeholder={t('Select customer')} /></SelectTrigger>
+                                <SelectContent>
+                                    {customers.map((c: any) => (
+                                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={errors.customer_id} />
+                        </div>
+
+                        <div>
+                            <Label>{t('Invoice Type')}</Label>
+                            <Select value={data.type} onValueChange={(v) => setData('type', v)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="product">{t('Product')}</SelectItem>
+                                    <SelectItem value="service">{t('Service')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="invoice_date">{t('Issue Date')}</Label>
+                            <Input id="invoice_date" type="date" value={data.invoice_date}
+                                onChange={(e) => setData('invoice_date', e.target.value)} />
+                            <InputError message={errors.invoice_date} />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="supply_date">{t('Supply Date')}</Label>
+                            <Input id="supply_date" type="date" value={data.supply_date}
+                                onChange={(e) => setData('supply_date', e.target.value)} />
+                            {/* Not cosmetic: VAT is accounted for on the supply
+                                date, which can differ from the invoice date. */}
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {t('The date VAT is accounted for.')}
+                            </p>
+                            <InputError message={errors.supply_date} />
+                        </div>
+
+                        <div>
+                            <Label>{t('Payment Terms')}</Label>
+                            <Select value={data.payment_terms} onValueChange={(v) => setData('payment_terms', v)}>
+                                <SelectTrigger><SelectValue placeholder={t('Select payment term')} /></SelectTrigger>
+                                <SelectContent>
+                                    {paymentTerms.map((term: string) => (
+                                        <SelectItem key={term} value={term}>{term}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="due_date">{t('Due Date')}</Label>
+                            <Input id="due_date" type="date" value={data.due_date}
+                                onChange={(e) => setData('due_date', e.target.value)} />
+                            <InputError message={errors.due_date} />
+                        </div>
+
+                        <div>
+                            <Label>{t('Location')}</Label>
+                            <Select value={data.warehouse_id} onValueChange={(v) => setData('warehouse_id', v)}>
+                                <SelectTrigger><SelectValue placeholder={t('Select location')} /></SelectTrigger>
+                                <SelectContent>
+                                    {warehouses.map((w: any) => (
+                                        <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={errors.warehouse_id} />
+                        </div>
+
+                        <div>
+                            <Label>{t('Payment Method')}</Label>
+                            <Select value={data.payment_mean} onValueChange={(v) => setData('payment_mean', v)}>
+                                <SelectTrigger><SelectValue placeholder={t('Nothing selected')} /></SelectTrigger>
+                                <SelectContent>
+                                    {paymentMeans.map((m: any) => (
+                                        <SelectItem key={m.code} value={m.code}>{m.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={errors.payment_mean} />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                            <Label htmlFor="reference">{t('Reference')}</Label>
+                            <Input id="reference" value={data.reference}
+                                onChange={(e) => setData('reference', e.target.value)}
+                                placeholder={t('Customer PO or external reference')} />
+                        </div>
+                    </div>
+                </SectionCard>
+
+                <SectionCard title="Customer Details" icon={UserIcon}>
+                    {!customer ? (
+                        <p className="text-sm text-muted-foreground">
+                            {t('Select a customer to see their details.')}
+                        </p>
+                    ) : (
+                        <dl className="space-y-2 text-sm">
+                            <div className="flex justify-between gap-3">
+                                <dt className="text-muted-foreground">{t('Name')}</dt>
+                                <dd className="truncate font-medium">{customer.name}</dd>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                                <dt className="text-muted-foreground">{t('Email')}</dt>
+                                <dd className="ltr-text truncate">{customer.email || '—'}</dd>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                                <dt className="text-muted-foreground">{t('Phone')}</dt>
+                                <dd className="ltr-text">{customer.mobile_no || '—'}</dd>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                                <dt className="text-muted-foreground">{t('Tax Number')}</dt>
+                                <dd className="ltr-text tabular-nums">{customer.tax_number || '—'}</dd>
+                            </div>
+                            <div className="flex justify-between gap-3 border-t pt-2">
+                                <dt className="text-muted-foreground">{t('Current Balance')}</dt>
+                                <dd className="font-semibold tabular-nums">{money(customer.balance ?? 0)}</dd>
+                            </div>
+                        </dl>
+                    )}
+                </SectionCard>
+            </div>
+
+            <SectionCard
+                title="Invoice Items"
+                className="mt-5"
+                flush
+                action={
+                    <Button variant="outline" size="sm" className="gap-1.5"
+                        onClick={() => setData('items', [...data.items, emptyLine()])}>
+                        <Plus className="h-3.5 w-3.5" />
+                        {t('Add Line')}
+                    </Button>
+                }
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                            <tr>
+                                <th className="w-10 px-2 py-2 text-start font-medium">#</th>
+                                <th className="min-w-[160px] px-2 py-2 text-start font-medium">{t('Product / Service')}</th>
+                                <th className="min-w-[140px] px-2 py-2 text-start font-medium">{t('Description')}</th>
+                                <th className="w-20 px-2 py-2 text-end font-medium">{t('Qty')}</th>
+                                <th className="w-20 px-2 py-2 text-start font-medium">{t('Unit')}</th>
+                                <th className="w-28 px-2 py-2 text-end font-medium">{t('Unit Price')}</th>
+                                <th className="w-16 px-2 py-2 text-center font-medium">{t('Incl.')}</th>
+                                <th className="w-40 px-2 py-2 text-end font-medium">{t('Discount')}</th>
+                                <th className="w-32 px-2 py-2 text-end font-medium">{t('Total Before VAT')}</th>
+                                <th className="w-44 px-2 py-2 text-start font-medium">{t('VAT %')}</th>
+                                <th className="w-28 px-2 py-2 text-end font-medium">{t('VAT Value')}</th>
+                                <th className="w-32 px-2 py-2 text-end font-medium">{t('Amount')}</th>
+                                <th className="w-10 px-2 py-2" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.items.map((line: Line, index: number) => {
+                                const c = costLine(line);
+                                const needsReason = ['Z', 'E', 'O'].includes(line.tax_category_code);
+
+                                return (
+                                    <tr key={index} className="border-t align-top">
+                                        <td className="px-2 py-2 text-muted-foreground tabular-nums">{index + 1}</td>
+
+                                        <td className="px-2 py-2">
+                                            <Select value={line.product_id} onValueChange={(v) => pickProduct(index, v)}>
+                                                <SelectTrigger className="h-9"><SelectValue placeholder={t('Select')} /></SelectTrigger>
+                                                <SelectContent>
+                                                    {products.map((p: Product) => (
+                                                        <SelectItem key={p.id} value={String(p.id)}>
+                                                            {p.name}{p.sku ? ` (${p.sku})` : ''}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                            <InputError message={errors.customer_id} />
-                                        </div>
+                                            <InputError message={errors[`items.${index}.product_id`]} />
+                                        </td>
 
-                                        {data.type === 'product' && (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="warehouse_id" required className="text-sm font-medium text-foreground">
-                                                    {t('Warehouse')}
-                                                </Label>
-                                                <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder={t('Select Warehouse')} />
-                                                    </SelectTrigger>
+                                        <td className="px-2 py-2">
+                                            <Input className="h-9" value={line.description}
+                                                onChange={(e) => setLine(index, { description: e.target.value })} />
+                                        </td>
+
+                                        <td className="px-2 py-2">
+                                            <Input className="h-9 text-end" type="number" min="0" step="any"
+                                                value={line.quantity}
+                                                onChange={(e) => setLine(index, { quantity: e.target.value })} />
+                                            <InputError message={errors[`items.${index}.quantity`]} />
+                                        </td>
+
+                                        <td className="px-2 py-2">
+                                            {/* A select, not free text. Free text produces
+                                                "pcs", "PCS", "Pieces" and "piece" in one
+                                                table, which cannot then be summed or
+                                                reported on. */}
+                                            <Select value={line.unit}
+                                                onValueChange={(v) => setLine(index, { unit: v })}>
+                                                <SelectTrigger className="h-9"><SelectValue placeholder={t('Unit')} /></SelectTrigger>
+                                                <SelectContent>
+                                                    {units.map((u: any) => (
+                                                        <SelectItem key={u.id} value={u.unit_name}>{u.unit_name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </td>
+
+                                        <td className="px-2 py-2">
+                                            <Input className="h-9 text-end" type="number" min="0" step="any"
+                                                value={line.unit_price}
+                                                onChange={(e) => setLine(index, { unit_price: e.target.value })} />
+                                        </td>
+
+                                        <td className="px-2 py-2 text-center">
+                                            {/* Per line, not per invoice: retail and service
+                                                lines on one invoice often differ. */}
+                                            <Checkbox checked={line.is_tax_inclusive}
+                                                onCheckedChange={(v) => setLine(index, { is_tax_inclusive: Boolean(v) })} />
+                                        </td>
+
+                                        <td className="px-2 py-2">
+                                            {/* Percentage or fixed amount. Trade discounts are
+                                                quoted both ways and forcing one means the user
+                                                does the conversion by hand. */}
+                                            <div className="flex gap-1">
+                                                <Input className="h-9 text-end" type="number" min="0" step="any"
+                                                    value={line.discount_value}
+                                                    onChange={(e) => setLine(index, { discount_value: e.target.value })} />
+                                                <Select value={line.discount_type}
+                                                    onValueChange={(v) => setLine(index, { discount_type: v as 'percent' | 'amount' })}>
+                                                    <SelectTrigger className="h-9 w-16"><SelectValue /></SelectTrigger>
                                                     <SelectContent>
-                                                        {warehouses.map((warehouse) => (
-                                                            <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                                {warehouse.name} - {warehouse.address}
-                                                            </SelectItem>
-                                                        ))}
+                                                        <SelectItem value="percent">%</SelectItem>
+                                                        <SelectItem value="amount">{t('Amt')}</SelectItem>
                                                     </SelectContent>
                                                 </Select>
-                                                <InputError message={errors.warehouse_id} />
                                             </div>
-                                        )}
-                                    </div>
+                                        </td>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="payment_terms" className="text-sm font-medium text-foreground">
-                                                {t('Payment Terms')}
-                                            </Label>
-                                            <Input
-                                                id="payment_terms"
-                                                value={data.payment_terms}
-                                                onChange={(e) => setData('payment_terms', e.target.value)}
-                                                placeholder={t('e.g., Net 30')}
-                                                className="w-full"
-                                            />
-                                        </div>
+                                        <td className="px-2 py-2 text-end tabular-nums">{money(c.net)}</td>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="notes" className="text-sm font-medium text-foreground">
-                                                {t('Notes')}
-                                            </Label>
-                                            <Textarea
-                                                id="notes"
-                                                value={data.notes}
-                                                onChange={(e) => setData('notes', e.target.value)}
-                                                rows={2}
-                                                placeholder={t('Additional notes...')}
-                                                className="w-full resize-none"
-                                            />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Additional Settings / Plugins Integrations */}
-                            {(modules?.recurringinvoicebill || commissionFields.length > 0 || calendarFields.length > 0 || sageFields.length > 0) && (
-                                <Card className="border border-border shadow-md rounded-xl overflow-hidden bg-card">
-                                    <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                                <Settings className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <CardTitle className="text-base font-semibold text-foreground">
-                                                    {t('Additional Integration Settings')}
-                                                </CardTitle>
-                                            </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-6 space-y-6">
-                                        {/* Recurring Sales Invoice */}
-                                        {modules?.recurringinvoicebill && recurringFields.length > 0 && (
-                                            <div className="space-y-3">
-                                                <h4 className="text-sm font-semibold text-foreground">{t('Recurring Invoice settings')}</h4>
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {recurringFields.map((field) => (
-                                                        <div key={field.id}>{field.component}</div>
+                                        <td className="px-2 py-2">
+                                            {/* ONE control for rate and category. As two
+                                                separate fields a user could pick "Exempt" and
+                                                leave 15%, or "Standard" at 0% — combinations
+                                                the authority rejects. Selecting a row from the
+                                                tax master makes that impossible. */}
+                                            <Select value={line.tax_id} onValueChange={(v) => pickTax(index, v)}>
+                                                <SelectTrigger className="h-9"><SelectValue placeholder={t('Select VAT')} /></SelectTrigger>
+                                                <SelectContent>
+                                                    {taxes.map((tax: any) => (
+                                                        <SelectItem key={tax.id} value={String(tax.id)}>
+                                                            {tax.category_code} {Number(tax.rate).toFixed(1)}% ({tax.tax_name})
+                                                        </SelectItem>
                                                     ))}
-                                                </div>
-                                                <Separator className="my-4" />
-                                            </div>
-                                        )}
+                                                </SelectContent>
+                                            </Select>
+                                            {needsReason && (
+                                                <Input className="mt-1 h-8 text-xs"
+                                                    placeholder={t('Reason code')}
+                                                    value={line.exemption_reason_code}
+                                                    onChange={(e) => setLine(index, { exemption_reason_code: e.target.value })} />
+                                            )}
+                                            <InputError message={errors[`items.${index}.tax_percentage`]} />
+                                            <InputError message={errors[`items.${index}.exemption_reason_code`]} />
+                                        </td>
 
-                                        {/* Commission Plan Fields */}
-                                        {commissionFields.length > 0 && (
-                                            <div className="space-y-3">
-                                                <h4 className="text-sm font-semibold text-foreground">{t('Commission Plan settings')}</h4>
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {commissionFields.map((field) => (
-                                                        <div key={field.id}>{field.component}</div>
-                                                    ))}
-                                                </div>
-                                                <Separator className="my-4" />
-                                            </div>
-                                        )}
+                                        <td className="px-2 py-2 text-end tabular-nums">{money(c.vat)}</td>
+                                        <td className="px-2 py-2 text-end font-semibold tabular-nums">{money(c.total)}</td>
 
-                                        {/* Calendar Sync Field */}
-                                        {calendarFields.length > 0 && (
-                                            <div className="space-y-3">
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {calendarFields.map((field) => (
-                                                        <div key={field.id}>{field.component}</div>
-                                                    ))}
-                                                </div>
-                                                {sageFields.length > 0 && <Separator className="my-4" />}
-                                            </div>
-                                        )}
+                                        <td className="px-2 py-2">
+                                            <Button variant="ghost" size="sm"
+                                                className="h-8 w-8 p-0 text-destructive"
+                                                disabled={data.items.length === 1}
+                                                onClick={() => setData('items',
+                                                    data.items.filter((_: any, i: number) => i !== index))}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
 
-                                        {/* Sage Fields */}
-                                        {sageFields.length > 0 && (
-                                            <div className="space-y-3">
-                                                <h4 className="text-sm font-semibold text-foreground">{t('Sage integration settings')}</h4>
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {sageFields.map((field) => (
-                                                        <div key={field.id}>{field.component}</div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                            {/* Items Card */}
-                            <Card className="border border-border shadow-md rounded-xl overflow-hidden bg-card">
-                                <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                                <Package className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <CardTitle className="text-base font-semibold text-foreground">
-                                                    {t('Sales Invoice Items')}
-                                                </CardTitle>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            onClick={() => {
-                                                const newItem = {
-                                                    product_id: 0,
-                                                    quantity: 1,
-                                                    unit_price: 0,
-                                                    discount_percentage: 0,
-                                                    discount_amount: 0,
-                                                    tax_percentage: 0,
-                                                    tax_amount: 0,
-                                                    total_amount: 0
-                                                };
-                                                setData('items', [...data.items, newItem]);
-                                            }}
-                                            variant="default"
-                                            size="sm"
-                                            className="rounded-lg flex items-center gap-1.5"
-                                        >
-                                            <Plus className="h-4 w-4" /> {t('Add Item')}
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    <InvoiceItemsTable
-                                        items={data.items}
-                                        onChange={(items) => setData('items', items)}
-                                        errors={errors}
-                                        products={availableProducts}
-                                        showAddButton={false}
-                                        invoiceType={data.type}
-                                    />
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const newItem = {
-                                                product_id: 0,
-                                                quantity: 1,
-                                                unit_price: 0,
-                                                discount_percentage: 0,
-                                                discount_amount: 0,
-                                                tax_percentage: 0,
-                                                tax_amount: 0,
-                                                total_amount: 0
-                                            };
-                                            setData('items', [...data.items, newItem]);
-                                        }}
-                                        className="w-full py-3 mt-4 border border-dashed border-primary/30 dark:border-primary/50 rounded-xl text-sm font-medium text-primary bg-primary/10 hover:bg-primary/25 hover:border-primary/40 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                                    >
-                                        <Plus className="h-4 w-4" /> {t('Add another item')}
-                                    </button>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Right Column - Summary & Preview Cards */}
-                        <div className="space-y-6 lg:sticky lg:top-6 self-start">
-                            {/* Invoice Summary Card */}
-                            <Card className="border border-border shadow-md rounded-xl overflow-hidden bg-card">
-                                <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                            <Calculator className="h-5 w-5" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-base font-semibold text-foreground">
-                                                {t('Invoice Summary')}
-                                            </CardTitle>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6 space-y-4">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-muted-foreground">{t('Subtotal')}</span>
-                                        <span className="font-medium text-foreground">{formatCurrency(totals.subtotal)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-muted-foreground">{t('Discount')}</span>
-                                        <span className="font-medium text-red-600">-{formatCurrency(totals.discountAmount)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-muted-foreground">{t('Tax')}</span>
-                                        <span className="font-medium text-foreground">{formatCurrency(totals.taxAmount)}</span>
-                                    </div>
-                                    <Separator className="my-2" />
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span className="font-bold text-foreground text-sm">{t('Total')}</span>
-                                        <span className="font-bold text-2xl text-primary">{formatCurrency(totals.total)}</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Payment Terms Card */}
-                            <Card className="border border-border shadow-md rounded-xl overflow-hidden bg-card">
-                                <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                            <Clock className="h-5 w-5" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-base font-semibold text-foreground">
-                                                {t('Payment Terms')}
-                                            </CardTitle>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    {data.payment_terms ? (
-                                        <p className="text-xs text-muted-foreground break-words whitespace-pre-line">
-                                            {data.payment_terms}
-                                        </p>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground italic">
-                                            {t('No payment terms specified.')}
-                                        </p>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Additional Notes Card */}
-                            <Card className="border border-border shadow-md rounded-xl overflow-hidden bg-card">
-                                <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                            <FileText className="h-5 w-5" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-base font-semibold text-foreground">
-                                                {t('Additional Notes')}
-                                            </CardTitle>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    {data.notes ? (
-                                        <p className="text-xs text-muted-foreground break-words whitespace-pre-line">
-                                            {data.notes}
-                                        </p>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground italic">
-                                            {t('No additional notes.')}
-                                        </p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
+                {typeof errors.items === 'string' && (
+                    <div className="border-t p-3">
+                        <InputError message={errors.items} />
                     </div>
+                )}
+            </SectionCard>
 
-                    {/* Actions and Footer */}
-                    <div className="flex justify-between items-center border-t border-border/60 pt-6 mt-6">
-                        {data.items.length > 0 ? (
-                            <div className="flex items-center gap-2 text-sm text-primary font-medium">
-                                <CheckCircle2 className="h-4.5 w-4.5" />
-                                <span>
-                                    {data.items.length} {data.items.length === 1 ? t('item added') : t('items added')}
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="text-sm text-muted-foreground">
-                                {t('No items added yet')}
+            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                <SectionCard
+                    title="VAT Summary"
+                    description="Amounts separated by tax category, as required on the invoice."
+                >
+                    {totals.rows.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{t('Add a line to see the VAT breakdown.')}</p>
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b">
+                                    <th className="py-2 text-start font-medium">{t('Category')}</th>
+                                    <th className="py-2 text-end font-medium">{t('Rate')}</th>
+                                    <th className="py-2 text-end font-medium">{t('Taxable Amount')}</th>
+                                    <th className="py-2 text-end font-medium">{t('VAT')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {totals.rows.map((row: any) => (
+                                    <tr key={`${row.code}-${row.rate}`} className="border-b last:border-0">
+                                        <td className="py-1.5">
+                                            <span className="font-medium">{row.code}</span>{' '}
+                                            <span className="text-muted-foreground">{t(row.label)}</span>
+                                        </td>
+                                        <td className="py-1.5 text-end tabular-nums">{row.rate}%</td>
+                                        <td className="py-1.5 text-end tabular-nums">{money(row.taxable)}</td>
+                                        <td className="py-1.5 text-end tabular-nums">{money(row.tax)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </SectionCard>
+
+                <SectionCard title="Totals">
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">{t('Subtotal')}</span>
+                            <span className="tabular-nums">{money(totals.subtotal)}</span>
+                        </div>
+                        {totals.discount > 0 && (
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>{t('Discount')}</span>
+                                <span className="tabular-nums">-{money(totals.discount)}</span>
                             </div>
                         )}
-                        <div className="flex items-center gap-3">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => window.history.back()}
-                                className="rounded-lg shadow-sm"
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={processing || data.items.length === 0}
-                                onClick={(e) => submit(e, false)}
-                                className="rounded-lg shadow-sm flex items-center justify-center min-w-[140px]"
-                            >
-                                <Save className="mr-1.5 h-4 w-4" />
-                                <span>{processing ? t('Saving...') : t('Save as Draft')}</span>
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={processing || data.items.length === 0}
-                                onClick={(e) => submit(e, true)}
-                                className="rounded-lg shadow-sm flex items-center justify-center min-w-[160px]"
-                            >
-                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                <span>{processing ? t('Saving...') : t('Save and Post')}</span>
-                            </Button>
+                        <div className="flex justify-between border-t pt-2">
+                            <span className="text-muted-foreground">{t('Total Before VAT')}</span>
+                            <span className="tabular-nums">{money(totals.beforeVat)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">{t('Total VAT')}</span>
+                            <span className="tabular-nums">{money(totals.vat)}</span>
+                        </div>
+                        <div className="flex justify-between border-t-2 border-foreground pt-2 text-base font-bold">
+                            <span>{t('Total After VAT')}</span>
+                            <span className="tabular-nums">{money(totals.total)}</span>
                         </div>
                     </div>
-                </form>
+                </SectionCard>
+            </div>
+
+            <div className="mt-5 space-y-3">
+                <details className="rounded-lg border bg-card p-4">
+                    <summary className="cursor-pointer text-sm font-semibold">{t('Terms and Conditions')}</summary>
+                    <Textarea className="mt-3" rows={3} value={data.terms}
+                        onChange={(e) => setData('terms', e.target.value)} />
+                </details>
+
+                <details className="rounded-lg border bg-card p-4">
+                    <summary className="cursor-pointer text-sm font-semibold">{t('Notes')}</summary>
+                    <Textarea className="mt-3" rows={3} value={data.notes}
+                        onChange={(e) => setData('notes', e.target.value)} />
+                </details>
+
+                {/*
+                  Receipts, Attachments and Additional Information appear in the
+                  reference layout but have no backing store yet — no invoice
+                  attachments table, no custom-field table. They are omitted
+                  rather than shown as sections that silently discard whatever
+                  is typed into them. Flagged in the handover.
+                */}
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <Button variant="outline" onClick={() => submit('draft')} disabled={processing} className="gap-1.5">
+                    <Save className="h-4 w-4" />
+                    {t('Save as Draft')}
+                </Button>
+
+                {!confirming ? (
+                    <Button onClick={() => setConfirming(true)} disabled={processing} className="gap-1.5">
+                        <CheckCircle2 className="h-4 w-4" />
+                        {t('Save and Approve')}
+                    </Button>
+                ) : (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 dark:border-amber-900 dark:bg-amber-950/30">
+                        {/* Approval posts to the ledger and cannot be undone by
+                            editing — only by credit note. That deserves one
+                            deliberate confirmation. */}
+                        <span className="text-xs text-amber-800 dark:text-amber-400">
+                            {t('This posts to the ledger and cannot be edited afterwards.')}
+                        </span>
+                        <Button variant="outline" size="sm" onClick={() => setConfirming(false)}>
+                            {t('Cancel')}
+                        </Button>
+                        <Button size="sm" onClick={() => submit('approve')} disabled={processing}>
+                            {processing ? t('Approving...') : t('Confirm and Approve')}
+                        </Button>
+                    </div>
+                )}
             </div>
         </AuthenticatedLayout>
     );
 }
-

@@ -15,7 +15,20 @@ import { Trash2 } from 'lucide-react';
 import { CreateCustomerPaymentFormData, CreateCustomerPaymentProps, SalesInvoice, CreditNote } from './types';
 import { formatCurrency } from '@/utils/helpers';
 
-export default function Create({ customers, bankAccounts, onSuccess }: CreateCustomerPaymentProps) {
+/**
+ * `prefill` arrives when the user clicked the Payment icon on a specific
+ * invoice. Everything the invoice already knows is filled in, so the only
+ * thing left to choose is where the money landed.
+ */
+type Prefill = {
+    invoice_id: number;
+    invoice_number: string;
+    customer_id: number;
+    customer_name?: string;
+    balance_amount: number;
+};
+
+export default function Create({ customers, bankAccounts, onSuccess, prefill }: CreateCustomerPaymentProps & { prefill?: Prefill | null }) {
     const { t } = useTranslation();
     const [outstandingInvoices, setOutstandingInvoices] = useState<SalesInvoice[]>([]);
     const [availableCreditNotes, setAvailableCreditNotes] = useState<CreditNote[]>([]);
@@ -24,14 +37,20 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
 
     const { data, setData, post, processing, errors } = useForm<CreateCustomerPaymentFormData>({
         payment_date: new Date().toISOString().split('T')[0],
-        customer_id: '',
+        // Seeded from the invoice when opened via the Payment icon.
+        customer_id: prefill ? String(prefill.customer_id) : '',
         bank_account_id: '',
-        reference_number: '',
-        payment_amount: '',
-        notes: '',
+        reference_number: prefill?.invoice_number || '',
+        payment_amount: prefill ? String(prefill.balance_amount) : '',
+        notes: prefill
+            ? `Payment received against Invoice ${prefill.invoice_number}.`
+            : '',
         allocations: [],
         credit_notes: []
     });
+
+    /** True while the prefilled invoice is still being matched to the fetched list. */
+    const [prefillPending, setPrefillPending] = useState<boolean>(Boolean(prefill));
 
     // Update form data when selections change
     useEffect(() => {
@@ -68,11 +87,41 @@ export default function Create({ customers, bankAccounts, onSuccess }: CreateCus
             setOutstandingInvoices([]);
             setAvailableCreditNotes([]);
         }
-        // Clear selections when customer changes
+        /*
+         * Changing the customer clears the selections — a different customer's
+         * invoices are not the ones just chosen.
+         *
+         * The prefilled case is the exception: this effect runs once on mount
+         * with the customer already set, and wiping the amount there would undo
+         * the very thing the Payment icon just filled in. `prefillPending`
+         * guards exactly that first pass.
+         */
+        if (prefillPending) return;
+
         setSelectedAllocations([]);
         setSelectedCreditNotes([]);
         setData('payment_amount', '');
     }, [data.customer_id]);
+
+    /*
+     * Once the outstanding invoices arrive, select the one the user clicked and
+     * allocate the whole outstanding balance to it. That is the point of the
+     * Payment icon: "receive payment for THIS invoice", not "open a blank form
+     * that happens to know the customer".
+     */
+    useEffect(() => {
+        if (!prefill || !prefillPending || outstandingInvoices.length === 0) return;
+
+        const invoice = outstandingInvoices.find((inv: any) => inv.id === prefill.invoice_id);
+
+        if (invoice) {
+            const outstanding = Number(invoice.balance_amount ?? prefill.balance_amount);
+            setSelectedAllocations([{ invoice_id: invoice.id, amount: outstanding }]);
+            setData('payment_amount', String(outstanding));
+        }
+
+        setPrefillPending(false);
+    }, [outstandingInvoices, prefill, prefillPending]);
 
     const addAllocation = (invoice: SalesInvoice) => {
         const existing = selectedAllocations.find(a => a.invoice_id === invoice.id);
