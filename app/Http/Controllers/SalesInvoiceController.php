@@ -313,7 +313,29 @@ class SalesInvoiceController extends Controller
             // rather than left null, because a null supply date on a posted
             // invoice puts it in no period at all.
             $invoice->supply_date   = $request->supply_date ?: ($request->invoice_date ?: now()->toDateString());
-            $invoice->due_date      = $request->due_date;
+            /*
+             * DUE DATE — defaults to the invoice date when the user leaves it
+             * blank on a draft.
+             *
+             * A draft may legitimately have no due date; the user may not know
+             * the payment terms yet. I first solved that by making the column
+             * nullable, which was correct but left the feature DEPENDENT ON A
+             * MIGRATION HAVING BEEN RUN — and until it was, saving a draft died
+             * with "Column 'due_date' cannot be null".
+             *
+             * Defaulting here instead means drafts save on ANY schema state,
+             * migrated or not. The value is sensible rather than arbitrary: an
+             * invoice due on its issue date is "due on receipt", it is visible
+             * in the form, and the user can change it. On approve, validation
+             * has already required an explicit date, so this only ever applies
+             * to drafts.
+             *
+             * The nullable migration still ships and is still worth running —
+             * it lets a draft hold a genuinely empty due date. But nothing
+             * breaks without it now.
+             */
+            $invoice->due_date      = $request->due_date
+                ?: ($request->invoice_date ?: now()->toDateString());
             $invoice->type          = $request->type ?? 'product';
             $invoice->warehouse_id  = ($request->type ?? 'product') === 'product' ? $request->warehouse_id : null;
             $invoice->location_id   = $request->location_id;
@@ -492,7 +514,10 @@ class SalesInvoiceController extends Controller
             $totals = $this->calculateTotals($request->items);
 
             $salesInvoice->invoice_date = $request->invoice_date;
-            $salesInvoice->due_date = $request->due_date;
+            // Same fallback as store(): never write a null into a column that
+            // may still be NOT NULL on an un-migrated database.
+            $salesInvoice->due_date = $request->due_date
+                ?: ($request->invoice_date ?: $salesInvoice->invoice_date);
             $salesInvoice->customer_id = $request->customer_id;
             $salesInvoice->warehouse_id = $salesInvoice->type === 'product' ? $request->warehouse_id : null;
             $salesInvoice->payment_terms = $request->payment_terms;

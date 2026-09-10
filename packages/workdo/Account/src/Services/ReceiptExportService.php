@@ -42,7 +42,19 @@ class ReceiptExportService
 
         if ($scope === 'customer' || $scope === 'all') {
             $rows = array_merge($rows, $this->rowsFor(
-                CustomerPayment::with(['customer:id,company_name', 'bankAccount:id,account_name']),
+                /*
+                 * `name`, not `company_name`.
+                 *
+                 * Both relations point at the USERS table, which has no
+                 * company_name column — that lives on the separate customers /
+                 * vendors records. Selecting it produced
+                 * "Unknown column 'company_name' in 'SELECT'" and the export
+                 * failed outright.
+                 *
+                 * `name` on the user row is the trading name for both parties,
+                 * which is what belongs in the export anyway.
+                 */
+                CustomerPayment::with(['customer:id,name', 'bankAccount:id,account_name']),
                 'Received',
                 'customer',
                 $filters,
@@ -51,7 +63,9 @@ class ReceiptExportService
 
         if ($scope === 'vendor' || $scope === 'all') {
             $rows = array_merge($rows, $this->rowsFor(
-                VendorPayment::with(['vendor:id,company_name', 'bankAccount:id,account_name']),
+                // Same fix as above — the vendor export carried the identical fault
+                // and would have failed the moment anyone used it.
+                VendorPayment::with(['vendor:id,name', 'bankAccount:id,account_name']),
                 'Paid',
                 'vendor',
                 $filters,
@@ -95,7 +109,7 @@ class ReceiptExportService
                 $payment->payment_number,
                 $payment->payment_date ? $payment->payment_date->format('Y-m-d') : '',
                 $direction,
-                $party->company_name ?? '',
+                $party->name ?? '',
                 $payment->bankAccount->account_name ?? '',
                 $payment->reference_number,
                 (float) $payment->payment_amount,

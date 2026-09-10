@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -139,7 +140,7 @@ export default function Create() {
     const money = (v: any) => formatCurrency(Number(v ?? 0), pageProps);
     const today = new Date().toISOString().slice(0, 10);
 
-    const { data, setData, post, processing, errors } = useForm<any>({
+    const { data, setData, post, processing, errors, transform } = useForm<any>({
         mode: 'draft',
         customer_id: '',
         description: '',
@@ -294,14 +295,24 @@ export default function Create() {
             exemption_reason_code: line.exemption_reason_code || null,
         }));
 
-        // setData is async, so the mode is merged in explicitly — relying on
-        // state alone would post the previous mode on the first click.
-        setData('mode', mode);
+        /*
+         * transform(), NOT a `data` key in the options.
+         *
+         * useForm().post(url, options) takes VISIT options — there is no `data`
+         * property on it. Passing one is silently ignored: the form submits its
+         * own state instead. That is why "Save and Approve" arrived at the
+         * server as mode=draft (setData is async, so state still held the
+         * previous value) and why the mapped line items above never reached it.
+         *
+         * transform() is the supported hook for rewriting the payload at
+         * submit time, and it runs against the CURRENT state every time.
+         */
+        transform((current: any) => ({ ...current, mode, items }));
+
         post(route('sales-invoices.store'), {
-            data: { ...data, mode, items },
             preserveScroll: true,
             onFinish: () => setConfirming(false),
-        } as any);
+        });
     };
 
     const customer = customers.find((c: any) => String(c.id) === String(data.customer_id));
@@ -360,17 +371,31 @@ export default function Create() {
                             </Select>
                         </div>
 
+                        {/* Dates group. Three labelled blocks instead of one
+                            eleven-row ladder — the eye needs somewhere to rest. */}
+                        <div className="sm:col-span-2 mt-2 border-t pt-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {t('Dates')}
+                            </p>
+                        </div>
+
                         <div>
                             <Label htmlFor="invoice_date">{t('Issue Date')}</Label>
-                            <Input id="invoice_date" type="date" value={data.invoice_date}
-                                onChange={(e) => setData('invoice_date', e.target.value)} />
+                            <DatePicker
+                                id="invoice_date"
+                                value={data.invoice_date}
+                                onChange={(v) => setData('invoice_date', v)}
+                            />
                             <InputError message={errors.invoice_date} />
                         </div>
 
                         <div>
                             <Label htmlFor="supply_date">{t('Supply Date')}</Label>
-                            <Input id="supply_date" type="date" value={data.supply_date}
-                                onChange={(e) => setData('supply_date', e.target.value)} />
+                            <DatePicker
+                                id="supply_date"
+                                value={data.supply_date}
+                                onChange={(v) => setData('supply_date', v)}
+                            />
                             {/* Not cosmetic: VAT is accounted for on the supply
                                 date, which can differ from the invoice date. */}
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -393,9 +418,18 @@ export default function Create() {
 
                         <div>
                             <Label htmlFor="due_date">{t('Due Date')}</Label>
-                            <Input id="due_date" type="date" value={data.due_date}
-                                onChange={(e) => setData('due_date', e.target.value)} />
+                            <DatePicker
+                                id="due_date"
+                                value={data.due_date}
+                                onChange={(v) => setData('due_date', v)}
+                            />
                             <InputError message={errors.due_date} />
+                        </div>
+
+                        <div className="sm:col-span-2 mt-2 border-t pt-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {t('Delivery & Payment')}
+                            </p>
                         </div>
 
                         <div>
@@ -477,16 +511,23 @@ export default function Create() {
                     </Button>
                 }
             >
+                {/*
+                  min-w forces the table to its natural width and lets the
+                  container scroll, instead of squeezing 14 columns into the
+                  viewport — which is what shrank Qty, Unit Price and Discount
+                  to a few pixels each and made them read as dropdowns rather
+                  than fields you type into.
+                */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[1500px] text-sm">
                         <thead className="bg-muted/50">
                             <tr>
                                 <th className="w-10 px-2 py-2 text-start font-medium">#</th>
                                 <th className="min-w-[160px] px-2 py-2 text-start font-medium">{t('Product / Service')}</th>
                                 <th className="min-w-[140px] px-2 py-2 text-start font-medium">{t('Description')}</th>
-                                <th className="w-20 px-2 py-2 text-end font-medium">{t('Qty')}</th>
-                                <th className="w-20 px-2 py-2 text-start font-medium">{t('Unit')}</th>
-                                <th className="w-28 px-2 py-2 text-end font-medium">{t('Unit Price')}</th>
+                                <th className="w-24 px-2 py-2 text-end font-medium">{t('Qty')}</th>
+                                <th className="w-28 px-2 py-2 text-start font-medium">{t('Unit')}</th>
+                                <th className="w-32 px-2 py-2 text-end font-medium">{t('Unit Price')}</th>
                                 <th className="w-16 px-2 py-2 text-center font-medium">{t('Incl.')}</th>
                                 <th className="w-40 px-2 py-2 text-end font-medium">{t('Discount')}</th>
                                 <th className="w-32 px-2 py-2 text-end font-medium">{t('Total Before VAT')}</th>
@@ -525,7 +566,8 @@ export default function Create() {
                                         </td>
 
                                         <td className="px-2 py-2">
-                                            <Input className="h-9 text-end" type="number" min="0" step="any"
+                                            <Input className="h-9 w-full min-w-[70px] text-end tabular-nums" type="number" min="0" step="any"
+                                                inputMode="decimal"
                                                 value={line.quantity}
                                                 onChange={(e) => setLine(index, { quantity: e.target.value })} />
                                             <InputError message={errors[`items.${index}.quantity`]} />
@@ -548,7 +590,8 @@ export default function Create() {
                                         </td>
 
                                         <td className="px-2 py-2">
-                                            <Input className="h-9 text-end" type="number" min="0" step="any"
+                                            <Input className="h-9 w-full min-w-[90px] text-end tabular-nums" type="number" min="0" step="any"
+                                                inputMode="decimal"
                                                 value={line.unit_price}
                                                 onChange={(e) => setLine(index, { unit_price: e.target.value })} />
                                         </td>
@@ -565,7 +608,8 @@ export default function Create() {
                                                 quoted both ways and forcing one means the user
                                                 does the conversion by hand. */}
                                             <div className="flex gap-1">
-                                                <Input className="h-9 text-end" type="number" min="0" step="any"
+                                                <Input className="h-9 w-full min-w-[70px] text-end tabular-nums" type="number" min="0" step="any"
+                                                    inputMode="decimal"
                                                     value={line.discount_value}
                                                     onChange={(e) => setLine(index, { discount_value: e.target.value })} />
                                                 <Select value={line.discount_type}

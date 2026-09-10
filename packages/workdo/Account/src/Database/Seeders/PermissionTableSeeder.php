@@ -84,6 +84,10 @@ class PermissionTableSeeder extends Seeder
             ['name' => 'manage-own-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Manage Own Vendor Payments'],
             ['name' => 'view-vendor-payments', 'module' => 'vendor-payments', 'label' => 'View Vendor Payments'],
             ['name' => 'create-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Create Vendor Payments'],
+            // Added with the inline edit action — amount, date, account,
+            // reference and notes. Separate from create and delete because
+            // amending a posted payment is its own level of trust.
+            ['name' => 'edit-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Edit Vendor Payments'],
             ['name' => 'cleared-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Cleared Vendor Payments'],
             ['name' => 'delete-vendor-payments', 'module' => 'vendor-payments', 'label' => 'Delete Vendor Payments'],
 
@@ -93,6 +97,10 @@ class PermissionTableSeeder extends Seeder
             ['name' => 'manage-own-customer-payments', 'module' => 'customer-payments', 'label' => 'Manage Own Customer Payments'],
             ['name' => 'view-customer-payments', 'module' => 'customer-payments', 'label' => 'View Customer Payments'],
             ['name' => 'create-customer-payments', 'module' => 'customer-payments', 'label' => 'Create Customer Payments'],
+            // Added with the inline edit action — amount, date, account,
+            // reference and notes. Separate from create and delete because
+            // amending a posted payment is its own level of trust.
+            ['name' => 'edit-customer-payments', 'module' => 'customer-payments', 'label' => 'Edit Customer Payments'],
             ['name' => 'cleared-customer-payments', 'module' => 'customer-payments', 'label' => 'Clear Customer Payments'],
             ['name' => 'delete-customer-payments', 'module' => 'customer-payments', 'label' => 'Delete Customer Payments'],
 

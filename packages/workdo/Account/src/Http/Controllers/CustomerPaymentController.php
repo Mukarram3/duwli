@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Models\SalesInvoice;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Workdo\Account\Models\JournalEntry;
+use Illuminate\Support\Facades\DB;
 use Workdo\Account\Services\ReceiptExportService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -326,10 +328,40 @@ class CustomerPaymentController extends Controller
                 }
             }
 
+            /*
+             * SAVED DIRECTLY — no separate posting or approval step.
+             *
+             * The receipt is created as `cleared` and posted to the books in
+             * the same operation: journal entry, bank transaction, invoice
+             * balances and credit note applications all in one.
+             *
+             * Previously it was created as `pending` and did nothing to the
+             * ledger until someone marked it cleared, which meant a receipt
+             * could be entered and the invoice still show as unpaid.
+             *
+             * TRADE-OFF, stated plainly: money now hits the ledger the moment
+             * the receipt is saved, so a mistake is corrected by cancelling
+             * (which reverses the entries) rather than by deleting a pending
+             * row. That is the normal accounting treatment and it is what makes
+             * the invoice update immediately, which is the point.
+             */
+            $payment->status = 'cleared';
+            $payment->save();
+
+            try {
+                $this->postPaymentToBooks($payment);
+            } catch (\Exception $e) {
+                // The receipt exists but the ledger does not agree with it.
+                // Say so rather than reporting a clean success.
+                return redirect()->route('account.customer-payments.index')
+                    ->with('error', __('The receipt was saved but could not be posted: ') . $e->getMessage());
+            }
+
             // Dispatch event
             CreateCustomerPayment::dispatch($request, $payment);
 
-            return redirect()->route('account.customer-payments.index')->with('success', __('The customer payment has been created successfully.'));
+            return redirect()->route('account.customer-payments.index')
+                ->with('success', __('The customer receipt has been saved and posted.'));
         }
         else{
             return back()->with('error', __('Permission denied'));
@@ -337,6 +369,125 @@ class CustomerPaymentController extends Controller
     }
 
 
+
+    /**
+     * Edit a receipt — amount, date, bank account, reference or notes.
+     *
+     * WHY THIS IS NOT A SIMPLE UPDATE
+     * The receipt has already posted: a journal entry exists, the bank
+     * transaction exists, and the invoices carry its money in their
+     * paid_amount. Changing the amount without touching any of that would
+     * leave the ledger, the bank and the invoices all disagreeing with the
+     * receipt they came from.
+     *
+     * So the edit is: UNPOST, APPLY THE CHANGES, RE-POST — all inside one
+     * transaction, so a failure halfway cannot leave the books half-corrected.
+     *
+     * The allocation is scaled to the new amount. If a 1,000 receipt allocated
+     * entirely to one invoice becomes 600, the allocation becomes 600 too;
+     * leaving it at 1,000 would allocate money the receipt no longer contains.
+     */
+    public function update(Request $request, CustomerPayment $customerPayment)
+    {
+        if (!Auth::user()->can('edit-customer-payments') || $customerPayment->created_by != creatorId()) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        if ($customerPayment->status === 'cancelled') {
+            return back()->with('error', __('A cancelled receipt cannot be edited.'));
+        }
+
+        $validated = $request->validate([
+            'payment_amount'   => 'required|numeric|min:0.01',
+            'payment_date'     => 'required|date',
+            'bank_account_id'  => 'required|exists:bank_accounts,id',
+            'reference_number' => 'nullable|string|max:255',
+            'notes'            => 'nullable|string',
+        ]);
+
+        try {
+            DB::transaction(function () use ($customerPayment, $validated) {
+                $wasPosted = $customerPayment->status === 'cleared';
+                $oldAmount = (float) $customerPayment->payment_amount;
+                $newAmount = (float) $validated['payment_amount'];
+
+                if ($wasPosted) {
+                    $this->unpostPaymentFromBooks($customerPayment);
+                }
+
+                /*
+                 * Scale the allocations proportionally. Done before re-posting
+                 * so the new figures are what gets applied to the invoices.
+                 */
+                if ($oldAmount > 0 && $newAmount != $oldAmount) {
+                    $ratio = $newAmount / $oldAmount;
+                    foreach ($customerPayment->allocations as $allocation) {
+                        $allocation->allocated_amount = round($allocation->allocated_amount * $ratio, 2);
+                        $allocation->save();
+                    }
+                }
+
+                $customerPayment->update($validated);
+                $customerPayment->refresh()->load('allocations.invoice');
+
+                if ($wasPosted) {
+                    $this->postPaymentToBooks($customerPayment);
+                }
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', __('Could not update the receipt: ') . $e->getMessage());
+        }
+
+        return back()->with('success', __('The receipt has been updated and the accounts adjusted.'));
+    }
+
+    /**
+     * The exact inverse of postPaymentToBooks().
+     *
+     * Takes the receipt's money back off the invoices and credit notes and
+     * reverses its journal entry, so the receipt can be re-posted with new
+     * figures. The original journal is REVERSED, not deleted — an amended
+     * receipt should show both the original entry and its correction.
+     */
+    private function unpostPaymentFromBooks(CustomerPayment $payment): void
+    {
+        foreach ($payment->allocations as $allocation) {
+            $invoice = $allocation->invoice;
+            if (!$invoice) {
+                continue;
+            }
+
+            $invoice->paid_amount = max($invoice->paid_amount - $allocation->allocated_amount, 0);
+            $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
+            $invoice->status = $invoice->paid_amount <= 0
+                ? 'posted'
+                : ($invoice->balance_amount <= 0 ? 'paid' : 'partial');
+            $invoice->save();
+        }
+
+        foreach (CreditNoteApplication::where('payment_id', $payment->id)->get() as $application) {
+            $creditNote = CreditNote::find($application->credit_note_id);
+            if (!$creditNote) {
+                continue;
+            }
+
+            $creditNote->applied_amount = max($creditNote->applied_amount - $application->applied_amount, 0);
+            $creditNote->balance_amount = $creditNote->total_amount - $creditNote->applied_amount;
+            $creditNote->status = $creditNote->applied_amount <= 0
+                ? 'open'
+                : ($creditNote->balance_amount <= 0 ? 'applied' : 'partial');
+            $creditNote->save();
+        }
+
+        $journal = JournalEntry::where('reference_type', 'customer_payment')
+            ->where('reference_id', $payment->id)
+            ->where('status', 'posted')
+            ->first();
+
+        if ($journal) {
+            $this->journalService->reverseManualJournal($journal);
+        }
+    }
 
     public function getOutstandingInvoices($customerId)
     {
@@ -371,40 +522,72 @@ class CustomerPaymentController extends Controller
         ]);
     }
 
+    /**
+     * Post a receipt to the books.
+     *
+     * Raises the journal entry and the bank transaction, applies the
+     * allocations to their invoices, and applies any credit notes.
+     *
+     * Extracted from updateStatus() so store() and updateStatus() run the SAME
+     * code. Two copies of posting logic is how a receipt created one way ends
+     * up on the ledger differently from one created the other way — and that
+     * kind of divergence only shows up at a reconciliation.
+     *
+     * IDEMPOTENT BY CALLER. It must be invoked exactly once per receipt;
+     * calling it twice would double the invoice paid_amount. Both callers guard
+     * for that: store() posts only on creation, updateStatus() only on a
+     * transition INTO cleared.
+     */
+    private function postPaymentToBooks(CustomerPayment $payment): void
+    {
+        if ($payment->payment_amount > 0) {
+            $this->journalService->createCustomerPaymentJournal($payment);
+            $this->bankTransactionsService->createCustomerPayment($payment);
+        }
+
+        foreach ($payment->allocations as $allocation) {
+            $invoice = $allocation->invoice;
+            if (!$invoice) {
+                continue;
+            }
+
+            $invoice->paid_amount += $allocation->allocated_amount;
+            $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
+
+            if ($invoice->balance_amount <= 0) {
+                $invoice->status = 'paid';
+            } elseif ($invoice->paid_amount > 0) {
+                $invoice->status = 'partial';
+            }
+            $invoice->save();
+        }
+
+        foreach (CreditNoteApplication::where('payment_id', $payment->id)->get() as $application) {
+            $creditNote = CreditNote::find($application->credit_note_id);
+            if (!$creditNote) {
+                continue;
+            }
+
+            $creditNote->applied_amount += $application->applied_amount;
+            $creditNote->balance_amount = $creditNote->total_amount - $creditNote->applied_amount;
+            $creditNote->status = $creditNote->balance_amount <= 0 ? 'applied' : 'partial';
+            $creditNote->save();
+        }
+    }
+
     public function updateStatus(Request $request, CustomerPayment $customerPayment)
     {
         if(Auth::user()->can('cleared-customer-payments') && $customerPayment->created_by == creatorId()){
             try {
-                // Create journal entry and update invoices when payment is cleared
-                if($request->status === 'cleared') {
-                    if($customerPayment->payment_amount > 0)
-                    {
-                        $this->journalService->createCustomerPaymentJournal($customerPayment);
-                        $this->bankTransactionsService->createCustomerPayment($customerPayment);
-                    }
-                    // Update invoice balances
-                    foreach ($customerPayment->allocations as $allocation) {
-                        $invoice = $allocation->invoice;
-                        $invoice->paid_amount += $allocation->allocated_amount;
-                        $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
-
-                        if ($invoice->balance_amount == 0) {
-                            $invoice->status = 'paid';
-                        } elseif ($invoice->paid_amount > 0) {
-                            $invoice->status = 'partial';
-                        }
-                        $invoice->save();
-                    }
-                }
-
-                $creditNoteApplication = CreditNoteApplication::where('payment_id', $customerPayment->id)->get();
-
-                foreach ($creditNoteApplication as $creditNote) {
-                    $creditNoteModel = CreditNote::find($creditNote['credit_note_id']);
-                    $creditNoteModel->applied_amount += $creditNote['applied_amount'];
-                    $creditNoteModel->balance_amount = $creditNoteModel->total_amount - $creditNoteModel->applied_amount;
-                    $creditNoteModel->status = $creditNoteModel->balance_amount <= 0 ? 'applied' : 'partial';
-                    $creditNoteModel->save();
+                /*
+                 * Only post on a transition INTO cleared, and only from a state
+                 * that has not already posted. Receipts are now created as
+                 * cleared, so this path exists for a receipt being revived from
+                 * cancelled — posting an already-cleared receipt again would
+                 * double every invoice's paid_amount.
+                 */
+                if ($request->status === 'cleared' && $customerPayment->status !== 'cleared') {
+                    $this->postPaymentToBooks($customerPayment);
                 }
 
                 $customerPayment->update(['status' => $request->status]);

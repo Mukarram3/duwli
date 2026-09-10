@@ -23,7 +23,7 @@ interface CreateCustomerProps {
 
 export default function Create({ onSuccess, users = [], auth }: CreateCustomerProps) {
     const { t } = useTranslation();
-    const { data, setData, post, processing, errors } = useForm<CustomerFormData>({
+    const { data, setData, post, processing, errors, transform } = useForm<CustomerFormData>({
         user_id: undefined,
         company_name: '',
         contact_person_name: '',
@@ -76,6 +76,19 @@ export default function Create({ onSuccess, users = [], auth }: CreateCustomerPr
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
+        /*
+         * transform(), NOT a `data` key in the post options.
+         *
+         * useForm().post(url, options) takes VISIT options — there is no `data`
+         * property, so passing one is silently ignored and the form submits its
+         * own untouched state. transform() is the supported hook for rewriting
+         * the payload at submit time.
+         */
+        transform((current: any) => ({
+            ...current,
+            user_id: (!current.user_id || String(current.user_id) === '0') ? null : current.user_id,
+        }));
+
         post(route('account.customers.store'), {
             onSuccess: () => {
                 onSuccess();
@@ -89,31 +102,6 @@ export default function Create({ onSuccess, users = [], auth }: CreateCustomerPr
                 <DialogTitle>{t('Create Customer')}</DialogTitle>
             </DialogHeader>
             <form onSubmit={submit} className="space-y-4">
-                <div>
-                    <Label htmlFor="user_id" required>{t('User')}</Label>
-                    <Select value={data.user_id?.toString() || '0'} onValueChange={handleUserSelect}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={t('Select a user (optional)')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="0">{t('No User Selected')}</SelectItem>
-                            {users.map((user) => (
-                                <SelectItem key={user.id} value={user.id.toString()}>
-                                    {user.name} ({user.email})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.user_id} />
-                    {users.length === 0 && auth?.user?.permissions?.includes('create-users') && (
-                        <p className="text-xs text-gray-500 mt-1">
-                            {t('Create user here.')} <button onClick={() => router.get(route('users.index'))} className="text-blue-600 hover:underline">{t('Create user')}</button>
-                        </p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                        {t('Note: Only users with client role who are not already assigned to other customers will appear in this list.')}
-                    </p>
-                </div>
                 <div>
                     <Label htmlFor="company_name">{t('Company Name')}</Label>
                     <Input
@@ -374,6 +362,67 @@ export default function Create({ onSuccess, users = [], auth }: CreateCustomerPr
                     />
                     <InputError message={errors.notes} />
                 </div>
+
+                {/*
+                  PORTAL ACCESS — moved to the END of the form and collapsed.
+                  ------------------------------------------------------------
+                  It was the FIRST field, above Company Name, and its label was
+                  marked `required` — a red asterisk on a field the backend
+                  declares `nullable`. So the form told the user it was
+                  mandatory while the rules said it was not, and people stopped
+                  on a field they could safely skip.
+
+                  It is NOT removed: sales_invoices.customer_id and
+                  customer_payments.customer_id are foreign keys to users.id, so
+                  a customer with no linked user cannot yet be invoiced or paid.
+                  Deleting the field would let people create customers that
+                  silently cannot be transacted with.
+
+                  In practice nobody needs to touch it —
+                  CustomerUserLinkService builds the user from the email address
+                  after creation, with login disabled.
+                */}
+                <details className="rounded-lg border bg-muted/30 p-3">
+                    <summary className="cursor-pointer text-sm font-medium">
+                        {t('Portal access')}{' '}
+                        <span className="font-normal text-muted-foreground">{t('(optional)')}</span>
+                    </summary>
+
+                    <div className="mt-3">
+                        <p className="mb-2 text-xs text-muted-foreground">
+                            {t('Link this customer to a user account so they can sign in to the portal. Leave this empty to create the customer as a record only.')}
+                        </p>
+
+                        <Label htmlFor="user_id">{t('User account')}</Label>
+                        <Select value={data.user_id?.toString() || '0'} onValueChange={handleUserSelect}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t('No user account')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="0">{t('No user account')}</SelectItem>
+                                {users.map((user) => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                        {user.name} ({user.email})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.user_id} />
+
+                        {users.length === 0 && auth?.user?.permissions?.includes('create-users') && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {t('No unassigned client users available.')}{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => router.get(route('users.index'))}
+                                    className="text-primary hover:underline"
+                                >
+                                    {t('Create one')}
+                                </button>
+                            </p>
+                        )}
+                    </div>
+                </details>
 
                 <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={onSuccess}>

@@ -81,6 +81,9 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
          * payment that never cleared.
          */
         Route::post('/{vendorPayment}/void', [VendorPaymentController::class, 'void'])->name('void');
+        // Edit the amount, date, bank account, reference or notes. The
+        // controller unposts, applies and re-posts inside one transaction.
+        Route::patch('/{vendorPayment}', [VendorPaymentController::class, 'update'])->name('update');
         Route::get('/all-receipts', [VendorPaymentController::class, 'allReceipts'])->name('all-receipts');
         Route::get('/', [VendorPaymentController::class, 'index'])->name('index');
         Route::post('/store', [VendorPaymentController::class, 'store'])->name('store');
@@ -151,6 +154,9 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         Route::delete('/{customerPayment}', [CustomerPaymentController::class, 'destroy'])->name('destroy');
         Route::get('/customers/{customerId}/outstanding', [CustomerPaymentController::class, 'getOutstandingInvoices'])->name('outstanding-invoices');
         Route::patch('/{customerPayment}/update-status', [CustomerPaymentController::class, 'updateStatus'])->name('update-status');
+        // Edit the amount, date, bank account, reference or notes. The
+        // controller unposts, applies and re-posts inside one transaction.
+        Route::patch('/{customerPayment}', [CustomerPaymentController::class, 'update'])->name('update');
     });
 
     Route::prefix('account/revenue-categories')->name('account.revenue-categories.')->group(function () {

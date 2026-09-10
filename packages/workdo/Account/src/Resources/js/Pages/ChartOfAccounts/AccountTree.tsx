@@ -5,8 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
     ChevronRight, ChevronDown, Eye, Edit as EditIcon, Trash2,
-    Folder, FileText, Plus, Check, X,
-} from 'lucide-react';
+    Folder, FileText, Plus, Check, X, Pencil} from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import { RowActions } from '@/components/row-actions';
 import { Input } from '@/components/ui/input';
@@ -380,7 +379,7 @@ export default function AccountTree({
                                                     // rename them and set parents to build the
                                                     // hierarchy. Only deletion is restricted.
                                                     label: t('Edit'),
-                                                    icon: EditIcon,
+                                                    icon: Pencil,
                                                     className: 'text-blue-600',
                                                     permitted: canEdit,
                                                     onClick: () => onEdit(node),

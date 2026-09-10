@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { PageActionBar } from '@/components/page-action-bar';
 import { getRelatedActions } from '@/utils/page-actions';
 import { RowActions } from '@/components/row-actions';
+import PaymentEditDialog from '../components/PaymentEditDialog';
 import {
     EntityCell, ReferenceCell, TextCell, DateCell, MoneyCell,
     StatusBadge, EmptyState,
@@ -23,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Dialog } from "@/components/ui/dialog";
-import { Eye, Trash2, CheckCircle, Plus, CreditCard, X, FileDown, Wallet, Printer, Ban, Filter, RotateCcw} from "lucide-react";
+import { Eye, Trash2, CheckCircle, Plus, CreditCard, X, FileDown, Wallet, Printer, Ban, Filter, RotateCcw, Pencil} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -73,6 +74,9 @@ export default function Index() {
     }, []);
 
     const can = (permission: string) => Boolean(auth.user?.permissions?.includes(permission));
+
+    /** Payment being edited — drives PaymentEditDialog. */
+    const [editing, setEditing] = useState<any>(null);
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<CustomerPaymentFilters>({
@@ -278,6 +282,19 @@ export default function Index() {
                                 onClick: () => setViewingItem(payment),
                                 className: 'text-green-600 hover:text-green-700',
                                 permitted: can('view-customer-payments'),
+                            },
+                            {
+                                // Amount, date, account, reference and notes. The
+                                // controller unposts, applies and re-posts inside one
+                                // transaction, so the ledger and the invoice stay in
+                                // step with the edited figure.
+                                label: t('Edit'),
+                                icon: Pencil,
+                                onClick: () => setEditing(payment),
+                                className: 'text-blue-600 hover:text-blue-700',
+                                permitted: can('edit-customer-payments'),
+                                available: payment.status !== 'cancelled',
+                                disabledReason: t('Cancelled payments cannot be edited'),
                             },
                             {
                                 label: t('Mark as Cleared'),
@@ -773,6 +790,13 @@ export default function Index() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
+            <PaymentEditDialog
+                payment={editing}
+                bankAccounts={bankAccounts}
+                kind="customer"
+                onClose={() => setEditing(null)}
+            />
+
         </AuthenticatedLayout>
     );
 }

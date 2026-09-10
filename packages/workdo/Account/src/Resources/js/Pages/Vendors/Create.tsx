@@ -13,8 +13,20 @@ import { CreateVendorProps, CreateVendorFormData } from './types';
 
 export default function Create({ onSuccess, users = [], auth }: CreateVendorProps) {
     const { t } = useTranslation();
-    const { data, setData, post, processing, errors } = useForm<CreateVendorFormData>({
-        user_id: '0',
+    const { data, setData, post, processing, errors, transform } = useForm<CreateVendorFormData>({
+        /*
+         * Empty, NOT '0'.
+         *
+         * '0' is the picker's display sentinel — a Radix Select cannot hold an
+         * empty string as an option value. Seeding the form state with it meant
+         * that a user who never opened the picker still posted user_id="0",
+         * which `exists:users,id` rejected with "The selected user id is
+         * invalid" and blocked vendor creation entirely.
+         *
+         * The sentinel now lives only in the Select's value binding, never in
+         * what gets submitted.
+         */
+        user_id: '',
         company_name: '',
         contact_person_name: '',
         contact_person_email: '',
@@ -62,6 +74,19 @@ export default function Create({ onSuccess, users = [], auth }: CreateVendorProp
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
+        /*
+         * transform(), NOT a `data` key in the post options.
+         *
+         * useForm().post(url, options) takes VISIT options — there is no `data`
+         * property, so passing one is silently ignored and the form submits its
+         * own untouched state. transform() is the supported hook for rewriting
+         * the payload at submit time, and it runs against current state.
+         */
+        transform((current: any) => ({
+            ...current,
+            user_id: (!current.user_id || String(current.user_id) === '0') ? null : current.user_id,
+        }));
+
         post(route('account.vendors.store'), {
             onSuccess: () => {
                 onSuccess();
@@ -361,7 +386,10 @@ export default function Create({ onSuccess, users = [], auth }: CreateVendorProp
                         </p>
 
                         <Label htmlFor="user_id">{t('User account')}</Label>
-                        <Select value={data.user_id} onValueChange={handleUserSelect}>
+                        {/* The sentinel is a DISPLAY concern only: Radix cannot bind an
+                            empty string, so '' maps to '0' here and back to null on
+                            submit. It never leaves the component. */}
+                        <Select value={data.user_id || '0'} onValueChange={handleUserSelect}>
                             <SelectTrigger>
                                 <SelectValue placeholder={t('No user account')} />
                             </SelectTrigger>

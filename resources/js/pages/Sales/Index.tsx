@@ -17,8 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
     Replace, FileSpreadsheet, Wallet, AlertCircle, CheckCircle2,
-    CreditCard, CirclePlus, FileUp, User as UserIcon,
-} from "lucide-react";
+    CreditCard, CirclePlus, FileUp, User as UserIcon, Pencil} from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pagination } from "@/components/ui/pagination";
@@ -444,7 +443,7 @@ export default function Index() {
                                 },
                                 {
                                     label: t('Edit'),
-                                    icon: EditIcon,
+                                    icon: Pencil,
                                     className: 'text-blue-600 hover:text-blue-700',
                                     permitted: auth.user?.permissions?.includes('edit-sales-invoices'),
                                     available: isDraft,

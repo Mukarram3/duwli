@@ -13,8 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
     Plus, Eye, Trash2, CreditCard, CheckCircle, X, Layers, Download, FileDown,
-    Printer, Ban,
-} from 'lucide-react';
+    Printer, Ban, Pencil} from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -31,6 +30,7 @@ import {
     StatusBadge, EmptyState, FilterBar, type ActiveFilter,
 } from '@/components/duwli';
 import { RowActions } from '@/components/row-actions';
+import PaymentEditDialog from '../components/PaymentEditDialog';
 import { Label } from '@/components/ui/label';
 import { VendorPayment, VendorPaymentsIndexProps, VendorPaymentModalState } from './types';
 
@@ -48,6 +48,9 @@ export default function Index() {
     const { payments, vendors, bankAccounts, filters: initialFilters, auth } = usePage<VendorPaymentsIndexProps>().props;
 
     const can = (permission: string) => Boolean(auth.user?.permissions?.includes(permission));
+
+    /** Payment being edited — drives PaymentEditDialog. */
+    const [editing, setEditing] = useState<any>(null);
 
     /** Payment being allocated / voided. Both drive their own dialog. */
     const [allocating, setAllocating] = useState<any>(null);
@@ -197,6 +200,19 @@ export default function Index() {
              * Building it is a small piece: an Edit component mirroring
              * Create, an update() method, and a route. Flagged in the handover.
              */
+            {
+                // Amount, date, account, reference and notes. The
+                // controller unposts, applies and re-posts inside one
+                // transaction, so the ledger and the invoice stay in
+                // step with the edited figure.
+                label: t('Edit'),
+                icon: Pencil,
+                onClick: () => setEditing(payment),
+                className: 'text-blue-600 hover:text-blue-700',
+                permitted: can('edit-vendor-payments'),
+                available: payment.status !== 'cancelled',
+                disabledReason: t('Cancelled payments cannot be edited'),
+            },
             {
                 label: t('Allocate'),
                 icon: Layers,
@@ -740,6 +756,13 @@ export default function Index() {
             <Dialog open={!!allocating} onOpenChange={() => setAllocating(null)}>
                 {allocating && <View payment={allocating} />}
             </Dialog>
+            <PaymentEditDialog
+                payment={editing}
+                bankAccounts={bankAccounts}
+                kind="vendor"
+                onClose={() => setEditing(null)}
+            />
+
         </AuthenticatedLayout>
     );
 }

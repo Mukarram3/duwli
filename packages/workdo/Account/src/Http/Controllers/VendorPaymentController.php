@@ -369,11 +369,31 @@ class VendorPaymentController extends Controller
                     ]);
                 }
             }
+            /*
+             * SAVED DIRECTLY — no separate posting or approval step. The
+             * payment is created as `cleared` and posted in the same
+             * operation: journal entry, bank transaction, bill balances and
+             * debit note applications.
+             *
+             * Previously it sat as `pending` and did nothing to the ledger
+             * until someone marked it cleared, so a payment could be entered
+             * and the bill still show as unpaid.
+             */
+            $payment->status = 'cleared';
+            $payment->save();
+
+            try {
+                $this->postPaymentToBooks($payment);
+            } catch (\Exception $e) {
+                return redirect()->route('account.vendor-payments.index')
+                    ->with('error', __('The payment was saved but could not be posted: ') . $e->getMessage());
+            }
 
             // Dispatch event
             CreateVendorPayment::dispatch($request, $payment);
 
-            return redirect()->route('account.vendor-payments.index')->with('success', __('The vendor payment has been created successfully.'));
+            return redirect()->route('account.vendor-payments.index')
+                ->with('success', __('The vendor payment has been saved and posted.'));
         }
         else{
             return back()->with('error', __('Permission denied'));
@@ -400,40 +420,164 @@ class VendorPaymentController extends Controller
         ]);
     }
 
+    /**
+     * Post a vendor payment to the books.
+     *
+     * Mirror of the customer side. Extracted so store() and updateStatus() run
+     * the SAME code — two copies of posting logic is how a payment created one
+     * way ends up on the ledger differently from one created the other way.
+     *
+     * Must be called exactly once per payment; calling it twice would double
+     * every bill's paid_amount. Both callers guard for that.
+     */
+    private function postPaymentToBooks(VendorPayment $payment): void
+    {
+        if ($payment->payment_amount > 0) {
+            $this->journalService->createVendorPaymentJournal($payment);
+            $this->bankTransactionsService->createVendorPayment($payment);
+        }
+
+        foreach ($payment->allocations as $allocation) {
+            $invoice = $allocation->invoice;
+            if (!$invoice) {
+                continue;
+            }
+
+            $invoice->paid_amount += $allocation->allocated_amount;
+            $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
+
+            if ($invoice->balance_amount <= 0) {
+                $invoice->status = 'paid';
+            } elseif ($invoice->paid_amount > 0) {
+                $invoice->status = 'partial';
+            }
+            $invoice->save();
+        }
+
+        foreach (DebitNoteApplication::where('payment_id', $payment->id)->get() as $application) {
+            $note = DebitNote::find($application->debit_note_id);
+            if (!$note) {
+                continue;
+            }
+
+            $note->applied_amount += $application->applied_amount;
+            $note->balance_amount = $note->total_amount - $note->applied_amount;
+            $note->status = $note->balance_amount <= 0 ? 'applied' : 'partial';
+            $note->save();
+        }
+    }
+
+    /** The exact inverse of postPaymentToBooks(). See the customer controller. */
+    private function unpostPaymentFromBooks(VendorPayment $payment): void
+    {
+        foreach ($payment->allocations as $allocation) {
+            $invoice = $allocation->invoice;
+            if (!$invoice) {
+                continue;
+            }
+
+            $invoice->paid_amount = max($invoice->paid_amount - $allocation->allocated_amount, 0);
+            $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
+            $invoice->status = $invoice->paid_amount <= 0
+                ? 'posted'
+                : ($invoice->balance_amount <= 0 ? 'paid' : 'partial');
+            $invoice->save();
+        }
+
+        foreach (DebitNoteApplication::where('payment_id', $payment->id)->get() as $application) {
+            $note = DebitNote::find($application->debit_note_id);
+            if (!$note) {
+                continue;
+            }
+
+            $note->applied_amount = max($note->applied_amount - $application->applied_amount, 0);
+            $note->balance_amount = $note->total_amount - $note->applied_amount;
+            $note->status = $note->applied_amount <= 0
+                ? 'open'
+                : ($note->balance_amount <= 0 ? 'applied' : 'partial');
+            $note->save();
+        }
+
+        $journal = JournalEntry::where('reference_type', 'vendor_payment')
+            ->where('reference_id', $payment->id)
+            ->where('status', 'posted')
+            ->first();
+
+        if ($journal) {
+            $this->journalService->reverseManualJournal($journal);
+        }
+    }
+
+    /**
+     * Edit a payment — amount, date, bank account, reference or notes.
+     *
+     * UNPOST, APPLY, RE-POST inside one transaction. The payment has already
+     * hit the ledger, the bank and the bills, so changing the amount without
+     * reversing the old posting first would leave all three disagreeing with
+     * the payment they came from.
+     *
+     * Allocations are scaled proportionally: a 1,000 payment allocated to one
+     * bill and reduced to 600 allocates 600, not the 1,000 it no longer has.
+     */
+    public function update(Request $request, VendorPayment $vendorPayment)
+    {
+        if (!Auth::user()->can('edit-vendor-payments') || $vendorPayment->created_by != creatorId()) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        if ($vendorPayment->status === 'cancelled') {
+            return back()->with('error', __('A cancelled payment cannot be edited.'));
+        }
+
+        $validated = $request->validate([
+            'payment_amount'   => 'required|numeric|min:0.01',
+            'payment_date'     => 'required|date',
+            'bank_account_id'  => 'required|exists:bank_accounts,id',
+            'reference_number' => 'nullable|string|max:255',
+            'notes'            => 'nullable|string',
+        ]);
+
+        try {
+            DB::transaction(function () use ($vendorPayment, $validated) {
+                $wasPosted = $vendorPayment->status === 'cleared';
+                $oldAmount = (float) $vendorPayment->payment_amount;
+                $newAmount = (float) $validated['payment_amount'];
+
+                if ($wasPosted) {
+                    $this->unpostPaymentFromBooks($vendorPayment);
+                }
+
+                if ($oldAmount > 0 && $newAmount != $oldAmount) {
+                    $ratio = $newAmount / $oldAmount;
+                    foreach ($vendorPayment->allocations as $allocation) {
+                        $allocation->allocated_amount = round($allocation->allocated_amount * $ratio, 2);
+                        $allocation->save();
+                    }
+                }
+
+                $vendorPayment->update($validated);
+                $vendorPayment->refresh()->load('allocations.invoice');
+
+                if ($wasPosted) {
+                    $this->postPaymentToBooks($vendorPayment);
+                }
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', __('Could not update the payment: ') . $e->getMessage());
+        }
+
+        return back()->with('success', __('The payment has been updated and the accounts adjusted.'));
+    }
+
     public function updateStatus(Request $request, VendorPayment $vendorPayment)
     {
         if(Auth::user()->can('cleared-vendor-payments') && $vendorPayment->created_by == creatorId()){
             try {
-                // Create journal entry and update invoices when payment is cleared
-                if($request->status === 'cleared') {
-                    if($vendorPayment->payment_amount > 0)
-                    {
-                        $this->journalService->createVendorPaymentJournal($vendorPayment);
-                        $this->bankTransactionsService->createVendorPayment($vendorPayment);
-                    }
-                    // Update invoice balances
-                    foreach ($vendorPayment->allocations as $allocation) {
-                        $invoice = $allocation->invoice;
-                        $invoice->paid_amount += $allocation->allocated_amount;
-                        $invoice->balance_amount = $invoice->total_amount - $invoice->paid_amount;
-
-                        if ($invoice->balance_amount == 0) {
-                            $invoice->status = 'paid';
-                        } elseif ($invoice->paid_amount > 0) {
-                            $invoice->status = 'partial';
-                        }
-                        $invoice->save();
-                    }
-                }
-
-                $debitNoteApplication = DebitNoteApplication::where('payment_id', $vendorPayment->id)->get();
-
-                foreach ($debitNoteApplication as $debitNote) {
-                    $debitNoteModel = DebitNote::find($debitNote['debit_note_id']);
-                    $debitNoteModel->applied_amount += $debitNote['applied_amount'];
-                    $debitNoteModel->balance_amount = $debitNoteModel->total_amount - $debitNoteModel->applied_amount;
-                    $debitNoteModel->status = $debitNoteModel->balance_amount <= 0 ? 'applied' : 'partial';
-                    $debitNoteModel->save();
+                // Only on a transition INTO cleared from a state that has not
+                // already posted — posting twice would double every bill's
+                // paid_amount.
+                if ($request->status === 'cleared' && $vendorPayment->status !== 'cleared') {
+                    $this->postPaymentToBooks($vendorPayment);
                 }
 
                 $vendorPayment->update(['status' => $request->status]);
@@ -538,7 +682,7 @@ class VendorPaymentController extends Controller
                 'payment_number' => $p->payment_number,
                 'payment_date'   => $p->payment_date,
                 'direction'      => $direction,
-                'party'          => $p->{$partyRelation}->company_name ?? '',
+                'party'          => $p->{$partyRelation}->name ?? '',
                 'bank_account'   => $p->bankAccount->account_name ?? '',
                 'amount'         => $p->payment_amount,
                 'status'         => $p->status,
@@ -546,11 +690,14 @@ class VendorPaymentController extends Controller
         };
 
         $customer = Auth::user()->can('manage-customer-payments')
-            ? $collect(CustomerPayment::with(['customer:id,company_name', 'bankAccount:id,account_name']), 'received', 'customer')
+            // `name`, not `company_name` — both relations point at the USERS
+            // table, which has no company_name column. Selecting it made the
+            // All Receipts export fail with "Unknown column 'company_name'".
+            ? $collect(CustomerPayment::with(['customer:id,name', 'bankAccount:id,account_name']), 'received', 'customer')
             : collect();
 
         $vendor = Auth::user()->can('manage-vendor-payments')
-            ? $collect(VendorPayment::with(['vendor:id,company_name', 'bankAccount:id,account_name']), 'paid', 'vendor')
+            ? $collect(VendorPayment::with(['vendor:id,name', 'bankAccount:id,account_name']), 'paid', 'vendor')
             : collect();
 
         $all = $customer->concat($vendor)->sortByDesc('payment_date')->values();

@@ -13,8 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Plus, Edit as EditIcon, Trash2, Building2, Lock, FileText, Eye, FileUp,
-    Users, Wallet, Receipt, TrendingUp,
-} from "lucide-react";
+    Users, Wallet, Receipt, TrendingUp, Pencil} from "lucide-react";
 import ImportDialog from '@/components/import-dialog';
 import { formatCurrency } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -183,7 +182,7 @@ export default function Index() {
             },
             {
                 label: t('Edit'),
-                icon: EditIcon,
+                icon: Pencil,
                 onClick: () => openModal('edit', customer),
                 className: 'text-blue-600 hover:text-blue-700',
                 permitted: can('edit-customers'),
@@ -451,8 +450,23 @@ export default function Index() {
                             caption: `${stats.overdueCount} ${t('invoices past due')}`,
                             icon: Receipt,
                             tone: 'danger',
+                            /*
+                             * Points at the REPORTS PAGE, not the aging data
+                             * endpoint.
+                             *
+                             * `account.reports.invoice-aging` returns
+                             * response()->json() — it is the data feed the
+                             * report screen fetches with axios, not a page.
+                             * Linking a KPI card to it made Inertia receive raw
+                             * JSON for a page visit and throw
+                             * "All Inertia requests must receive a valid
+                             * Inertia response".
+                             *
+                             * account.reports.index is the Inertia screen, and
+                             * it already opens on the invoice-aging tab.
+                             */
                             href: can('view-invoice-aging')
-                                ? route('account.reports.invoice-aging')
+                                ? route('account.reports.index')
                                 : undefined,
                         },
                         {

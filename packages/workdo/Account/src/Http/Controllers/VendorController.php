@@ -61,7 +61,14 @@ class VendorController extends Controller
             $validated = $request->validated();
 
             $vendor = new Vendor();
-            $vendor->user_id = $validated['user_id'] ?? null;
+            /*
+             * Belt and braces. The request normalises the "0" sentinel to null
+             * before validation, but this is the last point before the write —
+             * and an id of 0 in the column would be a foreign key pointing at a
+             * user that does not exist.
+             */
+            $userId = $validated['user_id'] ?? null;
+            $vendor->user_id = (!$userId || $userId === '0' || $userId === 0) ? null : $userId;
             $vendor->company_name = $validated['company_name'];
             $vendor->contact_person_name = $validated['contact_person_name'];
             $vendor->contact_person_email = $validated['contact_person_email'] ?? null;

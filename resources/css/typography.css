@@ -111,9 +111,11 @@ body {
  */
 table,
 .tabular-nums,
-input[type='number'] {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+input,
+select,
+textarea {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
 }
 
 /*
@@ -124,8 +126,25 @@ input[type='number'] {
  * Arabic documents. Forcing ١٢٣ would look authentic and be wrong. `lnum` locks
  * Latin numerals on so no font or locale setting can substitute them.
  */
+/*
+ * GLOBAL, not scoped to RTL.
+ *
+ * This rule used to be `[dir='rtl'], :lang(ar)` only — which meant that on an
+ * English page whose <html lang> was Arabic (the language switcher changes the
+ * UI strings, not the document language), Cairo's `locl` feature substituted
+ * Arabic-Indic digits and quantities rendered as ١ and ٠ inside the inputs.
+ *
+ * `lnum` on :root locks Latin numerals everywhere, whatever the document
+ * language or the font's locale rules decide.
+ *
+ * It also no longer REPLACES font-feature-settings on inputs — the previous
+ * version overwrote `tnum`, so numeric fields lost their tabular alignment as
+ * a side effect of setting the numeral style.
+ */
+:root,
 [dir='rtl'],
 :lang(ar) {
+    font-variant-numeric: lining-nums;
     font-feature-settings: 'lnum' 1;
 }
 
