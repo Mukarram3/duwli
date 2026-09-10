@@ -400,6 +400,18 @@ class SalesInvoiceController extends Controller
             ->with('success', __('The invoice has been approved and posted to the ledger.'));
     }
 
+    /** Column list for sales_invoice_items, resolved once per request. */
+    private static ?array $itemColumns = null;
+
+    private static function itemColumns(): array
+    {
+        if (self::$itemColumns === null) {
+            self::$itemColumns = \Illuminate\Support\Facades\Schema::getColumnListing('sales_invoice_items');
+        }
+
+        return self::$itemColumns;
+    }
+
     /**
      * Write the invoice lines from the costed figures.
      *
@@ -421,7 +433,28 @@ class SalesInvoiceController extends Controller
                 continue;
             }
 
-            $record = SalesInvoiceItem::create([
+            /*
+             * WRITE ONLY THE COLUMNS THAT ACTUALLY EXIST.
+             *
+             * Two separate problems made a fixed payload wrong here:
+             *
+             * 1. SalesInvoiceItem's $fillable lists `creator_id` and
+             *    `created_by`, but `sales_invoice_items` HAS NEVER HAD THOSE
+             *    COLUMNS. The model has been lying about its own table, and
+             *    passing them produced
+             *    "Unknown column 'creator_id' in 'INSERT INTO'".
+             *
+             * 2. The newer VAT fields — description, unit, is_tax_inclusive,
+             *    total_before_vat, tax_category_code, exemption_reason_code —
+             *    only exist once the Part 1 migration has run. Writing them
+             *    unconditionally fails on a database that has not been
+             *    migrated yet.
+             *
+             * Filtering against the live schema handles both, and means an
+             * invoice saves whether or not any migration has been applied. The
+             * column list is resolved ONCE per request, not per line.
+             */
+            $payload = array_filter([
                 'invoice_id'            => $invoice->id,
                 'product_id'            => $item['product_id'] ?? null,
                 'description'           => $item['description'] ?? null,
@@ -439,7 +472,9 @@ class SalesInvoiceController extends Controller
                 'total_amount'          => $line['total_amount'],
                 'creator_id'            => Auth::id(),
                 'created_by'            => creatorId(),
-            ]);
+            ], fn ($key) => in_array($key, self::itemColumns(), true), ARRAY_FILTER_USE_KEY);
+
+            $record = SalesInvoiceItem::create($payload);
 
             // The per-line tax breakdown table, kept for documents that show
             // several taxes on one line.

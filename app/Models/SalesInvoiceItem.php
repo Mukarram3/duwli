@@ -18,9 +18,29 @@ class SalesInvoiceItem extends Model
         'tax_percentage',
         'tax_amount',
         'total_amount',
-        'creator_id',
-        'created_by'
+
+        /*
+         * Added by the VAT migration. Harmless before it runs — an unmatched
+         * fillable entry is only a problem if something tries to write it,
+         * and the controller filters the payload against the live schema.
+         */
+        'description',
+        'unit',
+        'is_tax_inclusive',
+        'total_before_vat',
+        'tax_category_code',
+        'exemption_reason_code',
     ];
+
+    /*
+     * NOTE: `creator_id` and `created_by` were listed here but DO NOT EXIST on
+     * `sales_invoice_items` — the table has never had them. Writing them
+     * produced "Unknown column 'creator_id' in 'INSERT INTO'".
+     *
+     * Ownership is carried by the parent invoice, which is the correct place
+     * for it: a line cannot belong to anyone other than its invoice. They are
+     * removed rather than added as columns for that reason.
+     */
 
     protected $casts = [
         'quantity' => 'integer',
