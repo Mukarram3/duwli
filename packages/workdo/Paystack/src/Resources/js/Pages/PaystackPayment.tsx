@@ -55,14 +55,46 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
                             value: payment_data.email,
                         }]
                     },
-                    callback: function(response: any) {
+                    callback: async function(response: any) {
                         // Create a form to submit the data via POST
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = payment_data.callback_url;
 
-                        // Add CSRF token
-                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                        /*
+                         * Fresh CSRF token, same reasoning as the subscription
+                         * form: this is a NATIVE form POST that navigates away,
+                         * so there is nothing to retry if the token is stale —
+                         * the user just lands on a 419 and the payment is lost.
+                         *
+                         * Worse here than elsewhere: this runs in the Paystack
+                         * callback, after the user has been off on the gateway,
+                         * so the meta tag is older still.
+                         *
+                         * The meta value remains the fallback if the request
+                         * fails, so a network hiccup degrades rather than
+                         * blocks.
+                         */
+                        let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                        try {
+                            const tokenResponse = await fetch('/csrf-token', {
+                                method: 'GET',
+                                cache: 'no-store',
+                                credentials: 'same-origin',
+                                headers: { Accept: 'application/json' },
+                            });
+
+                            if (tokenResponse.ok) {
+                                const payload = await tokenResponse.json();
+                                if (payload?.token) {
+                                    csrfToken = payload.token;
+                                }
+                            }
+                        } catch {
+                            // Fall through to the meta-tag value.
+                        }
+
                         if (csrfToken) {
                             const csrfInput = document.createElement('input');
                             csrfInput.type = 'hidden';

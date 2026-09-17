@@ -135,7 +135,8 @@ function SubscriptionLayout({ plan, allModules, pricingPeriod, onSubscribe, bank
         return Math.max(0, subtotal - discountAmount);
     }, [subtotal, couponDiscount]);
 
-    const handleSubscribe = () => {
+    // async: a fresh CSRF token is fetched before the native form POST below.
+    const handleSubscribe = async () => {
         if (selectedPaymentMethod === 'bank_transfer' && !receiptFile && dynamicTotal > 0) {
             setFileError(t('Please upload payment receipt'));
             return;
@@ -179,7 +180,53 @@ function SubscriptionLayout({ plan, allModules, pricingPeriod, onSubscribe, bank
                 form.method = 'POST';
                 form.action = dataUrl;
 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                /*
+                 * 419 PAGE EXPIRED ON SUBSCRIBE — fixed here.
+                 *
+                 * This is a NATIVE form POST, not an Inertia or fetch request.
+                 * That matters for two reasons:
+                 *
+                 *   1. It bypasses the fetch interceptor in app.tsx entirely,
+                 *      so the automatic token refresh and 419 retry never run.
+                 *   2. A native submit navigates away. There is no response to
+                 *      inspect and nothing to retry — if the token is wrong,
+                 *      the user lands on a 419 page and the payment is lost.
+                 *
+                 * So the token has to be correct on the FIRST attempt. The old
+                 * code read whatever was in the meta tag at click time, which
+                 * is stale on any page that has been open while the session
+                 * rotated — exactly the case here, since people read the plan
+                 * comparison before choosing one.
+                 *
+                 * Now a fresh token is fetched immediately before submitting.
+                 * The meta tag is the fallback if that request fails, so a
+                 * network hiccup degrades to the old behaviour rather than
+                 * blocking the payment outright.
+                 */
+                let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                try {
+                    const response = await fetch('/csrf-token', {
+                        method: 'GET',
+                        cache: 'no-store',
+                        credentials: 'same-origin',
+                        headers: { Accept: 'application/json' },
+                    });
+
+                    if (response.ok) {
+                        const payload = await response.json();
+                        if (payload?.token) {
+                            csrfToken = payload.token;
+                            // Keep the meta in step so anything else on the
+                            // page uses the same fresh token.
+                            document.querySelector('meta[name="csrf-token"]')
+                                ?.setAttribute('content', csrfToken);
+                        }
+                    }
+                } catch {
+                    // Fall through to the meta-tag value.
+                }
+
                 if (csrfToken) {
                     const csrfInput = document.createElement('input');
                     csrfInput.type = 'hidden';

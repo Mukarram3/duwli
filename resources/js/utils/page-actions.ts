@@ -236,12 +236,24 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
     ],
 
     /** Assets — the lifecycle of an asset lives on the asset list. */
+    /*
+     * keepInNav ON EVERY ENTRY — this is why only "Assets" appeared under
+     * Fixed Assets.
+     *
+     * assets.assets.index is in WIRED_PAGES, so every related route listed
+     * here WITHOUT keepInNav is added to DEMOTED_ROUTES and stripped from the
+     * sidebar by menu-structure.ts. Reordering the menu file had no effect
+     * because the items were being removed after it ran.
+     *
+     * These screens are used daily and belong in the sidebar, so they stay in
+     * both places: buttons on the Assets page AND rows under Fixed Assets.
+     */
     'assets.assets.index': [
-        { label: 'Asset Classifications', route: 'assets.categories.index', icon: Tags },
-        { label: 'Asset Transfer', route: 'assets.asset-assignments.index', icon: ArrowLeftRight },
-        { label: 'Maintenance', route: 'assets.asset-maintenance.index', icon: Wrench },
-        { label: 'Depreciation', route: 'assets.asset-depreciation.index', icon: TrendingDown },
-        { label: 'Locations', route: 'assets.asset-locations.index', icon: MapPin, overflow: true },
+        { label: 'Asset Classifications', route: 'assets.categories.index', icon: Tags, keepInNav: true },
+        { label: 'Asset Transfer', route: 'assets.asset-assignments.index', icon: ArrowLeftRight, keepInNav: true },
+        { label: 'Maintenance', route: 'assets.asset-maintenance.index', icon: Wrench, keepInNav: true },
+        { label: 'Depreciation', route: 'assets.asset-depreciation.index', icon: TrendingDown, keepInNav: true },
+        { label: 'Locations', route: 'assets.asset-locations.index', icon: MapPin, overflow: true, keepInNav: true },
     ],
 };
 
