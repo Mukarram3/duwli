@@ -30,19 +30,19 @@ export const assetsCompanyMenu = (t: (key: string) => string) => [
                 order: 5,
             },
             {
-                title: t('Manage Maintenance'),
+                title: t('Maintenance'),
                 href: route('assets.asset-maintenance.index'),
                 permission: 'manage-asset-maintenance',
                 order: 10,
             },
             {
-                title: t('Manage Locations'),
+                title: t('Locations'),
                 href: route('assets.asset-locations.index'),
                 permission: 'manage-asset-locations',
                 order: 15,
             },
             {
-                title: t('Manage Depreciation'),
+                title: t('Depreciation'),
                 href: route('assets.asset-depreciation.index'),
                 permission: 'manage-asset-depreciation',
                 order: 20,

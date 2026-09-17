@@ -177,7 +177,7 @@ export default function Index() {
                 { label: t('Assets') },
                 { label: t('Locations') }
             ]}
-            pageTitle={t('Manage Locations')}
+            pageTitle={t('Locations')}
             pageActions={
                 <PageActionBar
                     actions={[

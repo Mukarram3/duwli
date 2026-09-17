@@ -190,7 +190,7 @@ export default function Index() {
                 { label: t('Assets') },
                 { label: t('Depreciation') }
             ]}
-            pageTitle={t('Manage Depreciation')}
+            pageTitle={t('Depreciation')}
             pageActions={
                 <PageActionBar
                     actions={[

@@ -96,7 +96,7 @@ export function LanguageSwitcher() {
                             <SelectItem value="manage_languages">
                                 <div className="flex items-center gap-2">
                                     <Settings className="h-4 w-4" />
-                                    <span>{t('Manage Languages')}</span>
+                                    <span>{t('Languages')}</span>
                                 </div>
                             </SelectItem>
                         </>

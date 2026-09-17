@@ -330,8 +330,25 @@ export default function Create() {
             <Head title={t('New Invoice')} />
 
             <div className="grid gap-5 lg:grid-cols-3">
-                <SectionCard title="Invoice Details" className="lg:col-span-2">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                <SectionCard title="Invoice Details" className="lg:col-span-2" bodyClassName="p-4">
+                    {/*
+                      COMPACT FIELD SIZING, scoped to this form.
+                      ------------------------------------------------------
+                      The shared Input and SelectTrigger default to h-10 with
+                      py-2, which is right for a short dialog but wastes a lot
+                      of vertical space on an eleven-field entry form — the
+                      screen ended up taller than the viewport with only a
+                      third of it carrying information.
+                      
+                      h-9 with tighter label spacing brings the whole header
+                      block into one screen without making anything cramped.
+                      Done here with a scoped rule rather than by changing the
+                      shared components, so dialogs and every other form keep
+                      the roomier sizing they were designed for.
+                    */}
+                    <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2
+                                    [&_input]:h-9 [&_[role=combobox]]:h-9
+                                    [&_label]:text-xs [&_label]:font-medium [&_label]:mb-1 [&_label]:block">
                         <div className="sm:col-span-2">
                             <Label>{t('Invoice Number')}</Label>
                             <p className="mt-1 text-sm text-muted-foreground">
@@ -382,6 +399,7 @@ export default function Create() {
                         <div>
                             <Label htmlFor="invoice_date">{t('Issue Date')}</Label>
                             <DatePicker
+                                className="h-9"
                                 id="invoice_date"
                                 value={data.invoice_date}
                                 onChange={(v) => setData('invoice_date', v)}
@@ -392,6 +410,7 @@ export default function Create() {
                         <div>
                             <Label htmlFor="supply_date">{t('Supply Date')}</Label>
                             <DatePicker
+                                className="h-9"
                                 id="supply_date"
                                 value={data.supply_date}
                                 onChange={(v) => setData('supply_date', v)}
@@ -419,6 +438,7 @@ export default function Create() {
                         <div>
                             <Label htmlFor="due_date">{t('Due Date')}</Label>
                             <DatePicker
+                                className="h-9"
                                 id="due_date"
                                 value={data.due_date}
                                 onChange={(v) => setData('due_date', v)}
@@ -519,7 +539,7 @@ export default function Create() {
                   than fields you type into.
                 */}
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1500px] text-sm">
+                    <table className="w-full min-w-[1500px] text-[13px]">
                         <thead className="bg-muted/50">
                             <tr>
                                 <th className="w-10 px-2 py-2 text-start font-medium">#</th>
@@ -528,7 +548,7 @@ export default function Create() {
                                 <th className="w-24 px-2 py-2 text-end font-medium">{t('Qty')}</th>
                                 <th className="w-28 px-2 py-2 text-start font-medium">{t('Unit')}</th>
                                 <th className="w-32 px-2 py-2 text-end font-medium">{t('Unit Price')}</th>
-                                <th className="w-16 px-2 py-2 text-center font-medium">{t('Incl.')}</th>
+                                <th className="w-24 px-2 py-2 text-center font-medium">{t('Incl. VAT')}</th>
                                 <th className="w-40 px-2 py-2 text-end font-medium">{t('Discount')}</th>
                                 <th className="w-32 px-2 py-2 text-end font-medium">{t('Total Before VAT')}</th>
                                 <th className="w-44 px-2 py-2 text-start font-medium">{t('VAT %')}</th>

@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
     Replace, FileSpreadsheet, Wallet, AlertCircle, CheckCircle2,
-    CreditCard, CirclePlus, FileUp, User as UserIcon, Pencil} from "lucide-react";
+    CreditCard, CirclePlus, FileUp, User as UserIcon, Pencil, FileDown} from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pagination } from "@/components/ui/pagination";
@@ -118,6 +118,26 @@ export default function Index() {
      */
     const invoiceActions: PageAction[] = [
         {
+            /*
+             * EXPORT AS A BUTTON, first in the row.
+             *
+             * It previously lived only in the header's Export dropdown. Since
+             * the other actions now sit on this row, Export belongs here too
+             * or the row reads as incomplete.
+             *
+             * Exports Excel — the format people actually want. CSV stays
+             * available in the header dropdown for the rare case, rather than
+             * spending a second button on it.
+             */
+            label: t('Export'),
+            onClick: () => {
+                window.location.href = route('sales-invoices.export', { ...filters, format: 'xlsx' });
+            },
+            icon: FileDown,
+            variant: 'outline',
+            permission: 'manage-sales-invoices',
+        },
+        {
             label: t('New Invoice'),
             href: actionRoute('sales-invoices.create'),
             icon: Plus,
@@ -145,14 +165,14 @@ export default function Index() {
             permission: 'create-customer-payments',
         },
         {
-            label: t('Manage Receipts'),
+            label: t('Receipts'),
             href: actionRoute('account.customer-payments.index'),
             icon: Receipt,
             variant: 'outline',
             permission: 'manage-customer-payments',
         },
         {
-            label: t('Manage Credit Notes'),
+            label: t('Credit Notes'),
             href: actionRoute('account.credit-notes.index'),
             icon: FileText,
             variant: 'outline',
@@ -433,12 +453,31 @@ export default function Index() {
                                     onClick: () => window.open(route('sales-invoices.print', invoice.id) + '?download=pdf', '_blank'),
                                 },
                                 {
-                                    label: t('Post invoice to finalize and create journal entries'),
-                                    icon: FileText,
+                                    /*
+                                     * APPROVE & POST — the same operation as
+                                     * "Save and Approve" on the entry form.
+                                     *
+                                     * Approving an invoice IS posting it: the
+                                     * controller sets the status and dispatches
+                                     * PostSalesInvoice, which writes the
+                                     * journal entries. There is no separate
+                                     * posting step and never was after the
+                                     * approve path was built.
+                                     *
+                                     * The old label — "Post invoice to finalize
+                                     * and create journal entries" — described
+                                     * it as a second stage, which is why it
+                                     * read as an extra step. It only exists for
+                                     * invoices SAVED AS DRAFT; an invoice
+                                     * approved on the form arrives here already
+                                     * posted and shows this greyed out.
+                                     */
+                                    label: t('Approve & Post to GL'),
+                                    icon: CheckCircle2,
                                     className: 'text-purple-600 hover:text-purple-700',
                                     permitted: auth.user?.permissions?.includes('post-sales-invoices'),
                                     available: isDraft,
-                                    disabledReason: t('Already posted'),
+                                    disabledReason: t('Already posted to the general ledger'),
                                     onClick: () => router.post(route('sales-invoices.post', invoice.id)),
                                 },
                                 {
@@ -510,7 +549,26 @@ export default function Index() {
                 <PageActionBar
                     actions={invoiceActions}
                     permissions={auth.user?.permissions}
-                    maxVisible={4}
+                    /*
+                     * No "More" menu on this screen.
+                     *
+                     * maxVisible was 4 against 6 actions, so Import and
+                     * Invoice Returns collapsed into an overflow dropdown —
+                     * two clicks for actions used constantly. Setting it above
+                     * the action count keeps every button on the row.
+                     *
+                     * It is a number rather than Infinity so that adding a
+                     * seventh action is a deliberate decision about row width,
+                     * not something that silently happens.
+                     */
+                    maxVisible={8}
+                    /*
+                     * w-full makes this bar claim the whole toolbar row, so
+                     * justify-center centres it on the page. The parent in
+                     * PageHeader is justify-end, which would otherwise pin the
+                     * buttons to the right edge.
+                     */
+                    className="w-full justify-center"
                 >
                     <TooltipProvider>
                         {pageButtons.map((button) => (

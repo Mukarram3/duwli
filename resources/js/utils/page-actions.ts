@@ -168,8 +168,8 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * to the sidebar, which is how Qoyod arranges the same three pages.
      */
     'sales-invoices.index': [
-        { label: 'Manage Receipts', route: 'account.customer-payments.index', icon: Receipt, permission: 'manage-customer-payments', keepInNav: true },
-        { label: 'Manage Credit Notes', route: 'account.credit-notes.index', icon: FileMinus, permission: 'manage-credit-notes', keepInNav: true },
+        { label: 'Receipts', route: 'account.customer-payments.index', icon: Receipt, permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Credit Notes', route: 'account.credit-notes.index', icon: FileMinus, permission: 'manage-credit-notes', keepInNav: true },
         { label: 'Invoice Returns', route: 'sales-returns.index', icon: Undo2, permission: 'manage-sales-return-invoices' },
     ],
 
@@ -195,7 +195,7 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
     /** Credit notes — back to the invoice they credit, and to receipts. */
     'account.credit-notes.index': [
         { label: 'Invoices', route: 'sales-invoices.index', icon: FileSpreadsheet, permission: 'manage-sales-invoices', keepInNav: true },
-        { label: 'Manage Receipts', route: 'account.customer-payments.index', icon: Receipt, permission: 'manage-customer-payments', keepInNav: true },
+        { label: 'Receipts', route: 'account.customer-payments.index', icon: Receipt, permission: 'manage-customer-payments', keepInNav: true },
         { label: 'Debit Notes', route: 'account.debit-notes.index', icon: FilePlus, overflow: true, permission: 'manage-debit-notes', keepInNav: true },
     ],
 
@@ -206,15 +206,15 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
      * reads the same way as the sales one.
      */
     'purchase-invoices.index': [
-        { label: 'Manage Receipts', route: 'account.vendor-payments.index', icon: Receipt, permission: 'manage-vendor-payments', keepInNav: true },
-        { label: 'Manage Debit Notes', route: 'account.debit-notes.index', icon: FilePlus, permission: 'manage-debit-notes', keepInNav: true },
+        { label: 'Receipts', route: 'account.vendor-payments.index', icon: Receipt, permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Debit Notes', route: 'account.debit-notes.index', icon: FilePlus, permission: 'manage-debit-notes', keepInNav: true },
         { label: 'Purchase Returns', route: 'purchase-returns.index', icon: Undo2, permission: 'manage-purchase-return-invoices', keepInNav: true },
         { label: 'Vendors', route: 'account.vendors.index', icon: Building2, overflow: true, permission: 'manage-vendors', keepInNav: true },
     ],
 
     'account.debit-notes.index': [
         { label: 'Bills', route: 'purchase-invoices.index', icon: FileSpreadsheet, permission: 'manage-purchase-invoices', keepInNav: true },
-        { label: 'Manage Receipts', route: 'account.vendor-payments.index', icon: Receipt, permission: 'manage-vendor-payments', keepInNav: true },
+        { label: 'Receipts', route: 'account.vendor-payments.index', icon: Receipt, permission: 'manage-vendor-payments', keepInNav: true },
         { label: 'Credit Notes', route: 'account.credit-notes.index', icon: FileMinus, overflow: true, permission: 'manage-credit-notes', keepInNav: true },
     ],
 
