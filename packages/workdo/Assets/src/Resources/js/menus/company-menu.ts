@@ -12,6 +12,17 @@ export const assetsCompanyMenu = (t: (key: string) => string) => [
         name: 'Assets',
         order: 515,
         children: [
+            /*
+             * ORDER IS EXPLICIT AND DELIBERATE.
+             *
+             * Maintenance, Locations and Depreciation were only reachable from
+             * the "More" overflow on the Assets page — three clicks deep for
+             * screens people use daily. They are sub-items of Fixed Assets now,
+             * in the sequence asked for.
+             *
+             * `order` drives the sort, so the gaps between numbers are there to
+             * let something be inserted later without renumbering the rest.
+             */
             {
                 title: t('Assets'),
                 href: route('assets.assets.index'),
@@ -19,31 +30,31 @@ export const assetsCompanyMenu = (t: (key: string) => string) => [
                 order: 5,
             },
             {
-                title: t('Assignments'),
-                href: route('assets.asset-assignments.index'),
-                permission: 'manage-asset-assignments',
+                title: t('Manage Maintenance'),
+                href: route('assets.asset-maintenance.index'),
+                permission: 'manage-asset-maintenance',
                 order: 10,
             },
             {
-                title: t('Locations'),
+                title: t('Manage Locations'),
                 href: route('assets.asset-locations.index'),
                 permission: 'manage-asset-locations',
                 order: 15,
             },
             {
-                title: t('Maintenance'),
-                href: route('assets.asset-maintenance.index'),
-                permission: 'manage-asset-maintenance',
+                title: t('Manage Depreciation'),
+                href: route('assets.asset-depreciation.index'),
+                permission: 'manage-asset-depreciation',
                 order: 20,
             },
             {
-                title: t('Depreciation'),
-                href: route('assets.asset-depreciation.index'),
-                permission: 'manage-asset-depreciation',
+                title: t('Assignments'),
+                href: route('assets.asset-assignments.index'),
+                permission: 'manage-asset-assignments',
                 order: 25,
             },
             {
-                title: t('Category'),
+                title: t('Asset Classifications'),
                 href: route('assets.categories.index'),
                 permission: 'manage-asset-categories',
                 order: 30,

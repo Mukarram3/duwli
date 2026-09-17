@@ -177,12 +177,19 @@ const SECTIONS: Section[] = [
         icon: Building2,
         groups: [
             {
+                /*
+                 * THIS ARRAY IS WHAT SETS THE SIDEBAR ORDER — the `order`
+                 * property on the menu items is not used for sorting here, so
+                 * changing it alone has no effect. The sequence below is the
+                 * requested one: Maintenance, Locations, Depreciation directly
+                 * under Assets.
+                 */
                 routes: [
                     'assets.assets.index',
-                    'assets.asset-assignments.index',
-                    'assets.asset-locations.index',
                     'assets.asset-maintenance.index',
+                    'assets.asset-locations.index',
                     'assets.asset-depreciation.index',
+                    'assets.asset-assignments.index',
                     'assets.categories.index',
                 ],
             },
