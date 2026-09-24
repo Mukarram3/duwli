@@ -151,6 +151,8 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Account'])->group
         // Literal paths first, before any {customerPayment} wildcard, so
         // 'export' is never matched as a payment id.
         Route::get('/export', [CustomerPaymentController::class, 'export'])->name('export');
+        // Standalone receipt-voucher document. ?print=1 opens the print dialog.
+        Route::get('/{customerPayment}/print', [CustomerPaymentController::class, 'print'])->name('print');
         Route::delete('/{customerPayment}', [CustomerPaymentController::class, 'destroy'])->name('destroy');
         Route::get('/customers/{customerId}/outstanding', [CustomerPaymentController::class, 'getOutstandingInvoices'])->name('outstanding-invoices');
         Route::patch('/{customerPayment}/update-status', [CustomerPaymentController::class, 'updateStatus'])->name('update-status');

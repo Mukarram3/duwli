@@ -629,6 +629,58 @@ class CustomerPaymentController extends Controller
      * already supported a 'customer' scope — only the route and this method
      * were missing.
      */
+    /**
+     * Render the RECEIPT VOUCHER as a standalone print document.
+     *
+     * A dedicated page, not a dialog over the list. The old Print action ran
+     * window.print() on the payments screen, so the browser printed the
+     * sidebar, filters, table and buttons — everything except a voucher.
+     *
+     * `?print=1` opens the print dialog on load, which is also the Save-as-PDF
+     * path, so Print / Preview / Save as PDF all produce this one document.
+     */
+    public function print(CustomerPayment $customerPayment)
+    {
+        if (!Auth::user()->can('manage-customer-payments') || $customerPayment->created_by != creatorId()) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $customerPayment->load(['customer', 'bankAccount']);
+
+        $settings = getCompanyAllSetting();
+        $currency = $settings['defualt_currency'] ?? 'SAR';
+
+        // Both languages from the SAME number, so the figures and the words
+        // can never disagree on a document where the words are controlling.
+        $words = \App\Services\AmountToWords::convert((float) $customerPayment->payment_amount, $currency);
+
+        return Inertia::render('Account/CustomerPayments/Print', [
+            'payment' => [
+                'payment_number'   => $customerPayment->payment_number,
+                'payment_date'     => optional($customerPayment->payment_date)->format('Y-m-d'),
+                'amount'           => number_format((float) $customerPayment->payment_amount, 2),
+                'currency'         => $currency,
+                'amount_words_en'  => $words['en'],
+                'amount_words_ar'  => $words['ar'],
+                'customer_name'    => $customerPayment->customer->name ?? '',
+                'reference_number' => $customerPayment->reference_number,
+                'bank_account'     => $customerPayment->bankAccount->account_name ?? null,
+                'notes'            => $customerPayment->notes,
+                'received_by'      => Auth::user()->name,
+            ],
+            'company' => [
+                'name'       => $settings['company_name'] ?? config('app.name'),
+                'name_ar'    => $settings['company_name_ar'] ?? null,
+                'address'    => $settings['company_address'] ?? null,
+                'phone'      => $settings['company_telephone'] ?? null,
+                'vat_number' => $settings['company_vat_number'] ?? ($settings['company_tax_number'] ?? null),
+                'logo'       => !empty($settings['company_logo'])
+                    ? asset('storage/' . $settings['company_logo'])
+                    : null,
+            ],
+        ]);
+    }
+
     public function export(Request $request, ReceiptExportService $service)
     {
         if (!Auth::user()->can('manage-customer-payments')) {

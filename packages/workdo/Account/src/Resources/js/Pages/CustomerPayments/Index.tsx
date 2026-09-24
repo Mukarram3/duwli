@@ -315,9 +315,24 @@ export default function Index() {
                                 permitted: can('manage-customer-payments'),
                             },
                             {
+                                /*
+                                 * Opens the standalone voucher document with
+                                 * ?print=1, which fires the print dialog on
+                                 * load.
+                                 *
+                                 * window.print() used to run here — on the LIST
+                                 * page — which is why the sidebar, filters and
+                                 * table were printed instead of a voucher.
+                                 *
+                                 * New tab, so the user keeps their place in the
+                                 * list after printing.
+                                 */
                                 label: t('Print'),
                                 icon: Printer,
-                                onClick: () => window.print(),
+                                onClick: () => window.open(
+                                    route('account.customer-payments.print', payment.id) + '?print=1',
+                                    '_blank',
+                                ),
                                 className: 'text-slate-600 hover:text-slate-700',
                                 permitted: can('manage-customer-payments'),
                             },
