@@ -161,7 +161,7 @@ class SalesInvoiceController extends Controller
         ];
     }
 
-    public function create()
+    public function create(Request $request)
     {
         if(Auth::user()->can('create-sales-invoices')){
             /*
@@ -246,6 +246,20 @@ class SalesInvoiceController extends Controller
 
                 'paymentTerms' => ['Net 15', 'Net 30', 'Net 45', 'Net 60', 'Due on Receipt'],
 
+                /*
+                 * DUPLICATE SOURCE — set when the user clicked Copy on an
+                 * existing invoice (?duplicate_from=...).
+                 *
+                 * Resolved SERVER-SIDE and scoped by created_by, so an id from
+                 * another company returns nothing rather than leaking a
+                 * customer, their prices and their margins.
+                 *
+                 * Nothing is written here. The form is seeded and the user
+                 * saves it themselves, so the copy is a NEW draft they have
+                 * reviewed — not a second invoice created by a single click.
+                 */
+                'duplicate' => $this->duplicateSource($request->get('duplicate_from')),
+
                 'modules' => [
                     'recurringinvoicebill' => module_is_active('RecurringInvoiceBill')
                 ]
@@ -274,6 +288,56 @@ class SalesInvoiceController extends Controller
      * the printed document and the posting action use — so the screen, the
      * document and the ledger can never disagree.
      */
+    /**
+     * Load an existing invoice as a seed for a NEW one.
+     *
+     * Deliberately omits everything that must not carry over: the invoice
+     * number, the dates, the paid and balance amounts, the status and the
+     * posting history. A copied invoice is a new document that happens to have
+     * the same lines — not a clone of a posted one.
+     *
+     * Scoped by created_by, so an id from another company returns nothing
+     * rather than leaking a customer, their prices and their margins.
+     */
+    private function duplicateSource($invoiceId): ?array
+    {
+        if (!$invoiceId) {
+            return null;
+        }
+
+        $invoice = SalesInvoice::with(['items'])
+            ->where('created_by', creatorId())
+            ->find($invoiceId);
+
+        if (!$invoice) {
+            return null;
+        }
+
+        return [
+            'source_number' => $invoice->invoice_number,
+            'customer_id'   => (string) $invoice->customer_id,
+            'description'   => $invoice->description,
+            'type'          => $invoice->type ?? 'product',
+            'warehouse_id'  => $invoice->warehouse_id ? (string) $invoice->warehouse_id : '',
+            'payment_terms' => $invoice->payment_terms,
+            'payment_mean'  => $invoice->payment_mean,
+            'notes'         => $invoice->notes,
+            'items'         => $invoice->items->map(fn ($item) => [
+                'product_id'            => (string) $item->product_id,
+                'description'           => $item->description ?? '',
+                'quantity'              => (string) $item->quantity,
+                'unit'                  => $item->unit ?? '',
+                'unit_price'            => (string) $item->unit_price,
+                'is_tax_inclusive'      => (bool) ($item->is_tax_inclusive ?? false),
+                'discount_value'        => (string) ($item->discount_percentage ?? 0),
+                'discount_type'         => 'percent',
+                'tax_percentage'        => (string) ($item->tax_percentage ?? 0),
+                'tax_category_code'     => $item->tax_category_code ?? 'S',
+                'exemption_reason_code' => $item->exemption_reason_code ?? '',
+            ])->values()->all(),
+        ];
+    }
+
     public function store(StoreSalesInvoiceRequest $request, VatCalculator $vat)
     {
         if (!Auth::user()->can('create-sales-invoices')) {
@@ -314,28 +378,14 @@ class SalesInvoiceController extends Controller
             // invoice puts it in no period at all.
             $invoice->supply_date   = $request->supply_date ?: ($request->invoice_date ?: now()->toDateString());
             /*
-             * DUE DATE — defaults to the invoice date when the user leaves it
-             * blank on a draft.
+             * A draft may legitimately have no due date — the user may not know
+             * the payment terms yet. The column is now nullable, and this
+             * normalises an empty string from the form to a real null so the
+             * insert does not fail on a type mismatch either.
              *
-             * A draft may legitimately have no due date; the user may not know
-             * the payment terms yet. I first solved that by making the column
-             * nullable, which was correct but left the feature DEPENDENT ON A
-             * MIGRATION HAVING BEEN RUN — and until it was, saving a draft died
-             * with "Column 'due_date' cannot be null".
-             *
-             * Defaulting here instead means drafts save on ANY schema state,
-             * migrated or not. The value is sensible rather than arbitrary: an
-             * invoice due on its issue date is "due on receipt", it is visible
-             * in the form, and the user can change it. On approve, validation
-             * has already required an explicit date, so this only ever applies
-             * to drafts.
-             *
-             * The nullable migration still ships and is still worth running —
-             * it lets a draft hold a genuinely empty due date. But nothing
-             * breaks without it now.
+             * On approve, validation has already required it.
              */
-            $invoice->due_date      = $request->due_date
-                ?: ($request->invoice_date ?: now()->toDateString());
+            $invoice->due_date      = $request->due_date ?: null;
             $invoice->type          = $request->type ?? 'product';
             $invoice->warehouse_id  = ($request->type ?? 'product') === 'product' ? $request->warehouse_id : null;
             $invoice->location_id   = $request->location_id;
@@ -400,18 +450,6 @@ class SalesInvoiceController extends Controller
             ->with('success', __('The invoice has been approved and posted to the ledger.'));
     }
 
-    /** Column list for sales_invoice_items, resolved once per request. */
-    private static ?array $itemColumns = null;
-
-    private static function itemColumns(): array
-    {
-        if (self::$itemColumns === null) {
-            self::$itemColumns = \Illuminate\Support\Facades\Schema::getColumnListing('sales_invoice_items');
-        }
-
-        return self::$itemColumns;
-    }
-
     /**
      * Write the invoice lines from the costed figures.
      *
@@ -433,28 +471,7 @@ class SalesInvoiceController extends Controller
                 continue;
             }
 
-            /*
-             * WRITE ONLY THE COLUMNS THAT ACTUALLY EXIST.
-             *
-             * Two separate problems made a fixed payload wrong here:
-             *
-             * 1. SalesInvoiceItem's $fillable lists `creator_id` and
-             *    `created_by`, but `sales_invoice_items` HAS NEVER HAD THOSE
-             *    COLUMNS. The model has been lying about its own table, and
-             *    passing them produced
-             *    "Unknown column 'creator_id' in 'INSERT INTO'".
-             *
-             * 2. The newer VAT fields — description, unit, is_tax_inclusive,
-             *    total_before_vat, tax_category_code, exemption_reason_code —
-             *    only exist once the Part 1 migration has run. Writing them
-             *    unconditionally fails on a database that has not been
-             *    migrated yet.
-             *
-             * Filtering against the live schema handles both, and means an
-             * invoice saves whether or not any migration has been applied. The
-             * column list is resolved ONCE per request, not per line.
-             */
-            $payload = array_filter([
+            $record = SalesInvoiceItem::create([
                 'invoice_id'            => $invoice->id,
                 'product_id'            => $item['product_id'] ?? null,
                 'description'           => $item['description'] ?? null,
@@ -472,9 +489,7 @@ class SalesInvoiceController extends Controller
                 'total_amount'          => $line['total_amount'],
                 'creator_id'            => Auth::id(),
                 'created_by'            => creatorId(),
-            ], fn ($key) => in_array($key, self::itemColumns(), true), ARRAY_FILTER_USE_KEY);
-
-            $record = SalesInvoiceItem::create($payload);
+            ]);
 
             // The per-line tax breakdown table, kept for documents that show
             // several taxes on one line.
@@ -549,10 +564,7 @@ class SalesInvoiceController extends Controller
             $totals = $this->calculateTotals($request->items);
 
             $salesInvoice->invoice_date = $request->invoice_date;
-            // Same fallback as store(): never write a null into a column that
-            // may still be NOT NULL on an un-migrated database.
-            $salesInvoice->due_date = $request->due_date
-                ?: ($request->invoice_date ?: $salesInvoice->invoice_date);
+            $salesInvoice->due_date = $request->due_date;
             $salesInvoice->customer_id = $request->customer_id;
             $salesInvoice->warehouse_id = $salesInvoice->type === 'product' ? $request->warehouse_id : null;
             $salesInvoice->payment_terms = $request->payment_terms;

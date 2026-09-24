@@ -16,6 +16,9 @@ use App\Models\SalesInvoiceItem;
 use App\Models\SalesInvoiceItemTax;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Workdo\Quotation\Events\AcceptSalesQuotation;
 use Workdo\Quotation\Events\ConvertSalesQuotation;
@@ -31,6 +34,27 @@ class QuotationController extends Controller
     {
         if (Auth::user()->can('manage-quotations')) {
             $query = SalesQuotation::with(['customer', 'items'])
+                /*
+                 * CONVERTED QUOTATIONS LEAVE THIS LIST.
+                 *
+                 * Once a quotation becomes an invoice, the invoice is the live
+                 * document — the quotation is history. Leaving it here means
+                 * two records for one sale and an invitation to act on the
+                 * dead one.
+                 *
+                 * Nothing is deleted: the row stays, carries invoice_id, and
+                 * is still reachable from the invoice it produced. Deleting it
+                 * would break that trail.
+                 *
+                 * `?show_converted=1` brings them back for anyone who needs to
+                 * look at the history.
+                 */
+                ->when(!request()->boolean('show_converted'), function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('converted_to_invoice', false)
+                              ->orWhereNull('converted_to_invoice');
+                    });
+                })
                 ->where(function ($q) {
                     if (Auth::user()->can('manage-any-quotations')) {
                         $q->where('created_by', creatorId());
@@ -412,75 +436,145 @@ class QuotationController extends Controller
         }
     }
 
+    /**
+     * Convert an accepted quotation into a REAL, SAVED sales invoice.
+     *
+     * The invoice is written to the database here — it is not a prefilled form
+     * the user still has to save. The quotation is then marked converted, which
+     * removes it from the Quotations list (see index()) and leaves the invoice
+     * as the live document.
+     *
+     * EVERYTHING RUNS IN ONE TRANSACTION. Copying a header, its lines and their
+     * taxes is several writes; a failure halfway would leave an invoice with
+     * some of its lines and a quotation that still looks unconverted — the
+     * worst of both. All of it lands or none of it does.
+     */
     public function convertToInvoice(SalesQuotation $quotation)
     {
-        if (Auth::user()->can('convert-to-invoice-quotations') && $quotation->created_by == creatorId()) {
-            if ($quotation->status !== 'accepted') {
-                return back()->with('error', __('Only accepted quotations can be converted to invoice.'));
-            }
-
-            if ($quotation->converted_to_invoice) {
-                return back()->with('error', __('Quotation already converted to invoice.'));
-            }
-
-            $quotation->load(['items.taxes']);
-
-              // Create sales invoice from quotation
-            $invoice                  = new SalesInvoice();
-            $invoice->customer_id     = $quotation->customer_id;
-            $invoice->warehouse_id    = $quotation->warehouse_id ?? 1;
-            $invoice->invoice_date    = now();
-            $invoice->due_date        = $quotation->due_date;
-            $invoice->subtotal        = $quotation->subtotal;
-            $invoice->tax_amount      = $quotation->tax_amount;
-            $invoice->discount_amount = $quotation->discount_amount;
-            $invoice->total_amount    = $quotation->total_amount;
-            $invoice->balance_amount  = $quotation->total_amount;
-            $invoice->paid_amount     = 0;
-            $invoice->status          = 'draft';
-            $invoice->payment_terms   = $quotation->payment_terms;
-            $invoice->notes           = $quotation->notes;
-            $invoice->creator_id      = Auth::id();
-            $invoice->created_by      = creatorId();
-            $invoice->save();
-
-              // Copy quotation items to invoice items
-            foreach ($quotation->items as $quotationItem) {
-                $invoiceItem                      = new SalesInvoiceItem();
-                $invoiceItem->invoice_id          = $invoice->id;
-                $invoiceItem->product_id          = $quotationItem->product_id;
-                $invoiceItem->quantity            = $quotationItem->quantity;
-                $invoiceItem->unit_price          = $quotationItem->unit_price;
-                $invoiceItem->discount_percentage = $quotationItem->discount_percentage;
-                $invoiceItem->discount_amount     = $quotationItem->discount_amount;
-                $invoiceItem->tax_percentage      = $quotationItem->tax_percentage;
-                $invoiceItem->tax_amount          = $quotationItem->tax_amount;
-                $invoiceItem->total_amount        = $quotationItem->total_amount;
-                $invoiceItem->save();
-
-                  // Copy tax details
-                foreach ($quotationItem->taxes as $tax) {
-                    $invoiceTax           = new SalesInvoiceItemTax();
-                    $invoiceTax->item_id  = $invoiceItem->id;
-                    $invoiceTax->tax_name = $tax->tax_name;
-                    $invoiceTax->tax_rate = $tax->tax_rate;
-                    $invoiceTax->save();
-                }
-            }
-
-              // Mark quotation as converted
-            $quotation->converted_to_invoice = true;
-            $quotation->invoice_id           = $invoice->id;
-            $quotation->save();
-            try {
-                ConvertSalesQuotation::dispatch($quotation, $invoice);
-            } catch (\Throwable $th) {
-                return back()->with('error', $th->getMessage());
-            }
-            return back()->with('success', __('Quotation converted to invoice successfully.'));
-        } else {
+        if (!Auth::user()->can('convert-to-invoice-quotations') || $quotation->created_by != creatorId()) {
             return back()->with('error', __('Permission denied'));
         }
+
+        if ($quotation->status !== 'accepted') {
+            return back()->with('error', __('Only accepted quotations can be converted to invoice.'));
+        }
+
+        if ($quotation->converted_to_invoice) {
+            return back()->with('error', __('Quotation already converted to invoice.'));
+        }
+
+        $quotation->load(['items.taxes']);
+
+        try {
+            $invoice = DB::transaction(function () use ($quotation) {
+                $invoice = new SalesInvoice();
+
+                // Header. Written through the same filter the invoice
+                // controller uses, so a column the database does not have yet
+                // is dropped instead of failing the insert.
+                $header = [
+                    'uuid'              => (string) Str::uuid(),
+                    'customer_id'       => $quotation->customer_id,
+                    'warehouse_id'      => $quotation->warehouse_id,
+                    'invoice_date'      => now()->toDateString(),
+                    // Supply date drives the VAT period; default it to the
+                    // invoice date rather than leaving it empty.
+                    'supply_date'       => now()->toDateString(),
+                    // Never null: the column may still be NOT NULL on a
+                    // database that has not run the nullable migration.
+                    'due_date'          => $quotation->due_date ?: now()->toDateString(),
+                    'description'       => $quotation->description ?? null,
+                    'reference'         => $quotation->quotation_number ?? null,
+                    'type'              => $quotation->type ?? 'product',
+                    'invoice_type_code' => '388',
+                    'subtotal'          => $quotation->subtotal,
+                    'tax_amount'        => $quotation->tax_amount,
+                    'discount_amount'   => $quotation->discount_amount,
+                    'total_before_vat'  => $quotation->subtotal - $quotation->discount_amount,
+                    'total_amount'      => $quotation->total_amount,
+                    'balance_amount'    => $quotation->total_amount,
+                    'paid_amount'       => 0,
+                    'payment_terms'     => $quotation->payment_terms,
+                    'notes'             => $quotation->notes,
+                    // Draft, deliberately: converting is not approving. The
+                    // invoice still goes through Approve & Post so the ledger
+                    // entry is raised by the normal path.
+                    'status'            => 'draft',
+                    'creator_id'        => Auth::id(),
+                    'created_by'        => creatorId(),
+                ];
+
+                $columns = Schema::getColumnListing('sales_invoices');
+                foreach ($header as $key => $value) {
+                    if (in_array($key, $columns, true)) {
+                        $invoice->{$key} = $value;
+                    }
+                }
+                $invoice->save();
+
+                $itemColumns = Schema::getColumnListing('sales_invoice_items');
+
+                foreach ($quotation->items as $line) {
+                    $payload = [
+                        'invoice_id'          => $invoice->id,
+                        'product_id'          => $line->product_id,
+                        'description'         => $line->description ?? null,
+                        'quantity'            => $line->quantity,
+                        'unit'                => $line->unit ?? null,
+                        'unit_price'          => $line->unit_price,
+                        'discount_percentage' => $line->discount_percentage,
+                        'discount_amount'     => $line->discount_amount,
+                        'total_before_vat'    => ($line->quantity * $line->unit_price) - $line->discount_amount,
+                        'tax_percentage'      => $line->tax_percentage,
+                        'tax_amount'          => $line->tax_amount,
+                        'total_amount'        => $line->total_amount,
+                    ];
+
+                    $invoiceItem = new SalesInvoiceItem();
+                    foreach ($payload as $key => $value) {
+                        if (in_array($key, $itemColumns, true)) {
+                            $invoiceItem->{$key} = $value;
+                        }
+                    }
+                    $invoiceItem->save();
+
+                    foreach ($line->taxes as $tax) {
+                        $invoiceTax           = new SalesInvoiceItemTax();
+                        $invoiceTax->item_id  = $invoiceItem->id;
+                        $invoiceTax->tax_name = $tax->tax_name;
+                        $invoiceTax->tax_rate = $tax->tax_rate;
+                        $invoiceTax->save();
+                    }
+                }
+
+                $quotation->converted_to_invoice = true;
+                $quotation->invoice_id           = $invoice->id;
+                $quotation->save();
+
+                return $invoice;
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', __('Could not convert the quotation: ') . $e->getMessage());
+        }
+
+        try {
+            ConvertSalesQuotation::dispatch($quotation, $invoice);
+        } catch (\Throwable $th) {
+            // The invoice exists and is correct; only a listener failed. Say so
+            // rather than implying the conversion did not happen.
+            return redirect()->route('sales-invoices.index')
+                ->with('error', __('The invoice was created, but a follow-up action failed: ') . $th->getMessage());
+        }
+
+        /*
+         * Land on Sales Invoices, not back on Quotations. The quotation has
+         * just left that list, so returning there shows the user the absence of
+         * the thing they acted on rather than the result of acting on it.
+         */
+        return redirect()->route('sales-invoices.index')
+            ->with('success', __('Quotation converted. The invoice :number has been created as a draft.', [
+                'number' => $invoice->invoice_number,
+            ]));
     }
 
     private function canAccessQuotation(SalesQuotation $quotation)

@@ -13,11 +13,11 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { InputError } from '@/components/ui/input-error';
-import { SectionCard } from '@/components/duwli';
+import { SectionCard, FormSection, FormRow, COMPACT_FIELDS } from '@/components/duwli';
 import {
-    FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, User as UserIcon,
-} from 'lucide-react';
+    FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, User as UserIcon, AlertTriangle, FileText, CreditCard, Calendar as CalendarIcon} from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
+import { cn } from '@/lib/utils';
 
 /**
  * SALES INVOICE ENTRY FORM
@@ -134,28 +134,39 @@ export default function Create() {
     const pageProps = usePage<any>().props;
     const {
         customers = [], warehouses = [], products = [], taxes = [], units = [],
+        duplicate = null,
         vatCategories = [], paymentMeans = [], paymentTerms = [],
     } = pageProps;
 
     const money = (v: any) => formatCurrency(Number(v ?? 0), pageProps);
     const today = new Date().toISOString().slice(0, 10);
 
+    /*
+     * COPIED FROM AN EXISTING INVOICE.
+     *
+     * `duplicate` is only set when the user clicked Copy on an invoice. The
+     * form is SEEDED with it, not submitted — dates, invoice number, status
+     * and payment history are deliberately not carried over, so this is a new
+     * draft the user reviews and saves themselves.
+     */
     const { data, setData, post, processing, errors, transform } = useForm<any>({
         mode: 'draft',
-        customer_id: '',
-        description: '',
+        customer_id: duplicate?.customer_id ?? '',
+        description: duplicate?.description ?? '',
         invoice_date: today,
         supply_date: today,
         due_date: '',
-        payment_terms: '',
-        payment_mean: '',
+        payment_terms: duplicate?.payment_terms ?? '',
+        payment_mean: duplicate?.payment_mean ?? '',
         reference: '',
-        type: 'product',
-        warehouse_id: '',
+        type: duplicate?.type ?? 'product',
+        warehouse_id: duplicate?.warehouse_id ?? '',
         location_id: '',
-        notes: '',
+        notes: duplicate?.notes ?? '',
         terms: '',
-        items: [emptyLine()],
+        items: duplicate?.items?.length
+            ? duplicate.items.map((line: any) => ({ ...emptyLine(), ...line }))
+            : [emptyLine()],
     });
 
     const [confirming, setConfirming] = useState(false);
@@ -329,43 +340,52 @@ export default function Create() {
         >
             <Head title={t('New Invoice')} />
 
+            {/*
+              Says plainly that this is a copy and nothing is saved yet — so
+              nobody assumes clicking Copy already created an invoice.
+            */}
+            {duplicate && (
+                <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <span className="text-amber-800 dark:text-amber-400">
+                        {t('Copied from invoice :number. Review the details and save to create it.', {
+                            number: duplicate.source_number,
+                        })}
+                    </span>
+                </div>
+            )}
+
             <div className="grid gap-5 lg:grid-cols-3">
-                <SectionCard title="Invoice Details" className="lg:col-span-2" bodyClassName="p-4">
-                    {/*
-                      COMPACT FIELD SIZING, scoped to this form.
-                      ------------------------------------------------------
-                      The shared Input and SelectTrigger default to h-10 with
-                      py-2, which is right for a short dialog but wastes a lot
-                      of vertical space on an eleven-field entry form — the
-                      screen ended up taller than the viewport with only a
-                      third of it carrying information.
-                      
-                      h-9 with tighter label spacing brings the whole header
-                      block into one screen without making anything cramped.
-                      Done here with a scoped rule rather than by changing the
-                      shared components, so dialogs and every other form keep
-                      the roomier sizing they were designed for.
-                    */}
-                    <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2
-                                    [&_input]:h-9 [&_[role=combobox]]:h-9
-                                    [&_label]:text-xs [&_label]:font-medium [&_label]:mb-1 [&_label]:block">
-                        <div className="sm:col-span-2">
-                            <Label>{t('Invoice Number')}</Label>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                {/*
+                  COMPACT ENTRY LAYOUT — label beside the field, three tinted
+                  sections. Built from the shared FormSection/FormRow pair so
+                  every data-entry screen inherits the same measurements rather
+                  than each one inventing its own "compact".
+                */}
+                <div className={cn(
+                    'overflow-hidden rounded-xl border bg-card lg:col-span-2',
+                    COMPACT_FIELDS,
+                )}>
+                    <div className="flex items-center gap-2 px-4 py-3">
+                        <FileSpreadsheet className="h-4 w-4 text-primary" />
+                        <h2 className="text-sm font-semibold">{t('Invoice Details')}</h2>
+                    </div>
+
+                    <FormSection title={t('Invoice Details')} icon={FileText}>
+                        <FormRow label={t('Invoice Number')}>
+                            <p className="pt-2 text-[13px] text-muted-foreground">
                                 {t('This invoice number is generated automatically.')}
                             </p>
-                        </div>
+                        </FormRow>
 
-                        <div className="sm:col-span-2">
-                            <Label htmlFor="description">{t('Invoice Description')}</Label>
+                        <FormRow label={t('Invoice Description')} htmlFor="description">
                             <Input id="description" value={data.description}
                                 onChange={(e) => setData('description', e.target.value)}
                                 placeholder={t('What is this invoice for?')} />
                             <InputError message={errors.description} />
-                        </div>
+                        </FormRow>
 
-                        <div>
-                            <Label>{t('Customer')} <span className="text-destructive">*</span></Label>
+                        <FormRow label={t('Customer')} required>
                             <Select value={data.customer_id} onValueChange={(v) => setData('customer_id', v)}>
                                 <SelectTrigger><SelectValue placeholder={t('Select customer')} /></SelectTrigger>
                                 <SelectContent>
@@ -375,10 +395,9 @@ export default function Create() {
                                 </SelectContent>
                             </Select>
                             <InputError message={errors.customer_id} />
-                        </div>
+                        </FormRow>
 
-                        <div>
-                            <Label>{t('Invoice Type')}</Label>
+                        <FormRow label={t('Invoice Type')}>
                             <Select value={data.type} onValueChange={(v) => setData('type', v)}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -386,45 +405,27 @@ export default function Create() {
                                     <SelectItem value="service">{t('Service')}</SelectItem>
                                 </SelectContent>
                             </Select>
-                        </div>
+                        </FormRow>
+                    </FormSection>
 
-                        {/* Dates group. Three labelled blocks instead of one
-                            eleven-row ladder — the eye needs somewhere to rest. */}
-                        <div className="sm:col-span-2 mt-2 border-t pt-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Dates')}
-                            </p>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="invoice_date">{t('Issue Date')}</Label>
-                            <DatePicker
-                                className="h-9"
-                                id="invoice_date"
-                                value={data.invoice_date}
-                                onChange={(v) => setData('invoice_date', v)}
-                            />
+                    <FormSection title={t('Dates')} icon={CalendarIcon}>
+                        <FormRow label={t('Issue Date')} htmlFor="invoice_date">
+                            <DatePicker className="h-8" id="invoice_date" value={data.invoice_date}
+                                onChange={(v) => setData('invoice_date', v)} />
                             <InputError message={errors.invoice_date} />
-                        </div>
+                        </FormRow>
 
-                        <div>
-                            <Label htmlFor="supply_date">{t('Supply Date')}</Label>
-                            <DatePicker
-                                className="h-9"
-                                id="supply_date"
-                                value={data.supply_date}
-                                onChange={(v) => setData('supply_date', v)}
-                            />
-                            {/* Not cosmetic: VAT is accounted for on the supply
-                                date, which can differ from the invoice date. */}
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {t('The date VAT is accounted for.')}
-                            </p>
+                        <FormRow
+                            label={t('Supply Date')}
+                            htmlFor="supply_date"
+                            hint={t('The date VAT is accounted for.')}
+                        >
+                            <DatePicker className="h-8" id="supply_date" value={data.supply_date}
+                                onChange={(v) => setData('supply_date', v)} />
                             <InputError message={errors.supply_date} />
-                        </div>
+                        </FormRow>
 
-                        <div>
-                            <Label>{t('Payment Terms')}</Label>
+                        <FormRow label={t('Payment Terms')}>
                             <Select value={data.payment_terms} onValueChange={(v) => setData('payment_terms', v)}>
                                 <SelectTrigger><SelectValue placeholder={t('Select payment term')} /></SelectTrigger>
                                 <SelectContent>
@@ -433,27 +434,17 @@ export default function Create() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
+                        </FormRow>
 
-                        <div>
-                            <Label htmlFor="due_date">{t('Due Date')}</Label>
-                            <DatePicker
-                                className="h-9"
-                                id="due_date"
-                                value={data.due_date}
-                                onChange={(v) => setData('due_date', v)}
-                            />
+                        <FormRow label={t('Due Date')} htmlFor="due_date">
+                            <DatePicker className="h-8" id="due_date" value={data.due_date}
+                                onChange={(v) => setData('due_date', v)} />
                             <InputError message={errors.due_date} />
-                        </div>
+                        </FormRow>
+                    </FormSection>
 
-                        <div className="sm:col-span-2 mt-2 border-t pt-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t('Delivery & Payment')}
-                            </p>
-                        </div>
-
-                        <div>
-                            <Label>{t('Location')}</Label>
+                    <FormSection title={t('Delivery & Payment')} icon={CreditCard}>
+                        <FormRow label={t('Location')}>
                             <Select value={data.warehouse_id} onValueChange={(v) => setData('warehouse_id', v)}>
                                 <SelectTrigger><SelectValue placeholder={t('Select location')} /></SelectTrigger>
                                 <SelectContent>
@@ -463,10 +454,9 @@ export default function Create() {
                                 </SelectContent>
                             </Select>
                             <InputError message={errors.warehouse_id} />
-                        </div>
+                        </FormRow>
 
-                        <div>
-                            <Label>{t('Payment Method')}</Label>
+                        <FormRow label={t('Payment Method')}>
                             <Select value={data.payment_mean} onValueChange={(v) => setData('payment_mean', v)}>
                                 <SelectTrigger><SelectValue placeholder={t('Nothing selected')} /></SelectTrigger>
                                 <SelectContent>
@@ -476,16 +466,15 @@ export default function Create() {
                                 </SelectContent>
                             </Select>
                             <InputError message={errors.payment_mean} />
-                        </div>
+                        </FormRow>
 
-                        <div className="sm:col-span-2">
-                            <Label htmlFor="reference">{t('Reference')}</Label>
+                        <FormRow label={t('Reference')} htmlFor="reference" wide>
                             <Input id="reference" value={data.reference}
                                 onChange={(e) => setData('reference', e.target.value)}
                                 placeholder={t('Customer PO or external reference')} />
-                        </div>
-                    </div>
-                </SectionCard>
+                        </FormRow>
+                    </FormSection>
+                </div>
 
                 <SectionCard title="Customer Details" icon={UserIcon}>
                     {!customer ? (

@@ -110,7 +110,7 @@ class PurchaseInvoiceController extends Controller
         }
     }
 
-    public function create()
+    public function create(Request $request)
     {
         if(Auth::user()->can('create-purchase-invoices')){
             $vendors = User::where('type', 'vendor')->select('id', 'name', 'email')->where('created_by', creatorId())->get();
@@ -141,6 +141,15 @@ class PurchaseInvoiceController extends Controller
                 'vendors' => $vendors,
                 'products' => $products,
                 'warehouses' => $warehouses,
+
+                /*
+                 * DUPLICATE SOURCE — set when Copy was clicked on an existing
+                 * bill. Resolved server-side and scoped by created_by, so an id
+                 * from another company returns nothing rather than exposing a
+                 * supplier and their pricing. Nothing is written; the form is
+                 * seeded and the user saves it themselves.
+                 */
+                'duplicate' => $this->duplicateSource($request->get('duplicate_from')),
                 'modules' => [
                     'recurringinvoicebill' => module_is_active('RecurringInvoiceBill')
                 ]
@@ -149,6 +158,46 @@ class PurchaseInvoiceController extends Controller
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Load an existing bill as a seed for a NEW one.
+     *
+     * Omits the invoice number, dates, paid and balance amounts and status —
+     * a copy is a new document with the same lines, not a clone of a posted
+     * one.
+     */
+    private function duplicateSource($invoiceId): ?array
+    {
+        if (!$invoiceId) {
+            return null;
+        }
+
+        $invoice = PurchaseInvoice::with(['items'])
+            ->where('created_by', creatorId())
+            ->find($invoiceId);
+
+        if (!$invoice) {
+            return null;
+        }
+
+        return [
+            'source_number' => $invoice->invoice_number,
+            'vendor_id'     => (string) $invoice->vendor_id,
+            'warehouse_id'  => $invoice->warehouse_id ? (string) $invoice->warehouse_id : '',
+            'payment_terms' => $invoice->payment_terms,
+            'notes'         => $invoice->notes,
+            'items'         => $invoice->items->map(fn ($item) => [
+                'product_id'          => (int) $item->product_id,
+                'quantity'            => (float) $item->quantity,
+                'unit_price'          => (float) $item->unit_price,
+                'discount_percentage' => (float) ($item->discount_percentage ?? 0),
+                'discount_amount'     => (float) ($item->discount_amount ?? 0),
+                'tax_percentage'      => (float) ($item->tax_percentage ?? 0),
+                'tax_amount'          => (float) ($item->tax_amount ?? 0),
+                'total_amount'        => (float) $item->total_amount,
+            ])->values()->all(),
+        ];
     }
 
     public function store(StorePurchaseInvoiceRequest $request)

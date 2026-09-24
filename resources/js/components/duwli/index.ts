@@ -75,3 +75,6 @@ export type {
     ReportFilter,
     ReportSummaryItem,
 } from './document';
+
+// Compact data-entry layout — label beside the field, tinted section bars.
+export { FormSection, FormRow, COMPACT_FIELDS } from './form-layout';

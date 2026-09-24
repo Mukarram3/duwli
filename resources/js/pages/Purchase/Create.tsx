@@ -10,13 +10,15 @@ import { formatCurrency } from '@/utils/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FormSection, FormRow, COMPACT_FIELDS } from '@/components/duwli';
+import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Package, CheckCircle2, Clock, FileText, Calculator, Plus, Settings } from 'lucide-react';
+import { CalendarDays, Package, CheckCircle2, Clock, FileText, Calculator, Plus, Settings, CreditCard} from 'lucide-react';
 
 interface CreateProps {
     vendors: Array<{id: number; name: string; email: string}>;
@@ -28,17 +30,25 @@ interface CreateProps {
 
 export default function Create() {
     const { t } = useTranslation();
-    const { vendors, products, warehouses, modules } = usePage<CreateProps>().props;
+    const { vendors, products, warehouses, modules, duplicate = null } = usePage<CreateProps>().props;
 
+    /*
+     * COPIED FROM AN EXISTING BILL.
+     *
+     * `duplicate` is set only when Copy was clicked. The form is SEEDED with
+     * it, never submitted — dates, invoice number, status and payment history
+     * are deliberately not carried over, so this is a new draft the user
+     * reviews and saves.
+     */
     const { data, setData, post, processing, errors } = useForm({
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
-        vendor_id: '',
-        warehouse_id: '',
-        payment_terms: '',
-        notes: '',
+        vendor_id: duplicate?.vendor_id ?? '',
+        warehouse_id: duplicate?.warehouse_id ?? '',
+        payment_terms: duplicate?.payment_terms ?? '',
+        notes: duplicate?.notes ?? '',
         sync_to_google_calendar: false,
-        items: [{
+        items: (duplicate?.items?.length ? duplicate.items : [{
             product_id: 0,
             quantity: 1,
             unit_price: 0,
@@ -47,7 +57,7 @@ export default function Create() {
             tax_percentage: 0,
             tax_amount: 0,
             total_amount: 0
-        }] as PurchaseInvoiceItem[]
+        }]) as PurchaseInvoiceItem[]
     });
 
     const calendarFields = useFormFields('createCalendarSyncField', data, setData, errors, 'create', t, 'Purchase');
@@ -92,101 +102,91 @@ export default function Create() {
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="p-6 space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="invoice_date" required className="text-sm font-medium text-foreground">
-                                                {t('Invoice Date')}
-                                            </Label>
-                                            <DatePicker
-                                                id="invoice_date"
-                                                value={data.invoice_date}
-                                                onChange={(value) => setData('invoice_date', value)}
-                                                required
-                                            />
-                                            <InputError message={errors.invoice_date} />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="due_date" required className="text-sm font-medium text-foreground">
-                                                {t('Due Date')}
-                                            </Label>
-                                            <DatePicker
-                                                id="due_date"
-                                                value={data.due_date}
-                                                onChange={(value) => setData('due_date', value)}
-                                                required
-                                            />
-                                            <InputError message={errors.due_date} />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="vendor_id" required className="text-sm font-medium text-foreground">
-                                                {t('Vendor')}
-                                            </Label>
+                                {/*
+                                  COMPACT ENTRY LAYOUT — the same
+                                  FormSection/FormRow pair the Sales invoice
+                                  uses, so both forms share one set of
+                                  measurements instead of each defining its own.
+                                */}
+                                <CardContent className={cn('p-0', COMPACT_FIELDS)}>
+                                    <FormSection title={t('Invoice Details')} icon={FileText}>
+                                        <FormRow label={t('Vendor')} required htmlFor="vendor_id">
                                             <Select value={data.vendor_id} onValueChange={(value) => setData('vendor_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('Select Vendor')} />
+                                                <SelectTrigger id="vendor_id">
+                                                    <SelectValue placeholder={t('Select vendor')} />
                                                 </SelectTrigger>
-                                                <SelectContent searchable>
-                                                    {vendors.map((vendor) => (
-                                                        <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                                                            {vendor.name} - {vendor.email}
+                                                <SelectContent>
+                                                    {vendors.map((vendor: any) => (
+                                                        <SelectItem key={vendor.id} value={String(vendor.id)}>
+                                                            {vendor.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.vendor_id} />
-                                        </div>
+                                        </FormRow>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="warehouse_id" required className="text-sm font-medium text-foreground">
-                                                {t('Warehouse')}
-                                            </Label>
+                                        <FormRow label={t('Warehouse')} required htmlFor="warehouse_id">
                                             <Select value={data.warehouse_id} onValueChange={(value) => setData('warehouse_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('Select Warehouse')} />
+                                                <SelectTrigger id="warehouse_id">
+                                                    <SelectValue placeholder={t('Select warehouse')} />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {warehouses.map((warehouse) => (
-                                                        <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                            {warehouse.name} - {warehouse.address}
-                                                        </SelectItem>
+                                                    {warehouses.map((w: any) => (
+                                                        <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                             <InputError message={errors.warehouse_id} />
-                                        </div>
-                                    </div>
+                                        </FormRow>
+                                    </FormSection>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="payment_terms" className="text-sm font-medium text-foreground">
-                                                {t('Payment Terms')}
-                                            </Label>
+                                    <FormSection title={t('Dates')} icon={CalendarDays}>
+                                        <FormRow label={t('Invoice Date')} required htmlFor="invoice_date">
+                                            <DatePicker
+                                                className="h-8"
+                                                id="invoice_date"
+                                                value={data.invoice_date}
+                                                onChange={(value) => setData('invoice_date', value)}
+                                            />
+                                            <InputError message={errors.invoice_date} />
+                                        </FormRow>
+
+                                        <FormRow label={t('Due Date')} required htmlFor="due_date">
+                                            <DatePicker
+                                                className="h-8"
+                                                id="due_date"
+                                                value={data.due_date}
+                                                onChange={(value) => setData('due_date', value)}
+                                            />
+                                            <InputError message={errors.due_date} />
+                                        </FormRow>
+                                    </FormSection>
+
+                                    <FormSection title={t('Delivery & Payment')} icon={CreditCard}>
+                                        <FormRow label={t('Payment Terms')} htmlFor="payment_terms">
                                             <Input
                                                 id="payment_terms"
                                                 value={data.payment_terms}
                                                 onChange={(e) => setData('payment_terms', e.target.value)}
                                                 placeholder={t('e.g., Net 30')}
-                                                className="w-full"
                                             />
-                                        </div>
+                                            <InputError message={errors.payment_terms} />
+                                        </FormRow>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="notes" className="text-sm font-medium text-foreground">
-                                                {t('Notes')}
-                                            </Label>
+                                        <FormRow label={t('Notes')} htmlFor="notes" wide>
                                             <Textarea
                                                 id="notes"
+                                                rows={2}
                                                 value={data.notes}
                                                 onChange={(e) => setData('notes', e.target.value)}
-                                                rows={2}
-                                                placeholder={t('Additional notes...')}
-                                                className="w-full resize-none"
+                                                placeholder={t('Additional notes')}
                                             />
-                                        </div>
-                                    </div>
+                                            <InputError message={errors.notes} />
+                                        </FormRow>
+
+                                        {calendarFields}
+                                    </FormSection>
                                 </CardContent>
                             </Card>
 

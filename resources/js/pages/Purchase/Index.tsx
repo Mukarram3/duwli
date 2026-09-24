@@ -15,7 +15,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, User as UserIcon, Building2, TrendingDown } from "lucide-react";
+import { Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, User as UserIcon, Building2, TrendingDown, Copy as CopyIcon } from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
@@ -229,6 +229,23 @@ export default function Index() {
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent><p>{t('View')}</p></TooltipContent>
+                            </Tooltip>
+                        )}
+                        {/*
+                          COPY — opens the New Purchase Invoice form seeded from
+                          this bill. Nothing is written until the user saves, so
+                          a mis-click costs a back button, not a stray bill.
+                          Available on any status: copying a posted bill is the
+                          common case (a recurring supplier order).
+                        */}
+                        {auth.user?.permissions?.includes('create-purchase-invoices') && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="sm" onClick={() => router.get(route('purchase-invoices.create', { duplicate_from: invoice.id }))} className="h-8 w-8 p-0 text-primary hover:opacity-80">
+                                        <CopyIcon className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{t('Copy')}</p></TooltipContent>
                             </Tooltip>
                         )}
                         {invoice.status === 'draft' && (

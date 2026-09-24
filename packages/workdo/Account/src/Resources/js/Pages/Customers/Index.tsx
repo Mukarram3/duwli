@@ -282,30 +282,53 @@ export default function Index() {
         },
         {
             /*
-             * TAX STATUS — replaces the Email column.
+             * E-INVOICING STATUS — the outcome of the last ZATCA submission
+             * for this customer.
              *
-             * Derived from the customer's VAT number rather than stored
-             * separately: a customer either has a registration number or does
-             * not, and keeping a second field in step with the first is how
-             * they end up disagreeing.
+             * This is NOT a property of the customer. It belongs to an invoice,
+             * so what an honest customer row can show is the result of their
+             * most recent submission — which is what the controller returns.
              *
-             * The number itself is shown beneath the badge, isolated as LTR so
-             * the bidi algorithm does not reorder its digits on an Arabic
-             * screen.
+             * "NA" is the default and covers three different situations, all
+             * of which genuinely mean "nothing to report": the integration is
+             * not live, the customer has no submitted invoices, or the
+             * zatca_status column does not exist yet. Showing "Failed" for any
+             * of those would be a lie about a compliance status.
+             *
+             * The VAT number is kept beneath the badge — it is the thing
+             * someone checks when a submission fails — isolated LTR so the
+             * bidi algorithm does not reorder its digits on an Arabic screen.
              */
-            key: 'tax_number',
-            header: t('TAX Status'),
-            render: (value: any) =>
-                value ? (
+            key: 'einv_status',
+            header: t('E-Inv Status'),
+            render: (_: any, customer: any) => {
+                const status = customer.einv_status || 'na';
+
+                const map: Record<string, { label: string; tone: any }> = {
+                    cleared:                { label: 'Received Successfully',                tone: 'success' },
+                    reported:               { label: 'Received Successfully',                tone: 'success' },
+                    cleared_with_warnings:  { label: 'Received Successfully With Warnings',  tone: 'warning' },
+                    reported_with_warnings: { label: 'Received Successfully With Warnings',  tone: 'warning' },
+                    failed_crn:             { label: 'Failed with CRN',                      tone: 'critical' },
+                    rejected:               { label: 'Failed',                               tone: 'critical' },
+                    failed:                 { label: 'Failed',                               tone: 'critical' },
+                    pending:                { label: 'NA',                                   tone: 'neutral' },
+                    na:                     { label: 'NA',                                   tone: 'neutral' },
+                };
+
+                const entry = map[status] ?? map.na;
+
+                return (
                     <div className="flex flex-col gap-0.5">
-                        <StatusBadge status="registered" label="Registered" tone="success" />
-                        <span className="ltr-text text-xs tabular-nums text-muted-foreground">
-                            {value}
-                        </span>
+                        <StatusBadge status={status} label={entry.label} tone={entry.tone} />
+                        {customer.tax_number && (
+                            <span className="ltr-text text-xs tabular-nums text-muted-foreground">
+                                {customer.tax_number}
+                            </span>
+                        )}
                     </div>
-                ) : (
-                    <StatusBadge status="not_registered" label="Not Registered" tone="neutral" />
-                ),
+                );
+            },
         },
         {
             key: 'balance',

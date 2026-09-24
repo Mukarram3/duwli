@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import {
     Plus, Edit as EditIcon, Trash2, Eye, FileText, Receipt, Download, Printer,
     Replace, FileSpreadsheet, Wallet, AlertCircle, CheckCircle2,
-    CreditCard, CirclePlus, FileUp, User as UserIcon, Pencil, FileDown} from "lucide-react";
+    CreditCard, CirclePlus, FileUp, User as UserIcon, Pencil, FileDown, Copy as CopyIcon} from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pagination } from "@/components/ui/pagination";
@@ -413,6 +413,25 @@ export default function Index() {
                                         route('account.customer-payments.index', {
                                             invoice_id: invoice.id,
                                         })
+                                    ),
+                                },
+                                {
+                                    /*
+                                     * COPY — opens the New Invoice form seeded
+                                     * from this one. Nothing is written until
+                                     * the user saves, so a mis-click costs a
+                                     * back button, not a stray invoice.
+                                     *
+                                     * Only the id travels; the controller
+                                     * resolves the rest, scoped to this
+                                     * company.
+                                     */
+                                    label: t('Copy'),
+                                    icon: CopyIcon,
+                                    className: 'text-primary hover:opacity-80',
+                                    permitted: auth.user?.permissions?.includes('create-sales-invoices'),
+                                    onClick: () => router.visit(
+                                        route('sales-invoices.create', { duplicate_from: invoice.id })
                                     ),
                                 },
                                 {

@@ -5,6 +5,7 @@ namespace Workdo\Account\Http\Controllers;
 use App\Models\User;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Workdo\Account\Models\Customer;
 use Workdo\Account\Http\Requests\StoreCustomerRequest;
@@ -63,9 +64,15 @@ class CustomerController extends Controller
              * ids rather than a subquery per row — with a per-row subquery a
              * 100-row page would fire 200 extra queries.
              */
-            $balances = $this->balancesFor($customers->getCollection()->pluck('user_id')->filter()->all());
+            $customerIds = $customers->getCollection()->pluck('user_id')->filter()->all();
+            $balances    = $this->balancesFor($customerIds);
+            $einvoice    = $this->eInvoiceStatusFor($customerIds);
 
-            $customers->getCollection()->transform(function ($customer) use ($balances) {
+            $customers->getCollection()->transform(function ($customer) use ($balances, $einvoice) {
+                // Latest e-invoicing outcome for this customer; 'na' when the
+                // integration is not live or they have no submitted invoices.
+                $customer->einv_status = $einvoice[$customer->user_id] ?? 'na';
+
                 $row = $balances[$customer->user_id] ?? null;
 
                 $customer->balance      = (float) ($row->balance ?? 0);
@@ -193,6 +200,48 @@ class CustomerController extends Controller
      *
      * @param  array<int>  $customerIds
      */
+    /**
+     * Latest E-INVOICING outcome per customer.
+     *
+     * The status belongs to an INVOICE, not to a customer — so what a customer
+     * row can honestly show is the outcome of their most recent submission.
+     * That is what this returns.
+     *
+     * Returns 'na' for everyone when `zatca_status` does not exist yet, which
+     * is the case until the VAT/ZATCA migration has run. Reporting "Failed"
+     * because a column is missing would be worse than reporting nothing.
+     *
+     * One grouped query, not one per customer.
+     *
+     * @param  array<int>  $customerIds
+     * @return array<int,string>
+     */
+    private function eInvoiceStatusFor(array $customerIds): array
+    {
+        if (empty($customerIds) || !Schema::hasColumn('sales_invoices', 'zatca_status')) {
+            return [];
+        }
+
+        // The most recent invoice per customer that has actually been
+        // submitted. A draft has no e-invoicing status to report.
+        $rows = SalesInvoice::query()
+            ->where('created_by', creatorId())
+            ->whereIn('customer_id', $customerIds)
+            ->whereNotNull('zatca_status')
+            ->orderByDesc('id')
+            ->get(['customer_id', 'zatca_status']);
+
+        $latest = [];
+        foreach ($rows as $row) {
+            // First row wins — the list is already newest first.
+            if (!array_key_exists($row->customer_id, $latest)) {
+                $latest[$row->customer_id] = $row->zatca_status;
+            }
+        }
+
+        return $latest;
+    }
+
     private function balancesFor(array $customerIds)
     {
         if (empty($customerIds)) {
