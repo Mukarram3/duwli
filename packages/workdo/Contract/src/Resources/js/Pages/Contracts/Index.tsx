@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PageActionBar } from '@/components/page-action-bar';
+import { getRelatedActions } from '@/utils/page-actions';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -395,7 +397,18 @@ export default function Index() {
             pageTitle={t('Manage Contracts')}
             pageDescription={t('Manage and track your contracts, assignment, value, and statuses.')}
             pageActions={
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                    {/*
+                      Contract Types lives here now, not in the sidebar.
+                      getRelatedActions supplies it, so the label, icon and
+                      permission stay defined in one place (page-actions.ts)
+                      rather than being duplicated per screen.
+                    */}
+                    <PageActionBar
+                        actions={getRelatedActions('contract.index', t)}
+                        permissions={auth.user?.permissions}
+                        maxVisible={4}
+                    />
                     <TooltipProvider>
                         {googleDriveButtons.map((button) => (
                             <div key={button.id}>{button.component}</div>

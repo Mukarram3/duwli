@@ -282,7 +282,7 @@ export default function Index() {
                             auth.user?.permissions?.includes('convert-to-invoice-quotations') && quotation.status === 'accepted' && (
                                 <Tooltip delayDuration={0}>
                                     <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" onClick={() => openConvertDialog(quotation.id)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700">
+                                        <Button variant="ghost" size="sm" onClick={() => openConvertDialog(quotation.id)} className="h-8 w-8 p-0 text-primary hover:opacity-80">
                                             <RefreshCw className="h-4 w-4" />
                                         </Button>
                                     </TooltipTrigger>
@@ -303,7 +303,7 @@ export default function Index() {
                         {quotation.status !== 'draft' && auth.user?.permissions?.includes('create-quotations-revision') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.create-revision', quotation.id))} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700">
+                                    <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.create-revision', quotation.id))} className="h-8 w-8 p-0 text-primary hover:opacity-80">
                                         <PlusCircle className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
@@ -659,7 +659,7 @@ export default function Index() {
                                                             auth.user?.permissions?.includes('convert-to-invoice-quotations') && quotation.status === 'accepted' && (
                                                                 <Tooltip delayDuration={0}>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button variant="ghost" size="sm" onClick={() => openConvertDialog(quotation.id)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700">
+                                                                        <Button variant="ghost" size="sm" onClick={() => openConvertDialog(quotation.id)} className="h-8 w-8 p-0 text-primary hover:opacity-80">
                                                                             <RefreshCw className="h-4 w-4" />
                                                                         </Button>
                                                                     </TooltipTrigger>
@@ -680,7 +680,7 @@ export default function Index() {
                                                         {quotation.status !== 'draft' && auth.user?.permissions?.includes('create-quotations-revision') && (
                                                             <Tooltip delayDuration={0}>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.create-revision', quotation.id))} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700">
+                                                                    <Button variant="ghost" size="sm" onClick={() => router.post(route('quotations.create-revision', quotation.id))} className="h-8 w-8 p-0 text-primary hover:opacity-80">
                                                                         <PlusCircle className="h-4 w-4" />
                                                                     </Button>
                                                                 </TooltipTrigger>

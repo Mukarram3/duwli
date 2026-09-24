@@ -165,28 +165,28 @@ export default function Index() {
             permission: 'create-customer-payments',
         },
         {
-            label: t('Receipts'),
+            label: t('Manage Receipts'),
             href: actionRoute('account.customer-payments.index'),
             icon: Receipt,
             variant: 'outline',
             permission: 'manage-customer-payments',
         },
         {
-            label: t('Credit Notes'),
+            label: t('Manage Credit Notes'),
             href: actionRoute('account.credit-notes.index'),
             icon: FileText,
             variant: 'outline',
             permission: 'manage-credit-notes',
         },
         {
-            label: t('Import'),
+            label: t('Import Invoices'),
             onClick: () => setImportOpen(true),
             icon: FileUp,
             variant: 'outline',
             permission: 'create-sales-invoices',
         },
         {
-            label: t('Invoice Returns'),
+            label: t('Invoices'),
             href: actionRoute('sales-returns.index'),
             icon: Replace,
             variant: 'outline',
@@ -293,24 +293,6 @@ export default function Index() {
                     image={invoice.customer?.avatar}
                 />
             )
-        },
-        {
-            key: 'customer_email',
-            header: t('Email'),
-            render: (value: any, invoice: SalesInvoice) =>
-                invoice.customer?.email ? (
-                    // Latin-isolated so an Arabic screen does not reorder the
-                    // address, and linked because the common next action on an
-                    // unpaid invoice is to email the customer about it.
-                    <a
-                        href={`mailto:${invoice.customer.email}`}
-                        className="ltr-text truncate text-primary hover:underline"
-                    >
-                        {invoice.customer.email}
-                    </a>
-                ) : (
-                    <span className="text-muted-foreground">—</span>
-                )
         },
         {
             key: 'invoice_date',
@@ -453,31 +435,12 @@ export default function Index() {
                                     onClick: () => window.open(route('sales-invoices.print', invoice.id) + '?download=pdf', '_blank'),
                                 },
                                 {
-                                    /*
-                                     * APPROVE & POST — the same operation as
-                                     * "Save and Approve" on the entry form.
-                                     *
-                                     * Approving an invoice IS posting it: the
-                                     * controller sets the status and dispatches
-                                     * PostSalesInvoice, which writes the
-                                     * journal entries. There is no separate
-                                     * posting step and never was after the
-                                     * approve path was built.
-                                     *
-                                     * The old label — "Post invoice to finalize
-                                     * and create journal entries" — described
-                                     * it as a second stage, which is why it
-                                     * read as an extra step. It only exists for
-                                     * invoices SAVED AS DRAFT; an invoice
-                                     * approved on the form arrives here already
-                                     * posted and shows this greyed out.
-                                     */
-                                    label: t('Approve & Post to GL'),
-                                    icon: CheckCircle2,
+                                    label: t('Post invoice to finalize and create journal entries'),
+                                    icon: FileText,
                                     className: 'text-purple-600 hover:text-purple-700',
                                     permitted: auth.user?.permissions?.includes('post-sales-invoices'),
                                     available: isDraft,
-                                    disabledReason: t('Already posted to the general ledger'),
+                                    disabledReason: t('Already posted'),
                                     onClick: () => router.post(route('sales-invoices.post', invoice.id)),
                                 },
                                 {
@@ -521,30 +484,15 @@ export default function Index() {
              * The current filters are passed through, so the file matches what
              * the user is looking at rather than dumping the whole table.
              */
-            pageExports={
-                can('manage-sales-invoices')
-                    ? [
-                          {
-                              label: 'Download as Excel',
-                              icon: FileSpreadsheet,
-                              onClick: () => {
-                                  window.location.href = route('sales-invoices.export', {
-                                      ...filters, format: 'xlsx',
-                                  });
-                              },
-                          },
-                          {
-                              label: 'Download as CSV',
-                              icon: FileText,
-                              onClick: () => {
-                                  window.location.href = route('sales-invoices.export', {
-                                      ...filters, format: 'csv',
-                                  });
-                              },
-                          },
-                      ]
-                    : undefined
-            }
+            /*
+             * No pageExports here.
+             *
+             * It rendered a second Export button in the header while the action
+             * bar already carries one — two Exports on the same screen, doing
+             * the same thing. The bar's button is the one the user asked for,
+             * so the header dropdown is removed rather than duplicated.
+             */
+
             pageActions={
                 <PageActionBar
                     actions={invoiceActions}
@@ -568,7 +516,25 @@ export default function Index() {
                      * PageHeader is justify-end, which would otherwise pin the
                      * buttons to the right edge.
                      */
-                    className="w-full justify-center"
+                    /*
+                     * ONE LINE, SCROLL INSTEAD OF WRAP.
+                     *
+                     * Seven buttons overflowed the row and wrapped, leaving
+                     * "Invoices" stranded on a second line by itself — which
+                     * reads as a mistake rather than a layout.
+                     *
+                     * flex-nowrap keeps them on one line; overflow-x-auto lets
+                     * a narrow screen scroll the row instead. Scrolling is the
+                     * better failure mode here: the buttons keep their order
+                     * and grouping, where wrapping breaks both.
+                     *
+                     * The negative margin + matching padding let the scroll
+                     * area run to the card edges rather than clipping the
+                     * focus ring on the first and last buttons.
+                     */
+                    className="w-full flex-nowrap overflow-x-auto -mx-1 px-1
+                               [justify-content:safe_center]
+                               [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     <TooltipProvider>
                         {pageButtons.map((button) => (
@@ -767,8 +733,9 @@ export default function Index() {
                                                         )}
                                                     </div>
                                                     <div className="min-w-0 flex-1">
+                                                        {/* Email removed here too, so the grid view
+                                                            matches the table. */}
                                                         <p className="font-semibold text-sm text-gray-900 truncate">{invoice.customer?.name || '-'}</p>
-                                                        <p className="text-xs text-muted-foreground truncate">{invoice.customer?.email || ''}</p>
                                                     </div>
                                                 </div>
                                             </div>

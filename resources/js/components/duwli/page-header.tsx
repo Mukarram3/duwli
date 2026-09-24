@@ -87,6 +87,12 @@ type Props = {
     exports?: ExportOption[];
     /** Convenience: adds an Excel entry to the Export menu. */
     onExportExcel?: () => void;
+    /**
+     * Overrides the Export trigger's label. Screens that want to name what
+     * they export ("Export Customers") pass it; everything else keeps the
+     * generic "Export" so the header stays consistent by default.
+     */
+    exportLabel?: string;
     /** Convenience: adds a PDF entry to the Export menu. */
     onExportPdf?: () => void;
     /** Shows a Print button beside Export. */
@@ -112,6 +118,7 @@ export function PageHeader({
     count,
     exports = [],
     onExportExcel,
+    exportLabel,
     onExportPdf,
     onPrint,
     backUrl,
@@ -221,7 +228,7 @@ export function PageHeader({
                                         className="h-9 gap-1.5 text-[13px] font-semibold"
                                     >
                                         <Download className="h-4 w-4" />
-                                        {t('Export')}
+                                        {exportLabel ? t(exportLabel) : t('Export')}
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent

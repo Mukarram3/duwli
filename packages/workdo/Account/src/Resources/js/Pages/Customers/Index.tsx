@@ -281,20 +281,30 @@ export default function Index() {
             render: (value: any) => <TextCell value={value} />,
         },
         {
-            key: 'contact_person_email',
-            header: t('Email'),
+            /*
+             * TAX STATUS — replaces the Email column.
+             *
+             * Derived from the customer's VAT number rather than stored
+             * separately: a customer either has a registration number or does
+             * not, and keeping a second field in step with the first is how
+             * they end up disagreeing.
+             *
+             * The number itself is shown beneath the badge, isolated as LTR so
+             * the bidi algorithm does not reorder its digits on an Arabic
+             * screen.
+             */
+            key: 'tax_number',
+            header: t('TAX Status'),
             render: (value: any) =>
                 value ? (
-                    // Email is Latin even on an Arabic screen, so it is isolated
-                    // to stop the bidi algorithm reordering it.
-                    <a
-                        href={`mailto:${value}`}
-                        className="ltr-text truncate text-primary hover:underline"
-                    >
-                        {value}
-                    </a>
+                    <div className="flex flex-col gap-0.5">
+                        <StatusBadge status="registered" label="Registered" tone="success" />
+                        <span className="ltr-text text-xs tabular-nums text-muted-foreground">
+                            {value}
+                        </span>
+                    </div>
                 ) : (
-                    <TextCell value={null} />
+                    <StatusBadge status="not_registered" label="Not Registered" tone="neutral" />
                 ),
         },
         {
@@ -398,6 +408,8 @@ export default function Index() {
             pageDescription={t('Your customer book and what each of them owes.')}
             pageIcon={Users}
             pageCount={customers.total}
+            /* Names what is exported, rather than the generic "Export". */
+            exportLabel="Export Customers"
             onExportExcel={
                 can('manage-customers') && actionRoute('account.customers.export')
                     ? () => { window.location.href = actionRoute('account.customers.export') as string; }
@@ -410,15 +422,23 @@ export default function Index() {
                     {dropboxBtn.map((button) => <div key={button.id}>{button.component}</div>)}
                     {can('create-customers') && (
                         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}
-                            className="h-9 px-3.5 text-[13px] font-semibold">
-                            <FileUp className="mr-1.5 h-4 w-4" />
-                            {t('Import')}
+                            /*
+                             * gap-1.5 instead of a margin on the icon: a
+                             * logical margin (mr-) does not flip under RTL, so
+                             * in Arabic the icon sat hard against the text on
+                             * one side and detached on the other. `gap` is
+                             * direction-agnostic and keeps the spacing
+                             * identical in both layouts.
+                             */
+                            className="h-9 gap-1.5 px-3.5 text-[13px] font-semibold">
+                            <FileUp className="h-4 w-4 shrink-0" />
+                            {t('Import Customers')}
                         </Button>
                     )}
                     {can('create-customers') && (
                         <Button size="sm" onClick={() => openModal('add')}
-                            className="h-9 px-3.5 text-[13px] font-semibold">
-                            <Plus className="mr-1.5 h-4 w-4" />
+                            className="h-9 gap-1.5 px-3.5 text-[13px] font-semibold">
+                            <Plus className="h-4 w-4 shrink-0" />
                             {t('New Customer')}
                         </Button>
                     )}

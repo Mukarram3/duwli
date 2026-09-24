@@ -75,6 +75,12 @@ type Section = {
     name: string;
     title: string;
     icon: any;
+    /**
+     * Optional landing page for the section itself. When set, clicking the
+     * section label navigates there and the chevron still expands the group.
+     * Sales uses it so the header opens the Sales Dashboard.
+     */
+    href?: string;
     groups: SubGroup[];
 };
 
@@ -84,6 +90,8 @@ const SECTIONS: Section[] = [
         name: 'sales',
         title: 'Sales',
         icon: Receipt,
+        // Clicking "Sales" opens the Sales Dashboard.
+        href: 'sales.dashboard',
         groups: [
             {
                 routes: [
@@ -98,8 +106,18 @@ const SECTIONS: Section[] = [
                 ],
             },
             {
+                /*
+                 * CONTRACTS & DOCS is now a single entry that opens the
+                 * Contracts page. "Contract" and "Contract Types" are no
+                 * longer separate menu rows — they are action icons in that
+                 * page's header instead (see page-actions.ts).
+                 *
+                 * contract-types.index is deliberately left OUT of this list:
+                 * a route listed here renders as its own sidebar row, which is
+                 * exactly what we are removing.
+                 */
                 title: 'Contracts & Docs',
-                routes: ['contract.index', 'contract-types.index'],
+                routes: ['contract.index'],
             },
             {
                 title: 'Point of Sale',
@@ -628,10 +646,25 @@ export const applyQoyodStructure = (items: NavItem[]): NavItem[] => {
               ]
             : children;
 
+        /*
+         * A section's own landing page, if it has one and the route exists.
+         * Resolved defensively: a missing route would throw and take the whole
+         * menu down with it, which is a high price for a convenience link.
+         */
+        let sectionHref: string | undefined;
+        if (section.href) {
+            try {
+                sectionHref = route(section.href);
+            } catch {
+                sectionHref = undefined;
+            }
+        }
+
         output.push({
             title: section.title,
             icon: section.icon,
             name: section.name,
+            href: sectionHref,
             group: '',
             order: (index + 1) * 100,
             children: dedupeTitles(withOverview),

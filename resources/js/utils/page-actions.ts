@@ -235,6 +235,15 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
         { label: 'Product Categories', route: 'product-service.item-categories.index', icon: Tags, keepInNav: true },
     ],
 
+    /*
+     * CONTRACTS — "Contract Types" is reachable from here now that it is no
+     * longer a sidebar row. keepInNav is NOT set, because we deliberately want
+     * it demoted out of the nav: that is the whole point of the change.
+     */
+    'contract.index': [
+        { label: 'Contract Types', route: 'contract-types.index', icon: Tags, permission: 'manage-contract-types' },
+    ],
+
     /** Assets — the lifecycle of an asset lives on the asset list. */
     /*
      * keepInNav ON EVERY ENTRY — this is why only "Assets" appeared under
@@ -267,6 +276,8 @@ export const RELATED_ACTIONS: Record<string, RelatedAction[]> = {
  */
 export const WIRED_PAGES: string[] = [
     'sales-invoices.index',
+    // Its action bar carries the Contract Types button now.
+    'contract.index',
     'assets.assets.index',
     'hrm.employees.index',
     'hrm.leave-applications.index',

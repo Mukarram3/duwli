@@ -47,6 +47,7 @@ type LayoutProps = {
     pageExports?: ExportOption[];
     /** Adds "Download as Excel" to the header Export menu. */
     onExportExcel?: () => void;
+    exportLabel?: string;
     /** Adds "Download as PDF" to the header Export menu. */
     onExportPdf?: () => void;
     /** Adds a Print button to the header toolbar. */
@@ -65,6 +66,7 @@ function AuthenticatedLayoutContent({
     pageCount,
     pageExports,
     onExportExcel,
+    exportLabel,
     onExportPdf,
     onPrint,
     className,
@@ -178,6 +180,7 @@ function AuthenticatedLayoutContent({
                             count={pageCount}
                             exports={pageExports}
                             onExportExcel={onExportExcel}
+                            exportLabel={exportLabel}
                             onExportPdf={onExportPdf}
                             onPrint={onPrint}
                             backUrl={backUrl}
@@ -207,6 +210,7 @@ export default function AuthenticatedLayout({
     pageCount,
     pageExports,
     onExportExcel,
+    exportLabel,
     onExportPdf,
     onPrint,
     className,
@@ -225,6 +229,7 @@ export default function AuthenticatedLayout({
                 pageCount={pageCount}
                 pageExports={pageExports}
                 onExportExcel={onExportExcel}
+                exportLabel={exportLabel}
                 onExportPdf={onExportPdf}
                 onPrint={onPrint}
                 className={className}

@@ -82,13 +82,49 @@ export function NavMain({ items = [], searchQuery = "" }: { items: NavItem[], se
                     {/* Expanded sidebar - collapsible */}
                     <Collapsible asChild defaultOpen={shouldBeActive} className="group/collapsible group-data-[collapsible=icon]:hidden">
                         <div>
-                            <CollapsibleTrigger asChild>
-                                <SidebarMenuButton tooltip={item.title} isActive={shouldBeActive} data-current={false}>
-                                    {item.icon && <item.icon />}
-                                    <span>{item.title}</span>
-                                    <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                            {/*
+                              A parent with its OWN href both navigates and
+                              expands: the label is a link, the chevron is the
+                              collapse trigger.
+
+                              Sales uses this so clicking "Sales" opens the
+                              Sales Dashboard instead of only toggling the
+                              group. Parents without an href are unchanged —
+                              the whole row stays a trigger, as before.
+                            */}
+                            {item.href ? (
+                                <SidebarMenuButton
+                                    asChild
+                                    tooltip={item.title}
+                                    isActive={shouldBeActive}
+                                    data-current={false}
+                                >
+                                    <div className="flex w-full items-center">
+                                        <Link href={item.href} className="flex flex-1 items-center gap-2">
+                                            {item.icon && <item.icon />}
+                                            <span>{item.title}</span>
+                                        </Link>
+                                        <CollapsibleTrigger asChild>
+                                            <button
+                                                type="button"
+                                                aria-label={item.title}
+                                                className="ms-auto p-0.5"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                                            </button>
+                                        </CollapsibleTrigger>
+                                    </div>
                                 </SidebarMenuButton>
-                            </CollapsibleTrigger>
+                            ) : (
+                                <CollapsibleTrigger asChild>
+                                    <SidebarMenuButton tooltip={item.title} isActive={shouldBeActive} data-current={false}>
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                                    </SidebarMenuButton>
+                                </CollapsibleTrigger>
+                            )}
                             <CollapsibleContent>
                                 <SidebarMenuSub>
                                     {item.children.map((subItem) => {

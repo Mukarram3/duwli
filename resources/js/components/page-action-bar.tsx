@@ -108,7 +108,19 @@ export function PageActionBar({
 
     return (
         <div
-            className={cn('flex items-center gap-2 flex-wrap justify-end', className)}
+            className={cn(
+                'flex items-center gap-1.5 flex-wrap',
+                /*
+                 * Only default to right-alignment when the caller has not
+                 * chosen its own. twMerge resolves `justify-center` against
+                 * `justify-end`, but NOT an arbitrary
+                 * `[justify-content:safe_center]` — that is a different group,
+                 * so both would land and the base would win. Checking here
+                 * keeps the caller's choice authoritative either way.
+                 */
+                !/justify|\[justify-content/.test(className ?? '') && 'justify-end',
+                className,
+            )}
             dir={isRtl ? 'rtl' : 'ltr'}
         >
             {inline.map((action) => {
@@ -120,7 +132,7 @@ export function PageActionBar({
                         disabled={action.disabled}
                         onClick={() => go(action)}
                         className={cn(
-                            'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md',
+                            'inline-flex items-center gap-1.5 h-9 px-3 rounded-md shrink-0',
                             'text-[13px] font-semibold leading-none whitespace-nowrap',
                             'transition-colors focus-visible:outline-none focus-visible:ring-2',
                             'focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -128,7 +140,24 @@ export function PageActionBar({
                             variantClasses[action.variant || 'primary'],
                         )}
                     >
-                        {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                        {/*
+                          Icons take the THEME colour on outline buttons.
+                          A filled (primary) button already sits on the brand
+                          colour, so its icon stays white — colouring it there
+                          would make it invisible.
+
+                          `gap-1.5` on the button (above) rather than a margin
+                          on the icon: a margin does not flip under RTL and
+                          leaves the spacing lopsided in Arabic.
+                        */}
+                        {Icon && (
+                            <Icon
+                                className={cn(
+                                    'h-4 w-4 shrink-0',
+                                    (action.variant || 'primary') !== 'primary' && 'text-primary',
+                                )}
+                            />
+                        )}
                         <span>{action.label}</span>
                     </button>
                 );
@@ -141,9 +170,10 @@ export function PageActionBar({
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="outline"
-                            className="h-9 px-3 text-[13px] font-semibold"
+                            className="h-9 gap-1.5 px-3 text-[13px] font-semibold"
                         >
-                            <MoreHorizontal className="h-4 w-4 mr-1.5" />
+                            {/* gap on the parent, not a margin — mr- does not flip in RTL. */}
+                            <MoreHorizontal className="h-4 w-4 shrink-0" />
                             {t('More')}
                         </Button>
                     </DropdownMenuTrigger>
@@ -157,7 +187,7 @@ export function PageActionBar({
                                     onClick={() => go(action)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    {Icon && <Icon className="h-4 w-4" />}
+                                    {Icon && <Icon className="h-4 w-4 shrink-0 text-primary" />}
                                     <span>{action.label}</span>
                                 </DropdownMenuItem>
                             );
