@@ -343,6 +343,40 @@ export default function Index() {
                 <StatusBadge status={invoice.display_status || value} />
             )
         },
+        {
+            /*
+             * E-INVOICING STATUS — this invoice's own ZATCA outcome.
+             *
+             * Read straight off the invoice row, because that is where the
+             * status actually lives: one invoice, one submission, one result.
+             *
+             * "NA" is the honest default and covers everything that genuinely
+             * has nothing to report — a draft, an invoice not yet submitted,
+             * or the integration not being live. Showing "Failed" for any of
+             * those would be a lie about a compliance status.
+             */
+            key: 'zatca_status',
+            header: t('E-Inv Status'),
+            render: (value: any) => {
+                const status = value || 'na';
+
+                const map: Record<string, { label: string; tone: any }> = {
+                    cleared:                { label: 'Received Successfully',               tone: 'success' },
+                    reported:               { label: 'Received Successfully',               tone: 'success' },
+                    cleared_with_warnings:  { label: 'Received Successfully With Warnings', tone: 'warning' },
+                    reported_with_warnings: { label: 'Received Successfully With Warnings', tone: 'warning' },
+                    failed_crn:             { label: 'Failed with CRN',                     tone: 'critical' },
+                    rejected:               { label: 'Failed',                              tone: 'critical' },
+                    failed:                 { label: 'Failed',                              tone: 'critical' },
+                    pending:                { label: 'NA',                                  tone: 'neutral' },
+                    na:                     { label: 'NA',                                  tone: 'neutral' },
+                };
+
+                const entry = map[status] ?? map.na;
+
+                return <StatusBadge status={status} label={entry.label} tone={entry.tone} />;
+            },
+        },
         ...(auth.user?.permissions?.some((p: string) => ['view-sales-invoices', 'edit-sales-invoices', 'delete-sales-invoices', 'post-sales-invoices', 'print-sales-invoices'].includes(p)) ? [{
             key: 'actions',
             header: t('Actions'),

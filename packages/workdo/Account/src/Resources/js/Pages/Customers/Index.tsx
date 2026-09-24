@@ -295,9 +295,6 @@ export default function Index() {
              * zatca_status column does not exist yet. Showing "Failed" for any
              * of those would be a lie about a compliance status.
              *
-             * The VAT number is kept beneath the badge — it is the thing
-             * someone checks when a submission fails — isolated LTR so the
-             * bidi algorithm does not reorder its digits on an Arabic screen.
              */
             key: 'einv_status',
             header: t('E-Inv Status'),
@@ -318,16 +315,8 @@ export default function Index() {
 
                 const entry = map[status] ?? map.na;
 
-                return (
-                    <div className="flex flex-col gap-0.5">
-                        <StatusBadge status={status} label={entry.label} tone={entry.tone} />
-                        {customer.tax_number && (
-                            <span className="ltr-text text-xs tabular-nums text-muted-foreground">
-                                {customer.tax_number}
-                            </span>
-                        )}
-                    </div>
-                );
+                // Badge only — the VAT number was noise in a status column.
+                return <StatusBadge status={status} label={entry.label} tone={entry.tone} />;
             },
         },
         {

@@ -1,4 +1,10 @@
 export interface SalesInvoice {
+    /**
+     * ZATCA e-invoicing outcome for THIS invoice. Optional because the column
+     * only exists once the VAT/ZATCA migration has run — before that the
+     * attribute is simply absent and the list shows NA.
+     */
+    zatca_status?: string | null;
     id: number;
     invoice_number: string;
     invoice_date: string;
