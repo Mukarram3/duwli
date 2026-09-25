@@ -57,23 +57,47 @@ type Props = {
     className?: string;
 };
 
+/*
+ * CARD SURFACE — white with a hairline border, on every card.
+ *
+ * The first card used to be a filled gradient "hero". It is gone: with one
+ * card filled and three plain, the strip reads as though the first figure is
+ * more important, when in fact they are four peers. The reference treats them
+ * identically and distinguishes them by ICON COLOUR instead, which carries the
+ * same signal without the visual shouting.
+ */
 const surface: Record<KpiTone, string> = {
-    gradient:
-        'border-transparent bg-gradient-to-br from-primary to-primary/80 text-primary-foreground',
-    plain: 'bg-card text-card-foreground',
-    success: 'bg-card text-card-foreground',
-    warning: 'bg-card text-card-foreground',
-    danger: 'bg-card text-card-foreground',
-    info: 'bg-card text-card-foreground',
+    gradient: 'bg-card text-card-foreground',
+    plain:    'bg-card text-card-foreground',
+    success:  'bg-card text-card-foreground',
+    warning:  'bg-card text-card-foreground',
+    danger:   'bg-card text-card-foreground',
+    info:     'bg-card text-card-foreground',
 };
 
+/**
+ * SOLID circular badge, white glyph — the reference's treatment.
+ *
+ * A tinted-background badge disappears at a glance; a solid one is the thing
+ * that lets you find "overdue" on a strip of four without reading any labels.
+ */
 const iconSurface: Record<KpiTone, string> = {
-    gradient: 'bg-white/15 text-white',
-    plain: 'bg-primary/10 text-primary',
-    success: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400',
-    warning: 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400',
-    danger: 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400',
-    info: 'bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400',
+    gradient: 'bg-violet-600 text-white',
+    plain:    'bg-violet-600 text-white',
+    success:  'bg-emerald-500 text-white',
+    warning:  'bg-amber-500 text-white',
+    danger:   'bg-red-500 text-white',
+    info:     'bg-sky-500 text-white',
+};
+
+/** The soft corner swoosh, tinted to match the badge. */
+const swoosh: Record<KpiTone, string> = {
+    gradient: 'text-violet-500/10',
+    plain:    'text-violet-500/10',
+    success:  'text-emerald-500/10',
+    warning:  'text-amber-500/10',
+    danger:   'text-red-500/10',
+    info:     'text-sky-500/10',
 };
 
 const gridCols: Record<NonNullable<Props['columns']>, string> = {
@@ -85,79 +109,90 @@ const gridCols: Record<NonNullable<Props['columns']>, string> = {
 function KpiCard({ item }: { item: Kpi }) {
     const { t } = useTranslation();
     const tone = item.tone ?? 'plain';
-    const onGradient = tone === 'gradient';
     const Icon = item.icon;
     const rising = (item.delta ?? 0) >= 0;
 
     const body = (
         <div
             className={cn(
-                'h-full rounded-lg border p-4 shadow-[0_1px_2px_0_rgb(5_19_33/0.04)]',
-                'transition-shadow',
+                'relative h-full overflow-hidden rounded-xl border p-5',
+                'shadow-[0_1px_3px_0_rgb(5_19_33/0.06)] transition-shadow',
                 item.href && 'hover:shadow-md',
                 surface[tone],
             )}
         >
-            <div className="flex items-start justify-between gap-3">
+            {/*
+              Decorative corner swoosh. aria-hidden and pointer-events-none —
+              it is texture, and a screen reader announcing it would be noise.
+              Positioned with logical inset-inline-end so it moves to the left
+              corner under RTL without a second rule.
+            */}
+            <svg
+                aria-hidden
+                viewBox="0 0 120 90"
+                className={cn(
+                    'pointer-events-none absolute bottom-0 h-[70px] w-[100px] fill-current',
+                    'end-0 rtl:scale-x-[-1]',
+                    swoosh[tone],
+                )}
+            >
+                <path d="M120 90H0C40 90 60 60 70 35 78 14 96 0 120 0z" />
+                <path d="M120 90H30C64 90 80 62 90 38 98 18 104 8 120 4z" opacity="0.6" />
+            </svg>
+
+            <div className="relative flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                    <p
-                        className={cn(
-                            'truncate text-[13px]',
-                            onGradient ? 'text-white/80' : 'text-muted-foreground',
-                        )}
-                    >
-                        {t(item.label)}
-                    </p>
-                    <p className="mt-1 truncate text-[22px] font-semibold leading-tight">
+                    <p className="truncate text-[13px] text-muted-foreground">{t(item.label)}</p>
+
+                    {/*
+                      ltr-text on the value: a currency glyph beside an Arabic
+                      interface gets reordered by the bidi algorithm and lands
+                      on the wrong side of the number — "875.00ريال". Isolating
+                      the value keeps the amount readable in both languages.
+                    */}
+                    <p className="ltr-text mt-1 truncate text-[24px] font-bold leading-tight tabular-nums">
                         {item.value}
                     </p>
-
-                    {(typeof item.delta === 'number' || item.caption) && (
-                        <div className="mt-2 flex items-center gap-1.5">
-                            {typeof item.delta === 'number' && (
-                                <span
-                                    className={cn(
-                                        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium',
-                                        onGradient
-                                            ? 'bg-white/15 text-white'
-                                            : rising
-                                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
-                                              : 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400',
-                                    )}
-                                >
-                                    {rising ? (
-                                        <ArrowUp className="h-3 w-3" />
-                                    ) : (
-                                        <ArrowDown className="h-3 w-3" />
-                                    )}
-                                    {Math.abs(item.delta)}%
-                                </span>
-                            )}
-                            {item.caption && (
-                                <span
-                                    className={cn(
-                                        'truncate text-[11px]',
-                                        onGradient ? 'text-white/70' : 'text-muted-foreground',
-                                    )}
-                                >
-                                    {t(item.caption)}
-                                </span>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 {Icon && (
                     <span
                         className={cn(
-                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+                            'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
+                            'shadow-sm',
                             iconSurface[tone],
                         )}
                     >
-                        <Icon className="h-[18px] w-[18px]" />
+                        <Icon className="h-5 w-5" />
                     </span>
                 )}
             </div>
+
+            {(typeof item.delta === 'number' || item.caption) && (
+                <>
+                    {/* Hairline above the trend line, as in the reference —
+                        it separates the figure from its commentary. */}
+                    <div className="relative mt-4 border-t pt-2.5" />
+                    <div className="relative -mt-2.5 flex items-center gap-1.5 pt-2.5 text-[12px]">
+                        {typeof item.delta === 'number' && (
+                            <span
+                                className={cn(
+                                    'inline-flex items-center gap-0.5 font-semibold',
+                                    rising
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-red-600 dark:text-red-400',
+                                )}
+                            >
+                                {rising ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                                {Math.abs(item.delta)}%
+                            </span>
+                        )}
+                        {item.caption && (
+                            <span className="truncate text-muted-foreground">{t(item.caption)}</span>
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     );
 
@@ -166,7 +201,7 @@ function KpiCard({ item }: { item: Kpi }) {
     return (
         <Link
             href={item.href}
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
             {body}
         </Link>

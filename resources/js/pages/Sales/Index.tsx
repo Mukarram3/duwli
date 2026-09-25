@@ -622,7 +622,10 @@ export default function Index() {
                             value: formatCurrency(stats.outstanding, pageProps),
                             caption: `${stats.outstandingCount} ${t('open invoices')}`,
                             icon: Wallet,
-                            tone: 'gradient',
+                            // Violet, amber, emerald, red — the reference's
+                            // sequence. Colour carries the meaning now that no
+                            // card is filled.
+                            tone: 'plain',
                         },
                         {
                             label: 'Overdue',
@@ -643,7 +646,7 @@ export default function Index() {
                             value: String(stats.drafts),
                             caption: 'Not yet posted',
                             icon: FileText,
-                            tone: stats.drafts > 0 ? 'warning' : 'plain',
+                            tone: 'warning',
                             href: route('sales-invoices.index', { status: 'draft' }),
                         },
                     ]}
