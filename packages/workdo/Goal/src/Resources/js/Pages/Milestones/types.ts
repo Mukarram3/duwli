@@ -72,3 +72,10 @@ export interface MilestoneModalState {
     mode: string;
     data: Milestone | null;
 }
+
+/*
+ * Index.tsx imports `GoalMilestone`; the interface here is called `Milestone`.
+ * Aliased rather than renamed so nothing else that already uses `Milestone`
+ * has to change.
+ */
+export type GoalMilestone = Milestone;

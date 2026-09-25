@@ -107,3 +107,28 @@ export interface AttendancesIndexProps {
 }
 
 export type AttendanceModalState = ModalState<any>;
+
+/*
+ * These three were imported by Create.tsx and Edit.tsx but never declared
+ * here. esbuild does not resolve named exports across modules, so it compiled
+ * fine; Rollup fails the production build on it.
+ *
+ * Shapes taken from the actual useForm() calls in those two files — every
+ * field is a string because they are form inputs, not the stored model.
+ */
+export interface CreateAttendanceFormData {
+    employee_id: string;
+    date: string;
+    clock_in: string;
+    clock_out: string;
+    break_hour: string;
+    notes: string;
+}
+
+/** Same fields as create — the edit form posts the identical payload. */
+export type EditAttendanceFormData = CreateAttendanceFormData;
+
+export interface EditAttendanceProps {
+    attendance: Attendance;
+    onSuccess?: () => void;
+}
