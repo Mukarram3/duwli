@@ -767,13 +767,84 @@ class SalesInvoiceController extends Controller
         }
     }
 
+    /**
+     * Build the ZATCA Phase-1 TLV QR payload.
+     *
+     * Five tags, each encoded as tag byte + length byte + UTF-8 value, then
+     * base64. The lengths are BYTE lengths, not character counts — an Arabic
+     * seller name is multi-byte and using strlen() on characters produces a
+     * payload the authority's scanner rejects.
+     */
+    private static function buildZatcaTlv(
+        string $sellerName,
+        string $vatNumber,
+        string $timestamp,
+        float $total,
+        float $tax
+    ): string {
+        $values = [
+            1 => $sellerName,
+            2 => $vatNumber,
+            3 => $timestamp,
+            4 => number_format($total, 2, '.', ''),
+            5 => number_format($tax, 2, '.', ''),
+        ];
+
+        $tlv = '';
+        foreach ($values as $tag => $value) {
+            $tlv .= chr($tag) . chr(strlen($value)) . $value;
+        }
+
+        return base64_encode($tlv);
+    }
+
     public function print(SalesInvoice $salesInvoice)
     {
         if(Auth::user()->can('print-sales-invoices')){
             $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse']);
 
+            $settings = getCompanyAllSetting();
+            $currency = $settings['defualt_currency'] ?? 'SAR';
+
+            /*
+             * ZATCA TLV QR PAYLOAD.
+             *
+             * Built here rather than in the browser because the five tags are
+             * defined by the authority and must be byte-exact: seller name,
+             * VAT number, timestamp, total WITH tax, tax amount. Each is
+             * tag + length + value, concatenated then base64'd.
+             *
+             * If the invoice already carries a signed qr_code (once the
+             * integration is live) that one wins — it is the cleared payload
+             * and must not be regenerated.
+             */
+            $qrPayload = $salesInvoice->qr_code ?? self::buildZatcaTlv(
+                $settings['company_name'] ?? config('app.name'),
+                $settings['company_vat_number'] ?? ($settings['company_tax_number'] ?? ''),
+                optional($salesInvoice->created_at)->toIso8601String() ?? now()->toIso8601String(),
+                (float) $salesInvoice->total_amount,
+                (float) $salesInvoice->tax_amount,
+            );
+
+            $words = \App\Services\AmountToWords::convert((float) $salesInvoice->total_amount, $currency);
+
             return Inertia::render('Sales/Print', [
-                'invoice' => $salesInvoice
+                'invoice'  => $salesInvoice,
+                'qrPayload' => $qrPayload,
+                'amountWords' => $words,
+                'seller' => [
+                    'name'         => $settings['company_name'] ?? config('app.name'),
+                    'vat_number'   => $settings['company_vat_number'] ?? ($settings['company_tax_number'] ?? null),
+                    'cr_number'    => $settings['company_registration_number'] ?? null,
+                    'street'       => $settings['company_address'] ?? null,
+                    'city'         => $settings['company_city'] ?? null,
+                    'district'     => $settings['company_district'] ?? null,
+                    'postal_code'  => $settings['company_zipcode'] ?? null,
+                    'building_no'  => $settings['company_building_no'] ?? null,
+                    'country'      => $settings['company_country'] ?? null,
+                    'logo'         => !empty($settings['company_logo']) ? asset('storage/' . $settings['company_logo']) : null,
+                    'iban'         => $settings['company_iban'] ?? null,
+                ],
             ]);
         }
         else{
