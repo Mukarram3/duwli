@@ -43,6 +43,8 @@ export default function Print() {
         invoice: any; qrPayload: string; amountWords: { en: string; ar: string }; seller: Seller;
     };
 
+    const items = invoice.items ?? [];
+
     const isRtl = i18n.language === 'ar' || document.documentElement.dir === 'rtl';
     const [qrImage, setQrImage] = useState<string>('');
 
@@ -55,6 +57,26 @@ export default function Print() {
             .catch(() => setQrImage(''));
     }, [qrPayload]);
 
+    /*
+     * Measure the rendered document against one A4 page and, if it is over,
+     * set a scale factor just large enough to bring it back. Runs after the QR
+     * resolves, because the QR changes the height.
+     */
+    useEffect(() => {
+        const sheet = document.querySelector('.inv-sheet') as HTMLElement | null;
+        if (!sheet) return;
+
+        // A4 height less 10mm margins top and bottom, in CSS pixels at 96dpi.
+        const PAGE_PX = ((297 - 20) / 25.4) * 96;
+        const height = sheet.scrollHeight;
+
+        // Floor at 0.72: below that the type is too small to read, and a
+        // genuinely long invoice is better served by a second page than by
+        // being shrunk into illegibility.
+        const scale = height > PAGE_PX ? Math.max(0.72, PAGE_PX / height) : 1;
+        sheet.style.setProperty('--fit-scale', String(scale));
+    }, [qrImage, items.length]);
+
     useEffect(() => {
         if (new URLSearchParams(window.location.search).get('print') === '1') {
             // Wait for the QR image; printing before it resolves produces an
@@ -64,16 +86,26 @@ export default function Print() {
         }
     }, [qrImage]);
 
-    const money = (v: any) => formatCurrency(Number(v ?? 0), pageProps);
+    const currencyCode = pageProps?.settings?.defualt_currency || 'SAR';
+
+    /*
+     * "SAR 3,350.00" — the currency CODE, not the ریال glyph.
+     *
+     * formatCurrency returns the symbol, which on a tax document does two bad
+     * things: it drags bidi reordering into a Latin number (the PDF shows
+     * "112.50ریال" with the glyph on the wrong side), and it is not what ZATCA
+     * or the reference use. The code is unambiguous in both languages.
+     */
+    const money = (v: any) =>
+        `${currencyCode} ${Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const plain = (v: any) => Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const items = invoice.items ?? [];
     const taxRate = items[0]?.tax_percentage ?? 15;
     const words = isRtl ? amountWords?.ar : amountWords?.en;
 
     /** Address rows, shown in both panels. */
     const AddressGrid = ({ p }: { p: any }) => (
-        <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-1 text-[9px]">
+        <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8.5px]">
             {[
                 [t('Street Name'), p.street],
                 [t('City'), p.city],
@@ -83,7 +115,9 @@ export default function Print() {
                 [t('Country'), p.country],
             ].map(([label, value]) => (
                 <div key={label as string} className="flex items-baseline justify-between gap-2">
-                    <span className="text-[#6b7280]">{label}</span>
+                    {/* nowrap: "Street Name" was breaking onto two lines and
+                        pushing every panel taller than the reference. */}
+                    <span className="whitespace-nowrap text-[#6b7280]">{label}</span>
                     <span className="min-w-[40px] border-b border-dotted border-[#cbd5e1] text-end font-medium">
                         {value || ''}
                     </span>
@@ -99,23 +133,46 @@ export default function Print() {
             {/* Self-contained print rules: the document must print correctly
                 even if the app stylesheet fails to load. */}
             <style>{`
-                @page { size: A4 portrait; margin: 12mm; }
+                @page { size: A4 portrait; margin: 10mm; }
                 @media print {
                     html, body { background: #fff !important; }
-                    .inv-sheet { box-shadow: none !important; margin: 0 !important; }
+                    .inv-sheet {
+                        box-shadow: none !important;
+                        margin: 0 !important;
+                        /*
+                         * ONE PAGE.
+                         *
+                         * Tightening the spacing gets a normal invoice onto a
+                         * single sheet, but it is not a GUARANTEE — a ten-line
+                         * invoice will always be taller than a one-line one.
+                         *
+                         * transform: scale() shrinks the whole document to fit
+                         * rather than letting a couple of stray rows spill a
+                         * second page carrying nothing but a footer. The
+                         * variable is set by the fit check below, and stays 1
+                         * when the content already fits, so a short invoice is
+                         * never shrunk for no reason.
+                         */
+                        transform: scale(var(--fit-scale, 1));
+                        transform-origin: top center;
+                        width: 100%;
+                    }
                     thead { display: table-header-group; }
                     tr { break-inside: avoid; }
+                    /* Nothing may break mid-block; a totals box split across
+                       pages is unreadable on a tax document. */
+                    table, .keep-together { break-inside: avoid; }
                 }
                 body { background: #f1f5f9; }
             `}</style>
 
             <div dir={isRtl ? 'rtl' : 'ltr'} className="flex min-h-screen justify-center p-6 print:p-0">
-                <div className="inv-sheet w-full max-w-[210mm] bg-white p-8 shadow-lg print:shadow-none">
+                <div className="inv-sheet w-full max-w-[210mm] bg-white p-6 shadow-lg print:shadow-none">
 
                     {/* ── title + seller ── */}
                     <div className="flex items-start justify-between gap-6">
                         <div>
-                            <h1 className="text-[22px] font-bold leading-tight text-[#0f172a]">
+                            <h1 className="text-[20px] font-bold leading-tight text-[#0f172a]">
                                 {t('Electronic Tax Invoice')}
                             </h1>
                             <p className="text-[10px] uppercase tracking-widest text-[#6b7280]">
@@ -145,15 +202,15 @@ export default function Print() {
                         </div>
                     </div>
 
-                    <div className="mt-3 h-[3px] bg-[#15604a]" />
+                    <div className="mt-2 h-[3px] bg-[#15604a]" />
 
                     {/* ── meta strip ── */}
-                    <div className="mt-4 grid grid-cols-4 rounded border border-[#e2e8f0] bg-[#f8fafc]">
+                    <div className="mt-3 grid grid-cols-4 rounded border border-[#e2e8f0] bg-[#f8fafc]">
                         {[
                             [t('Invoice Number'), invoice.invoice_number],
                             [t('Issue Date & Time'), `${formatDate(invoice.invoice_date, pageProps)}${invoice.created_at ? ' — ' + new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`],
                             [t('Purchase Order Ref.'), invoice.reference || '—'],
-                            [t('Currency'), pageProps?.settings?.defualt_currency || 'SAR'],
+                            [t('Currency'), `${currencyCode}${currencyCode === 'SAR' ? ' · ' + t('Saudi Riyal') : ''}`],
                         ].map(([label, value], i) => (
                             <div key={i} className={`px-3 py-2 ${i > 0 ? 'border-s border-[#e2e8f0]' : ''}`}>
                                 <p className="text-[9px] text-[#6b7280]">{label}</p>
@@ -163,8 +220,8 @@ export default function Print() {
                     </div>
 
                     {/* ── supplier / buyer ── */}
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                        <div className="rounded border border-[#e2e8f0] p-3">
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded border border-[#e2e8f0] p-2.5">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-[#15604a]">
                                 {t('Supplier Details')}
                             </p>
@@ -176,7 +233,7 @@ export default function Print() {
                             </div>
                         </div>
 
-                        <div className="rounded border border-[#e2e8f0] bg-[#f6faf8] p-3">
+                        <div className="rounded border border-[#e2e8f0] bg-[#f6faf8] p-2.5">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-[#15604a]">{t('Bill To')}</p>
                             <p className="mt-1 text-[13px] font-bold text-[#0f172a]">
                                 {invoice.customer?.name || invoice.customerDetails?.company_name || '—'}
@@ -199,7 +256,7 @@ export default function Print() {
                     </div>
 
                     {/* ── items ── */}
-                    <table className="mt-4 w-full border-collapse text-[10px]">
+                    <table className="mt-3 w-full border-collapse text-[9.5px]">
                         <thead>
                             <tr className="bg-[#15604a] text-white">
                                 <th className="w-8 px-2 py-2 text-start font-semibold">#</th>
@@ -232,15 +289,15 @@ export default function Print() {
 
                     <div className="mt-1 flex justify-between text-[9px] text-[#6b7280]">
                         <span>{t('Items')}: {items.length}</span>
-                        <span>{t('All amounts in')} {pageProps?.settings?.defualt_currency || 'SAR'}</span>
+                        <span>{t('All amounts in')} {currencyCode}</span>
                     </div>
 
                     {/* ── QR + totals ── */}
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                        <div className="flex items-center gap-4 rounded border border-[#e2e8f0] p-4">
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="flex items-center gap-3 rounded border border-[#e2e8f0] p-3">
                             {qrImage
-                                ? <img src={qrImage} alt="" className="h-[110px] w-[110px]" />
-                                : <div className="h-[110px] w-[110px] bg-[#f1f5f9]" />}
+                                ? <img src={qrImage} alt="" className="h-[92px] w-[92px]" />
+                                : <div className="h-[92px] w-[92px] bg-[#f1f5f9]" />}
                             <div>
                                 <p className="text-[11px] font-bold text-[#0f172a]">{t('E-Invoice QR Code')}</p>
                                 <p className="text-[9px] text-[#6b7280]">{t('Scan to verify')}</p>
@@ -276,7 +333,7 @@ export default function Print() {
                     </div>
 
                     {/* ── payment ── */}
-                    <div className="mt-4 rounded border border-[#e2e8f0]">
+                    <div className="mt-3 rounded border border-[#e2e8f0]">
                         <div className="flex justify-between border-b border-[#e2e8f0] px-3 py-2">
                             <span className="text-[10px] font-bold text-[#15604a]">{t('Payment Details')}</span>
                             <span className="text-[9px] text-[#6b7280]">{t('Update when payment is received')}</span>
@@ -302,7 +359,7 @@ export default function Print() {
                     </div>
 
                     {/* ── footer ── */}
-                    <div className="mt-6 flex items-end justify-between border-t-2 border-[#c9a227] pt-3">
+                    <div className="mt-4 flex items-end justify-between border-t-2 border-[#c9a227] pt-2">
                         <div className="text-[9px]">
                             {invoice.payment_terms && (
                                 <p><span className="font-bold">{t('Payment Terms')}</span>: {invoice.payment_terms}</p>
