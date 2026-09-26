@@ -585,9 +585,6 @@ export default function Index() {
                      * area run to the card edges rather than clipping the
                      * focus ring on the first and last buttons.
                      */
-                    className="w-full flex-nowrap overflow-x-auto -mx-1 px-1
-                               [justify-content:safe_center]
-                               [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     <TooltipProvider>
                         {pageButtons.map((button) => (

@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Dialog } from "@/components/ui/dialog";
-import { Eye, Trash2, CheckCircle, Plus, CreditCard, X, FileDown, Wallet, Printer, Ban, Filter, RotateCcw, Pencil} from "lucide-react";
+import { Eye, Trash2, CheckCircle, Plus, CreditCard, X, FileDown, Wallet, Printer, Ban, Filter, RotateCcw, Pencil, FilePlus, UserPlus, Receipt, FileMinus, FileUp} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -171,37 +171,18 @@ export default function Index() {
             // user scans for.
             key: 'customer',
             header: t('Contact'),
-            render: (value: any) => (
-                <EntityCell name={value?.name} secondary={value?.email} />
-            ),
+            // Name only — the email under it was noise on a payments list and
+            // the address is on the customer record where it belongs.
+            render: (value: any) => <EntityCell name={value?.name} />,
         },
         {
             key: 'payment_number',
             header: t('Reference'),
             sortable: true,
-            render: (value: string, payment: any) => (
-                <ReferenceCell value={value} secondary={payment.reference_number} />
-            ),
-        },
-        {
-            key: 'kind',
-            header: t('Kind'),
-            // Derived from the allocations — see the controller.
-            render: (_: any, payment: any) => (
-                <StatusBadge
-                    status={payment.kind || 'unused'}
-                    label={
-                        payment.kind === 'used' ? 'Used'
-                        : payment.kind === 'partially_used' ? 'Partially Used'
-                        : 'Unused'
-                    }
-                    tone={
-                        payment.kind === 'used' ? 'success'
-                        : payment.kind === 'partially_used' ? 'warning'
-                        : 'neutral'
-                    }
-                />
-            ),
+            // The receipt number only. The SI reference it settles is already
+            // spelled out in the Description column — showing it twice cost a
+            // line of height on every row for nothing.
+            render: (value: string) => <ReferenceCell value={value} />,
         },
         {
             key: 'bank_account',
@@ -229,23 +210,6 @@ export default function Index() {
             sortable: true,
             className: 'text-end',
             render: (value: number) => <MoneyCell value={value} bold />,
-        },
-        {
-            key: 'unallocated_amount',
-            header: t('Unallocated Amount'),
-            className: 'text-end',
-            render: (_: any, payment: any) => (
-                // Money received but not yet matched to an invoice. Coloured
-                // only when there is some — that is the actionable case.
-                <MoneyCell
-                    value={payment.unallocated_amount}
-                    className={
-                        Number(payment.unallocated_amount) > 0
-                            ? 'font-semibold text-amber-600 dark:text-amber-400'
-                            : undefined
-                    }
-                />
-            ),
         },
         {
             key: 'status',
@@ -372,45 +336,64 @@ export default function Index() {
             pageTitle={t('Manage Customer Payments')}
             pageActions={
                 <PageActionBar
+                    /*
+                     * BUTTON SET AND ORDER from the reference:
+                     * Export Invoices · New Invoice · New Customer Receipt ·
+                     * Manage Receipts · Manage Credit Notes · Import Invoices
+                     *
+                     * getRelatedActions is no longer used here. It supplied a
+                     * shorter, differently-named set (Invoices, Credit Notes),
+                     * which is why the row did not match. Spelled out so the
+                     * order and the labels are exactly the reference's.
+                     */
                     actions={[
                         {
-                            label: t('New Customer Receipt'),
-                            onClick: () => openModal('add'),
-                            icon: Plus,
-                            variant: 'primary',
-                            permission: 'create-customer-payments',
-                        },
-                        ...getRelatedActions('account.customer-payments.index', t),
-                        {
-                            /*
-                             * All Receipts — the combined customer + vendor
-                             * view. It belongs HERE rather than as a
-                             * cross-link, because it is a wider view of this
-                             * same subject, not a jump to a different one.
-                             */
-                            label: t('All Receipts'),
-                            href: actionRoute('account.vendor-payments.all-receipts'),
-                            icon: Wallet,
-                            variant: 'outline',
-                            permission: 'manage-customer-payments',
-                        },
-                        {
-                            /*
-                             * Export. The vendor side has had this since the
-                             * module was written; the customer side never did,
-                             * which is why the two screens offered different
-                             * actions. Route and controller method added.
-                             */
-                            label: t('Export'),
-                            href: actionRoute('account.customer-payments.export'),
+                            label: t('Export Invoices'),
+                            href: actionRoute('sales-invoices.export'),
                             icon: FileDown,
                             variant: 'outline',
                             external: true,
+                            permission: 'manage-sales-invoices',
+                        },
+                        {
+                            label: t('New Invoice'),
+                            href: actionRoute('sales-invoices.create'),
+                            icon: FilePlus,
+                            variant: 'outline',
+                            permission: 'create-sales-invoices',
+                        },
+                        {
+                            label: t('New Customer Receipt'),
+                            onClick: () => openModal('add'),
+                            icon: UserPlus,
+                            variant: 'outline',
+                            permission: 'create-customer-payments',
+                        },
+                        {
+                            label: t('Manage Receipts'),
+                            href: actionRoute('account.vendor-payments.all-receipts'),
+                            icon: Receipt,
+                            variant: 'outline',
                             permission: 'manage-customer-payments',
+                        },
+                        {
+                            label: t('Manage Credit Notes'),
+                            href: actionRoute('account.credit-notes.index'),
+                            icon: FileMinus,
+                            variant: 'outline',
+                            permission: 'manage-credit-notes',
+                        },
+                        {
+                            label: t('Import Invoices'),
+                            href: actionRoute('sales-invoices.index'),
+                            icon: FileUp,
+                            variant: 'outline',
+                            permission: 'create-sales-invoices',
                         },
                     ]}
                     permissions={auth.user?.permissions}
-                    maxVisible={5}
+                    /* Six buttons, no overflow menu. */
+                    maxVisible={6}
                 />
             }
         >

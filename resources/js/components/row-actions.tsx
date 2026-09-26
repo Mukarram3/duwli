@@ -80,7 +80,19 @@ export function RowActions({ actions, className }: Props) {
                                         onClick={action.onClick}
                                         aria-label={action.label}
                                         className={cn(
-                                            'h-8 w-8 p-0',
+                                            /*
+                                             * BARE COLOURED ICONS — no tinted
+                                             * container.
+                                             *
+                                             * I had given these a soft blue box to
+                                             * match the shortcut buttons. The full
+                                             * reference screen shows them plain, and
+                                             * it is right: six boxed icons per row
+                                             * across six rows is thirty-six boxes
+                                             * competing with the data. The colour
+                                             * alone carries the meaning here.
+                                             */
+                                            'h-8 w-8 p-0 hover:bg-accent',
                                             disabled
                                                 ? 'cursor-not-allowed text-muted-foreground/40'
                                                 : action.className,

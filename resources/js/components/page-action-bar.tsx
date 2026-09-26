@@ -65,10 +65,33 @@ type Props = {
  * is fixed rather than taken from the tenant's theme colour, so the accounting
  * screens stay visually consistent whatever brand colour a company sets.
  */
+/*
+ * PILL BUTTONS — white capsule, soft shadow, blue icon separated by a hairline.
+ *
+ * Every action now uses the same treatment, including what used to be the
+ * filled "primary". With one button filled navy and five white, the row read
+ * as though the first action mattered most; the reference treats them as peers
+ * and lets the ICON carry the meaning. Same reasoning as the KPI cards.
+ *
+ * `destructive` keeps a red tint, because a delete that looks identical to an
+ * export is a genuine hazard rather than an aesthetic preference.
+ */
 const variantClasses: Record<NonNullable<PageAction['variant']>, string> = {
-    primary: 'bg-[#1E3A6F] text-white hover:bg-[#183057] border border-transparent',
-    outline: 'bg-background text-foreground border border-input hover:bg-accent',
-    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-transparent',
+    /*
+     * SOFT BLUE, SEMI-TRANSPARENT — the reference treatment.
+     *
+     * The tint is an alpha on the brand colour (`primary/[0.06]`) rather than a
+     * fixed blue. That matters: change the brand token and every pill follows,
+     * where a hard-coded #EFF6FF would strand them all on the old palette.
+     *
+     * Text stays near-black. A blue label on a blue field loses contrast, and
+     * the reference keeps the wording dark for exactly that reason.
+     */
+    primary: 'bg-card text-slate-800 dark:text-slate-100',
+    outline: 'bg-card text-slate-800 dark:text-slate-100',
+    /* Destructive keeps a red tint — a delete that looks identical to an
+       export is a hazard, not an inconsistency. */
+    destructive: 'bg-card text-red-600',
 };
 
 export function PageActionBar({
@@ -109,7 +132,10 @@ export function PageActionBar({
     return (
         <div
             className={cn(
-                'flex items-center gap-1.5 flex-wrap',
+                // flex-wrap, so six wide buttons drop to a second line instead
+                // of the last one being cut off at the viewport edge — which is
+                // what was happening.
+                'flex items-center gap-2.5 flex-wrap',
                 /*
                  * Only default to right-alignment when the caller has not
                  * chosen its own. twMerge resolves `justify-center` against
@@ -132,7 +158,33 @@ export function PageActionBar({
                         disabled={action.disabled}
                         onClick={() => go(action)}
                         className={cn(
-                            'inline-flex items-center gap-1.5 h-9 px-3 rounded-md shrink-0',
+                            /*
+                             * TWO-ZONE BUTTON: a solid blue block holding the
+                             * icon, curving into a white panel holding the
+                             * label.
+                             *
+                             * No gap and no padding on the shell — each zone
+                             * supplies its own, or the blue block would float
+                             * inside a white border instead of forming the
+                             * button's leading edge.
+                             *
+                             * overflow-hidden is what clips the icon block to
+                             * the button's rounded corners.
+                             */
+                            /*
+                             * ONE cohesive button: a white panel with a blue
+                             * block flush against its leading edge.
+                             *
+                             * The previous version floated the blue square away
+                             * from the label because the icon zone carried its
+                             * own rounding and the label was pulled back over
+                             * it. Both are gone — the shell rounds and clips,
+                             * the zones just sit inside it.
+                             */
+                            'inline-flex items-stretch h-11 shrink-0 overflow-hidden rounded-xl',
+                            'border border-slate-200/80 dark:border-slate-700',
+                            'shadow-[0_2px_10px_-2px_rgb(37_99_235/0.20)] hover:shadow-[0_4px_16px_-2px_rgb(37_99_235/0.30)]',
+                            'transition-shadow',
                             'text-[13px] font-semibold leading-none whitespace-nowrap',
                             'transition-colors focus-visible:outline-none focus-visible:ring-2',
                             'focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -151,14 +203,31 @@ export function PageActionBar({
                           leaves the spacing lopsided in Arabic.
                         */}
                         {Icon && (
-                            <Icon
+                            <span
                                 className={cn(
-                                    'h-4 w-4 shrink-0',
-                                    (action.variant || 'primary') !== 'primary' && 'text-primary',
+                                    // Flush against the shell's leading edge —
+                                    // no rounding of its own, the shell clips it.
+                                    'flex w-11 shrink-0 items-center justify-center',
+                                    /*
+                                     * FIXED BLUE, not the brand token.
+                                     *
+                                     * The theme primary is near-black, so
+                                     * `bg-primary` rendered these blocks black.
+                                     * The reference is explicitly blue, so the
+                                     * blue is stated here rather than inherited
+                                     * from a token that is not blue.
+                                     */
+                                    action.variant === 'destructive'
+                                        ? 'bg-gradient-to-br from-red-500 to-red-600'
+                                        : 'bg-gradient-to-br from-[#2f7fd6] to-[#1f63b8]',
                                 )}
-                            />
+                            >
+                                <Icon className="h-[19px] w-[19px] text-white" />
+                            </span>
                         )}
-                        <span>{action.label}</span>
+                        <span className="flex items-center whitespace-nowrap px-4">
+                            {action.label}
+                        </span>
                     </button>
                 );
             })}
